@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,12 +10,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LogIn, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const verified = searchParams.get('verified') === 'true'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +30,9 @@ export default function LoginPage() {
     if (error) {
       setError(error.message === 'Invalid login credentials'
         ? 'Email o contrasena incorrectos'
-        : error.message)
+        : error.message === 'Email not confirmed'
+          ? 'Debes verificar tu email antes de iniciar sesion. Revisa tu bandeja de entrada.'
+          : error.message)
       setLoading(false)
       return
     }
@@ -45,6 +49,11 @@ export default function LoginPage() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
+          {verified && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-sm p-3 rounded-md">
+              Email verificado exitosamente. Ya puedes iniciar sesion.
+            </div>
+          )}
           {error && (
             <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
               {error}
@@ -87,5 +96,20 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Iniciar Sesion</CardTitle>
+          <CardDescription>Cargando...</CardDescription>
+        </CardHeader>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

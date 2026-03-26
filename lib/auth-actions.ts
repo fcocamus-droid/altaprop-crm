@@ -36,7 +36,7 @@ export async function signUp(formData: FormData) {
         phone,
         role: role || 'POSTULANTE',
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-crm.vercel.app'}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.loginaltaprop.cl'}/auth/callback`,
     },
   })
 
