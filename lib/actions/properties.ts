@@ -155,6 +155,68 @@ export async function updatePropertyStatus(id: string, status: string) {
   return { success: true }
 }
 
+export async function importProperty(propertyData: {
+  title: string
+  description: string
+  type: string
+  operation: string
+  price: number
+  currency: string
+  address: string
+  city: string
+  sector: string
+  bedrooms: number
+  bathrooms: number
+  sqm: number
+  images: string[]
+}) {
+  const profile = await getUserProfile()
+  if (!profile || !['SUPERADMIN', 'AGENTE', 'PROPIETARIO'].includes(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('properties')
+    .insert({
+      title: propertyData.title,
+      description: propertyData.description,
+      type: propertyData.type || 'departamento',
+      operation: propertyData.operation || 'arriendo',
+      price: propertyData.price || 0,
+      currency: propertyData.currency || 'CLP',
+      address: propertyData.address || '',
+      city: propertyData.city || '',
+      sector: propertyData.sector || '',
+      bedrooms: propertyData.bedrooms || 0,
+      bathrooms: propertyData.bathrooms || 0,
+      sqm: propertyData.sqm || 0,
+      owner_id: profile.id,
+      status: 'available',
+      featured: false,
+    })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  // Save image URLs (external URLs from Portal Inmobiliario)
+  if (propertyData.images?.length > 0) {
+    const imageRecords = propertyData.images.slice(0, 10).map((url, i) => ({
+      property_id: data.id,
+      url,
+      order: i,
+    }))
+
+    await supabase.from('property_images').insert(imageRecords)
+  }
+
+  revalidatePath('/dashboard/propiedades')
+  revalidatePath('/propiedades')
+  return { success: true, propertyId: data.id }
+}
+
 export async function deletePropertyImage(imageId: string, url: string) {
   const supabase = createClient()
 

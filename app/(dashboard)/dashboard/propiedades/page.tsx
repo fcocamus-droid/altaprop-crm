@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
 import { Plus, Pencil } from 'lucide-react'
+import { ImportProperty } from '@/components/properties/import-property'
 import { formatPrice } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -38,6 +39,8 @@ export default async function PropiedadesDashboardPage() {
           <Link href="/dashboard/propiedades/nueva"><Plus className="mr-2 h-4 w-4" />Nueva Propiedad</Link>
         </Button>
       </PageHeader>
+
+      <ImportProperty />
 
       {properties.length === 0 ? (
         <EmptyState title="No tienes propiedades" description="Publica tu primera propiedad para empezar a recibir postulaciones.">
