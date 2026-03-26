@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProperties } from '@/lib/queries/properties'
 import { PropertyCard } from '@/components/properties/property-card'
 import { PROPERTY_TYPES, OPERATION_TYPES } from '@/lib/constants'
