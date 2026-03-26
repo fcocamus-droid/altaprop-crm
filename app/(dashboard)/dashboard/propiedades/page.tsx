@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
 import { Plus, Pencil } from 'lucide-react'
 import { ImportProperty } from '@/components/properties/import-property'
+import { PropertyList } from '@/components/properties/property-list'
 import { formatPrice } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -47,36 +48,7 @@ export default async function PropiedadesDashboardPage() {
           <Button asChild><Link href="/dashboard/propiedades/nueva">Publicar Propiedad</Link></Button>
         </EmptyState>
       ) : (
-        <div className="space-y-4">
-          {properties.map((property) => (
-            <Card key={property.id}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                      {property.images?.[0]?.url ? (
-                        <img src={property.images[0].url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">N/A</div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="font-semibold truncate">{property.title}</h3>
-                      <p className="text-sm text-muted-foreground">{property.city}{property.sector ? `, ${property.sector}` : ''}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="font-semibold text-sm text-navy dark:text-gold">{formatPrice(property.price, property.currency)}</span>
-                        <StatusBadge status={property.status} type="property" />
-                      </div>
-                    </div>
-                  </div>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/dashboard/propiedades/${property.id}`}><Pencil className="mr-2 h-3 w-3" />Editar</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <PropertyList properties={properties} />
       )}
     </RoleGuard>
   )
