@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUser } from '@/hooks/use-user'
 import { updateApplicationStatus } from '@/lib/actions/applications'
+import { isAdmin } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,7 +46,7 @@ export default function PostulacionDetallePage({ params }: { params: { id: strin
   if (!application) return <div className="text-center py-12"><p>Postulacion no encontrada</p></div>
 
   const canManage = profile && (
-    profile.role === 'SUPERADMIN' ||
+    isAdmin(profile.role) ||
     profile.role === 'AGENTE' ||
     (application.property as any)?.owner_id === profile.id
   )

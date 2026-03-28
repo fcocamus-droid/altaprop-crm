@@ -1,6 +1,7 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getApplicationsByApplicant, getApplicationsByOwner, getAllApplications } from '@/lib/queries/applications'
+import { isAdmin } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -19,7 +20,7 @@ export default async function PostulacionesPage() {
 
   let applications: any[] = []
   try {
-    if (profile.role === 'SUPERADMIN' || profile.role === 'AGENTE') {
+    if (isAdmin(profile.role) || profile.role === 'AGENTE') {
       applications = await getAllApplications()
     } else if (profile.role === 'PROPIETARIO') {
       applications = await getApplicationsByOwner(profile.id)

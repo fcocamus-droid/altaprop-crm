@@ -1,24 +1,15 @@
 'use client'
 
-import { Menu } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from './logo'
-import { Home, Building2, FileText, Users, Settings, Plus, LogOut } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { signOut } from '@/lib/auth-actions'
 import { Button } from '@/components/ui/button'
 import type { UserRole } from '@/lib/constants'
-
-const menuItems = [
-  { href: '/dashboard', label: 'Panel Principal', icon: Home, roles: ['SUPERADMIN', 'AGENTE', 'PROPIETARIO', 'POSTULANTE'] },
-  { href: '/dashboard/propiedades', label: 'Propiedades', icon: Building2, roles: ['SUPERADMIN', 'AGENTE', 'PROPIETARIO'] },
-  { href: '/dashboard/propiedades/nueva', label: 'Nueva Propiedad', icon: Plus, roles: ['SUPERADMIN', 'AGENTE', 'PROPIETARIO'] },
-  { href: '/dashboard/postulaciones', label: 'Postulaciones', icon: FileText, roles: ['SUPERADMIN', 'AGENTE', 'PROPIETARIO', 'POSTULANTE'] },
-  { href: '/dashboard/usuarios', label: 'Usuarios', icon: Users, roles: ['SUPERADMIN'] },
-  { href: '/dashboard/configuracion', label: 'Configuracion', icon: Settings, roles: ['SUPERADMIN', 'AGENTE', 'PROPIETARIO', 'POSTULANTE'] },
-]
+import { menuItems } from '@/lib/navigation'
 
 export function DashboardHeader({ role }: { role: UserRole }) {
   const [open, setOpen] = useState(false)

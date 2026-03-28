@@ -2,6 +2,7 @@ import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getPropertyStats } from '@/lib/queries/properties'
 import { getApplicationStats } from '@/lib/queries/applications'
+import { isPropertyManager, ROLE_LABELS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
 
-  const isOwnerOrAgent = ['SUPERADMIN', 'AGENTE', 'PROPIETARIO'].includes(profile.role)
+  const isOwnerOrAgent = isPropertyManager(profile.role)
   const ownerId = profile.role === 'PROPIETARIO' ? profile.id : undefined
 
   let propertyStats = { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }
@@ -30,12 +31,7 @@ export default async function DashboardPage() {
     // Supabase may not be configured yet
   }
 
-  const roleLabels: Record<string, string> = {
-    SUPERADMIN: 'Superadministrador',
-    AGENTE: 'Agente Inmobiliario',
-    PROPIETARIO: 'Propietario',
-    POSTULANTE: 'Postulante',
-  }
+  const roleLabels = ROLE_LABELS
 
   return (
     <div>

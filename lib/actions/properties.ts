@@ -5,10 +5,11 @@ import { getUserProfile } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { propertySchema } from '@/lib/validations/property'
+import { isPropertyManager } from '@/lib/constants'
 
 export async function createProperty(formData: FormData) {
   const profile = await getUserProfile()
-  if (!profile || !['SUPERADMIN', 'AGENTE', 'PROPIETARIO'].includes(profile.role)) {
+  if (!profile || !isPropertyManager(profile.role)) {
     return { error: 'No autorizado' }
   }
 
@@ -171,7 +172,7 @@ export async function importProperty(propertyData: {
   images: string[]
 }) {
   const profile = await getUserProfile()
-  if (!profile || !['SUPERADMIN', 'AGENTE', 'PROPIETARIO'].includes(profile.role)) {
+  if (!profile || !isPropertyManager(profile.role)) {
     return { error: 'No autorizado' }
   }
 

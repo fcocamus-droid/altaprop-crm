@@ -1,4 +1,5 @@
 export const ROLES = {
+  SUPERADMINBOSS: 'SUPERADMINBOSS',
   SUPERADMIN: 'SUPERADMIN',
   AGENTE: 'AGENTE',
   PROPIETARIO: 'PROPIETARIO',
@@ -6,6 +7,42 @@ export const ROLES = {
 } as const
 
 export type UserRole = (typeof ROLES)[keyof typeof ROLES]
+
+export const ADMIN_ROLES: UserRole[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN]
+export const PROPERTY_MANAGER_ROLES: UserRole[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN, ROLES.AGENTE, ROLES.PROPIETARIO]
+export const ALL_ROLE_VALUES: UserRole[] = Object.values(ROLES)
+
+export function isAdmin(role: string): boolean {
+  return ADMIN_ROLES.includes(role as UserRole)
+}
+
+export function isPropertyManager(role: string): boolean {
+  return PROPERTY_MANAGER_ROLES.includes(role as UserRole)
+}
+
+export const ROLE_CONFIG = [
+  { value: ROLES.SUPERADMINBOSS, label: 'Super Admin Boss', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+  { value: ROLES.SUPERADMIN, label: 'Super Admin', color: 'bg-red-100 text-red-800 border-red-200' },
+  { value: ROLES.AGENTE, label: 'Agente', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+  { value: ROLES.PROPIETARIO, label: 'Propietario', color: 'bg-green-100 text-green-800 border-green-200' },
+  { value: ROLES.POSTULANTE, label: 'Postulante', color: 'bg-gray-100 text-gray-800 border-gray-200' },
+] as const
+
+export const ROLE_LABELS: Record<string, string> = Object.fromEntries(
+  ROLE_CONFIG.map(r => [r.value, r.label])
+)
+
+export function getAllowedRolesForAdmin(adminRole: string) {
+  if (adminRole === ROLES.SUPERADMINBOSS) return ROLE_CONFIG
+  if (adminRole === ROLES.SUPERADMIN) return ROLE_CONFIG.filter(r => !ADMIN_ROLES.includes(r.value as UserRole))
+  return []
+}
+
+export function canModifyUser(actorRole: string, targetRole: string): boolean {
+  if (actorRole === ROLES.SUPERADMINBOSS) return true
+  if (actorRole === ROLES.SUPERADMIN) return !ADMIN_ROLES.includes(targetRole as UserRole)
+  return false
+}
 
 export const PROPERTY_TYPES = [
   { value: 'departamento', label: 'Departamento' },
@@ -40,6 +77,17 @@ export const APPLICATION_STATUSES = [
   { value: 'approved', label: 'Aprobada', color: 'bg-green-100 text-green-800' },
   { value: 'rejected', label: 'Rechazada', color: 'bg-red-100 text-red-800' },
 ] as const
+
+export const PLANS = [
+  { id: 'started', name: 'Started', price: 19, agents: 1, trial: false, features: ['1 agente incluido', 'Gestión de propiedades', 'Postulaciones básicas', 'Soporte por email'] },
+  { id: 'basico', name: 'Básico', price: 29, agents: 3, trial: true, trialDays: 7, features: ['3 agentes incluidos', 'Gestión de propiedades', 'Postulaciones ilimitadas', 'Importación automática', 'Soporte prioritario'] },
+  { id: 'pro', name: 'Pro', price: 49, agents: 5, trial: true, trialDays: 7, recommended: true, features: ['5 agentes incluidos', 'Todo lo del Básico', 'Reportes avanzados', 'Personalización de marca', 'Soporte 24/7'] },
+  { id: 'enterprise', name: 'Enterprise', price: 99, agents: 10, trial: true, trialDays: 7, features: ['10 agentes incluidos', 'Todo lo del Pro', 'API dedicada', 'Onboarding personalizado', 'Gerente de cuenta'] },
+] as const
+
+export type PlanId = (typeof PLANS)[number]['id']
+
+export const SUBSCRIPTION_STATUSES = ['none', 'trialing', 'active', 'past_due', 'canceled'] as const
 
 export const DOCUMENT_TYPES = [
   { value: 'cedula', label: 'Cedula de Identidad' },

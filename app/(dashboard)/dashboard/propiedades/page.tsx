@@ -2,6 +2,7 @@ import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getPropertiesByOwner, getPropertiesByAgent, getAllProperties } from '@/lib/queries/properties'
 import { RoleGuard } from '@/components/auth/role-guard'
+import { isAdmin, PROPERTY_MANAGER_ROLES } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -22,7 +23,7 @@ export default async function PropiedadesDashboardPage() {
 
   let properties: any[] = []
   try {
-    if (profile.role === 'SUPERADMIN') {
+    if (isAdmin(profile.role)) {
       properties = await getAllProperties()
     } else if (profile.role === 'AGENTE') {
       properties = await getPropertiesByAgent(profile.id)
@@ -34,7 +35,7 @@ export default async function PropiedadesDashboardPage() {
   }
 
   return (
-    <RoleGuard allowedRoles={['SUPERADMIN', 'AGENTE', 'PROPIETARIO']}>
+    <RoleGuard allowedRoles={PROPERTY_MANAGER_ROLES}>
       <PageHeader title="Propiedades" description="Gestiona tus propiedades publicadas">
         <Button asChild>
           <Link href="/dashboard/propiedades/nueva"><Plus className="mr-2 h-4 w-4" />Nueva Propiedad</Link>

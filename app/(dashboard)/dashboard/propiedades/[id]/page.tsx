@@ -1,5 +1,6 @@
 import { getPropertyById } from '@/lib/queries/properties'
 import { getUserProfile } from '@/lib/auth'
+import { isAdmin } from '@/lib/constants'
 import { notFound, redirect } from 'next/navigation'
 import { PageHeader } from '@/components/shared/page-header'
 import { PropertyForm } from '@/components/properties/property-form'
@@ -15,7 +16,7 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
   if (!property) notFound()
 
   // Only owner, assigned agent, or admin can edit
-  if (profile.role !== 'SUPERADMIN' && property.owner_id !== profile.id && property.agent_id !== profile.id) {
+  if (!isAdmin(profile.role) && property.owner_id !== profile.id && property.agent_id !== profile.id) {
     redirect('/dashboard/propiedades')
   }
 

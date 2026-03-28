@@ -7,16 +7,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createUser, updateUserRole, deleteUser } from '@/lib/actions/users'
-
-const ROLES = [
-  { value: 'SUPERADMIN', label: 'Super Admin', color: 'bg-red-100 text-red-800 border-red-200' },
-  { value: 'AGENTE', label: 'Agente', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  { value: 'PROPIETARIO', label: 'Propietario', color: 'bg-green-100 text-green-800 border-green-200' },
-  { value: 'POSTULANTE', label: 'Postulante', color: 'bg-gray-100 text-gray-800 border-gray-200' },
-]
+import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
 
 function getRoleColor(role: string) {
-  return ROLES.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800'
+  return ROLE_CONFIG.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800'
 }
 
 function formatDate(date: string) {
@@ -31,18 +25,20 @@ interface User {
   id: string
   full_name: string | null
   phone: string | null
+  email: string
   role: string
   created_at: string
 }
 
-export function UserManagement({ users: initialUsers, currentUserId }: { users: User[]; currentUserId: string }) {
+export function UserManagement({ users: initialUsers, currentUserId, currentUserRole }: { users: User[]; currentUserId: string; currentUserRole: string }) {
   const [users, setUsers] = useState(initialUsers)
   const [showAddForm, setShowAddForm] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Add user form state
+  const assignableRoles = getAllowedRolesForAdmin(currentUserRole)
+
   const [newUser, setNewUser] = useState({
     email: '',
     password: '',
@@ -65,7 +61,6 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
       setSuccess('Usuario creado exitosamente')
       setShowAddForm(false)
       setNewUser({ email: '', password: '', full_name: '', phone: '', role: 'POSTULANTE' })
-      // Reload page to get updated list
       window.location.reload()
     }
     setLoading(null)
@@ -107,7 +102,6 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
 
   return (
     <div className="space-y-4">
-      {/* Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
@@ -119,7 +113,6 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
         </div>
       )}
 
-      {/* Add User Button */}
       <div className="flex justify-end">
         <Button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -129,7 +122,6 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
         </Button>
       </div>
 
-      {/* Add User Form */}
       {showAddForm && (
         <Card className="border-2 border-gold/30">
           <CardContent className="p-6">
@@ -183,7 +175,7 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
               <div className="space-y-2">
                 <Label>Rol del Usuario</Label>
                 <div className="flex flex-wrap gap-2">
-                  {ROLES.map((role) => (
+                  {assignableRoles.map((role) => (
                     <button
                       key={role.value}
                       type="button"
@@ -213,17 +205,16 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
         </Card>
       )}
 
-      {/* Users List */}
       <div className="space-y-3">
         {users.map((user) => {
           const isCurrentUser = user.id === currentUserId
           const isLoading = loading === user.id
+          const isProtected = !canModifyUser(currentUserRole, user.role)
 
           return (
             <Card key={user.id} className={`transition-all ${isLoading ? 'opacity-60' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  {/* User Info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center flex-shrink-0">
                       <span className="font-semibold text-navy text-sm">
@@ -235,33 +226,30 @@ export function UserManagement({ users: initialUsers, currentUserId }: { users: 
                         {user.full_name || 'Sin nombre'}
                         {isCurrentUser && <span className="text-xs text-gold ml-2">(Tú)</span>}
                       </p>
-                      <p className="text-sm text-muted-foreground">{user.phone || 'Sin teléfono'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                      <p className="text-xs text-muted-foreground">{user.phone || 'Sin teléfono'}</p>
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {/* Role Selector */}
                     <select
                       value={user.role}
                       onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                      disabled={isCurrentUser || isLoading}
+                      disabled={isCurrentUser || isLoading || isProtected}
                       className={`text-xs font-medium px-3 py-1.5 rounded-full border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${getRoleColor(user.role)}`}
                     >
-                      {ROLES.map((role) => (
+                      {assignableRoles.map((role) => (
                         <option key={role.value} value={role.value}>
                           {role.label}
                         </option>
                       ))}
                     </select>
 
-                    {/* Date */}
                     <span className="text-xs text-muted-foreground hidden sm:inline whitespace-nowrap">
                       {formatDate(user.created_at)}
                     </span>
 
-                    {/* Delete Button */}
-                    {!isCurrentUser && (
+                    {!isCurrentUser && !isProtected && (
                       <Button
                         variant="outline"
                         size="sm"

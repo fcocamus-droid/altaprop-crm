@@ -6,7 +6,7 @@ create extension if not exists "uuid-ossp";
 -- Profiles table (extends auth.users)
 create table public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
-  role text not null default 'POSTULANTE' check (role in ('SUPERADMIN', 'AGENTE', 'PROPIETARIO', 'POSTULANTE')),
+  role text not null default 'POSTULANTE' check (role in ('SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE', 'PROPIETARIO', 'POSTULANTE')),
   full_name text,
   phone text,
   avatar_url text,

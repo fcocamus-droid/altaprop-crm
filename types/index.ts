@@ -7,6 +7,12 @@ export interface Profile {
   phone: string | null
   avatar_url: string | null
   email?: string
+  plan: string | null
+  subscription_status: string
+  trial_ends_at: string | null
+  subscription_ends_at: string | null
+  mp_subscription_id: string | null
+  max_agents: number
   created_at: string
   updated_at: string
 }
