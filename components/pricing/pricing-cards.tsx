@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { PLANS } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,6 +63,19 @@ export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading 
                 <Button disabled className="w-full bg-navy/20 text-navy">
                   Plan Actual
                 </Button>
+              ) : mode === 'landing' ? (
+                <Button
+                  asChild
+                  className={`w-full ${
+                    isRecommended
+                      ? 'bg-gold text-navy hover:bg-gold/90'
+                      : 'bg-navy hover:bg-navy/90'
+                  }`}
+                >
+                  <Link href={`/register?plan=${plan.id}`}>
+                    {plan.trial ? 'Prueba Gratis' : 'Comenzar'}
+                  </Link>
+                </Button>
               ) : (
                 <Button
                   onClick={() => onSelect?.(plan.id)}
@@ -72,13 +86,7 @@ export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading 
                       : 'bg-navy hover:bg-navy/90'
                   }`}
                 >
-                  {loading === plan.id
-                    ? 'Procesando...'
-                    : mode === 'dashboard'
-                    ? 'Cambiar Plan'
-                    : plan.trial
-                    ? 'Prueba Gratis'
-                    : 'Comenzar'}
+                  {loading === plan.id ? 'Procesando...' : 'Cambiar Plan'}
                 </Button>
               )}
             </CardContent>

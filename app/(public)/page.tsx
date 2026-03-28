@@ -69,7 +69,7 @@ export default async function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Planes para cada etapa de tu negocio</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">Elige el plan que mejor se adapte a tu inmobiliaria. Cambia de plan cuando quieras.</p>
           </div>
-          <PricingCards onSelect={(planId) => {}} mode="landing" />
+          <PricingCards mode="landing" />
         </div>
       </section>
 
