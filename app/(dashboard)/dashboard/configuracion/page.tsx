@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Lock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function ConfiguracionPage() {
@@ -16,6 +16,9 @@ export default function ConfiguracionPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwSuccess, setPwSuccess] = useState(false)
+  const [pwError, setPwError] = useState('')
   const router = useRouter()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -77,6 +80,41 @@ export default function ConfiguracionPage() {
               <Button type="submit" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Guardar Cambios
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card className="mt-6">
+          <CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />Cambiar Contrasena</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              setPwLoading(true)
+              setPwError('')
+              setPwSuccess(false)
+              const formData = new FormData(e.currentTarget)
+              const newPw = formData.get('new_password') as string
+              const confirmPw = formData.get('confirm_password') as string
+              if (newPw !== confirmPw) { setPwError('Las contrasenas no coinciden'); setPwLoading(false); return }
+              if (newPw.length < 6) { setPwError('Minimo 6 caracteres'); setPwLoading(false); return }
+              const supabase = createClient()
+              const { error } = await supabase.auth.updateUser({ password: newPw })
+              if (error) { setPwError(error.message) } else { setPwSuccess(true); (e.target as HTMLFormElement).reset() }
+              setPwLoading(false)
+            }} className="space-y-4">
+              {pwError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{pwError}</div>}
+              {pwSuccess && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-md flex items-center gap-2"><CheckCircle className="h-4 w-4" />Contrasena actualizada correctamente</div>}
+              <div className="space-y-2">
+                <Label htmlFor="new_password">Nueva Contrasena</Label>
+                <Input id="new_password" name="new_password" type="password" placeholder="Minimo 6 caracteres" minLength={6} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password">Confirmar Contrasena</Label>
+                <Input id="confirm_password" name="confirm_password" type="password" placeholder="Repite tu contrasena" minLength={6} required />
+              </div>
+              <Button type="submit" disabled={pwLoading}>
+                {pwLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+                Cambiar Contrasena
               </Button>
             </form>
           </CardContent>

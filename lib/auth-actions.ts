@@ -52,3 +52,19 @@ export async function signOut() {
   await supabase.auth.signOut()
   redirect('/login')
 }
+
+export async function resetPassword(email: string) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.altaprop-app.cl'}/auth/callback?next=/reset-password`,
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function updatePassword(newPassword: string) {
+  const supabase = createClient()
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  if (error) return { error: error.message }
+  return { success: true }
+}
