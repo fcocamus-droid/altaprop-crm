@@ -25,6 +25,7 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
+    company_name: '',
     email: '',
     password: '',
     full_name: '',
@@ -61,6 +62,7 @@ function RegisterForm() {
       password: formData.password,
       options: {
         data: {
+          company_name: formData.company_name,
           full_name: formData.full_name,
           phone: formData.phone,
           role: formData.role,
@@ -152,6 +154,10 @@ function RegisterForm() {
 
           {step === 2 && (
             <>
+              <div className="space-y-2">
+                <Label htmlFor="company_name">Nombre de tu Empresa</Label>
+                <Input id="company_name" name="company_name" placeholder="Mi Inmobiliaria SpA" value={formData.company_name} onChange={handleChange} required />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="full_name">Nombre Completo</Label>
                 <Input id="full_name" name="full_name" placeholder="Juan Perez" value={formData.full_name} onChange={handleChange} required />
