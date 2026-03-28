@@ -42,8 +42,8 @@ export function Header() {
         <div className="hidden md:flex items-center gap-3">
           {!loading && (
             user ? (
-              <Button asChild variant="default">
-                <Link href="/dashboard">Mi Panel</Link>
+              <Button asChild className="bg-navy hover:bg-navy/90">
+                <Link href="/dashboard"><LogIn className="mr-2 h-4 w-4" />Mi Panel</Link>
               </Button>
             ) : (
               <>
