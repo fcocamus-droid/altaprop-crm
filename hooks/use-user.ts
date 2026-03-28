@@ -12,22 +12,25 @@ export function useUser() {
   const supabase = createClient()
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
+    const init = async () => {
+      // Fast: check session from cookie (instant, no network call)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        setUser(session.user)
+        setLoading(false)
+        // Load profile in background
         const { data } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', session.user.id)
           .single()
-        setProfile(data ? { ...data, email: user.email } : null)
+        setProfile(data ? { ...data, email: session.user.email } : null)
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
-    getUser()
+    init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
@@ -42,6 +45,7 @@ export function useUser() {
         } else {
           setProfile(null)
         }
+        setLoading(false)
       }
     )
 
