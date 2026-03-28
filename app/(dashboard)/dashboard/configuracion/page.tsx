@@ -89,17 +89,26 @@ export default function ConfiguracionPage() {
           <CardContent>
             <form onSubmit={async (e) => {
               e.preventDefault()
+              const form = e.currentTarget
               setPwLoading(true)
               setPwError('')
               setPwSuccess(false)
-              const formData = new FormData(e.currentTarget)
+              const formData = new FormData(form)
               const newPw = formData.get('new_password') as string
               const confirmPw = formData.get('confirm_password') as string
               if (newPw !== confirmPw) { setPwError('Las contrasenas no coinciden'); setPwLoading(false); return }
               if (newPw.length < 6) { setPwError('Minimo 6 caracteres'); setPwLoading(false); return }
-              const supabase = createClient()
-              const { error } = await supabase.auth.updateUser({ password: newPw })
-              if (error) { setPwError(error.message) } else { setPwSuccess(true); (e.target as HTMLFormElement).reset() }
+              try {
+                const res = await fetch('/api/change-password', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ password: newPw }),
+                })
+                const data = await res.json()
+                if (data.error) { setPwError(data.error) } else { setPwSuccess(true); form.reset() }
+              } catch {
+                setPwError('Error de conexion. Intenta de nuevo.')
+              }
               setPwLoading(false)
             }} className="space-y-4">
               {pwError && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{pwError}</div>}
