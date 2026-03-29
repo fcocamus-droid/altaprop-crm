@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { deleteProperty } from '@/lib/actions/properties'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2 } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -29,7 +29,65 @@ interface Property {
 export function PropertyList({ properties: initialProperties }: { properties: Property[] }) {
   const [properties, setProperties] = useState(initialProperties)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [calOpen, setCalOpen] = useState<string | null>(null)
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
+  const [calDate, setCalDate] = useState<string | null>(null)
+  const [blocked, setBlocked] = useState<any[]>([])
+  const [loadingSlot, setLoadingSlot] = useState<string | null>(null)
   const router = useRouter()
+
+  async function openCalendar(propertyId: string) {
+    if (calOpen === propertyId) { setCalOpen(null); return }
+    setCalOpen(propertyId)
+    setCalDate(null)
+    setBlocked([])
+    setCalMonth(new Date().getMonth())
+    setCalYear(new Date().getFullYear())
+  }
+
+  async function selectDay(date: string) {
+    setCalDate(date)
+    const res = await fetch(`/api/visits/slots?propertyId=${calOpen}&date=${date}`)
+    const data = await res.json()
+    setBlocked(data.slots?.filter((s: any) => !s.available).map((s: any) => s.time) || [])
+  }
+
+  async function toggleSlot(date: string, time: string) {
+    setLoadingSlot(time)
+    const isBlocked = blocked.includes(time)
+    if (isBlocked) {
+      await fetch(`/api/visits/blocked?date=${date}&time=${time}`, { method: 'DELETE' })
+      setBlocked(prev => prev.filter(t => t !== time))
+    } else {
+      await fetch('/api/visits/blocked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, time }),
+      })
+      setBlocked(prev => [...prev, time])
+    }
+    setLoadingSlot(null)
+  }
+
+  async function toggleFullDay(date: string) {
+    setLoadingSlot('fullday')
+    const isFullBlocked = blocked.length >= 26
+    if (isFullBlocked) {
+      await fetch(`/api/visits/blocked?date=${date}`, { method: 'DELETE' })
+      setBlocked([])
+    } else {
+      await fetch('/api/visits/blocked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, fullDay: true }),
+      })
+      const allTimes: string[] = []
+      for (let h = 0; h < 24; h++) { allTimes.push(`${String(h).padStart(2,'0')}:00`); allTimes.push(`${String(h).padStart(2,'0')}:30`) }
+      setBlocked(allTimes)
+    }
+    setLoadingSlot(null)
+  }
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`¿Eliminar "${title}"? Esta acción no se puede deshacer.`)) return
@@ -80,6 +138,15 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => openCalendar(property.id)}
+                  className={`${calOpen === property.id ? 'bg-gold/10 border-gold text-gold' : 'border-gold/50 text-gold hover:bg-gold/10'}`}
+                  title="Gestionar horarios de visita"
+                >
+                  <CalendarDays className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleDelete(property.id, property.title)}
                   disabled={deleting === property.id}
                   className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-700"
@@ -88,6 +155,76 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
                 </Button>
               </div>
             </div>
+
+            {/* Inline calendar for blocking/unblocking visit hours */}
+            {calOpen === property.id && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-sm font-medium mb-2 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-gold" /> Gestionar horarios de visita
+                </p>
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="md:w-[220px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <button type="button" onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1) } else setCalMonth(calMonth - 1) }} className="p-1 hover:bg-muted rounded"><ChevronLeft className="h-4 w-4" /></button>
+                      <span className="text-xs font-medium">{['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][calMonth]} {calYear}</span>
+                      <button type="button" onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1) } else setCalMonth(calMonth + 1) }} className="p-1 hover:bg-muted rounded"><ChevronRight className="h-4 w-4" /></button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-0.5 text-center">
+                      {['D','L','M','M','J','V','S'].map((d,i) => <div key={i} className="text-[10px] text-muted-foreground py-0.5">{d}</div>)}
+                      {(() => {
+                        const first = new Date(calYear, calMonth, 1).getDay()
+                        const days = new Date(calYear, calMonth + 1, 0).getDate()
+                        const cells: React.ReactNode[] = []
+                        for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />)
+                        for (let d = 1; d <= days; d++) {
+                          const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                          cells.push(
+                            <button key={d} type="button" onClick={() => selectDay(ds)}
+                              className={`text-xs py-1 rounded hover:bg-gold/20 ${calDate === ds ? 'bg-navy text-white font-bold' : ''}`}
+                            >{d}</button>
+                          )
+                        }
+                        return cells
+                      })()}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    {calDate ? (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium">{calDate}</p>
+                          <Button size="sm" variant="outline" onClick={() => toggleFullDay(calDate)}
+                            disabled={loadingSlot === 'fullday'}
+                            className={`text-xs h-7 ${blocked.length >= 26 ? 'text-green-600' : 'text-red-600'}`}>
+                            {loadingSlot === 'fullday' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : blocked.length >= 26 ? <Unlock className="h-3 w-3 mr-1" /> : <Lock className="h-3 w-3 mr-1" />}
+                            {blocked.length >= 26 ? 'Desbloquear dia' : 'Bloquear dia'}
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 max-h-[180px] overflow-y-auto">
+                          {Array.from({ length: 26 }, (_, i) => {
+                            const h = Math.floor(i / 2) + 8
+                            const m = i % 2 === 0 ? '00' : '30'
+                            const t = `${String(h).padStart(2, '0')}:${m}`
+                            if (h >= 21) return null
+                            const isBlocked = blocked.includes(t)
+                            const isLoading = loadingSlot === t
+                            return (
+                              <button key={t} type="button" onClick={() => toggleSlot(calDate, t)} disabled={isLoading}
+                                className={`py-1 text-[11px] rounded border transition-all ${isBlocked ? 'bg-red-100 text-red-700 border-red-200 line-through' : 'hover:bg-green-50 border-green-200 text-green-700'}`}>
+                                {isLoading ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : t}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2">Rojo = bloqueado. Verde = disponible. Clic para cambiar.</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-6 text-center">Selecciona un dia para gestionar horarios</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
