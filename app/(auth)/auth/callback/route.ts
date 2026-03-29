@@ -4,18 +4,30 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const tokenHash = searchParams.get('token_hash')
+  const type = searchParams.get('type')
   const next = searchParams.get('next')
 
+  const supabase = createClient()
+
+  // Handle token_hash (from admin generateLink - password recovery)
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: type as any,
+    })
+    if (!error) {
+      if (next) return NextResponse.redirect(`${origin}${next}`)
+      return NextResponse.redirect(`${origin}/dashboard`)
+    }
+    return NextResponse.redirect(`${origin}/login?error=link_expired`)
+  }
+
+  // Handle code (from email verification / standard auth)
   if (code) {
-    const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      // If user came from email verification (no explicit next), redirect to login
-      // If user has a specific next destination, go there
-      if (next) {
-        return NextResponse.redirect(`${origin}${next}`)
-      }
-      // Email verified → redirect to login with success message
+      if (next) return NextResponse.redirect(`${origin}${next}`)
       return NextResponse.redirect(`${origin}/login?verified=true`)
     }
   }

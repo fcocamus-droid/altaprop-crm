@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No existe una cuenta con este email' })
   }
 
-  // Generate recovery link via admin API (no rate limit)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.altaprop-app.cl'
+
+  // Generate recovery link via admin API
   const { data, error } = await admin.auth.admin.generateLink({
     type: 'recovery',
     email,
@@ -31,11 +32,14 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  if (error || !data?.properties?.action_link) {
+  if (error || !data?.properties?.hashed_token) {
     return NextResponse.json({ error: error?.message || 'Error generando enlace' })
   }
 
-  const recoveryLink = data.properties.action_link
+  // Build the recovery link pointing to OUR domain, not Supabase's
+  // The token_hash and type are what Supabase needs to verify the link
+  const tokenHash = data.properties.hashed_token
+  const recoveryLink = `${siteUrl}/auth/callback?token_hash=${tokenHash}&type=recovery&next=/reset-password`
 
   // Send email via Resend
   const { error: emailError } = await resend.emails.send({
@@ -66,7 +70,6 @@ export async function POST(request: NextRequest) {
   })
 
   if (emailError) {
-    // Fallback: return direct link if email fails
     return NextResponse.json({
       success: true,
       directLink: recoveryLink,
