@@ -5,7 +5,7 @@ import { getUserProfile } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { propertySchema } from '@/lib/validations/property'
-import { isPropertyManager } from '@/lib/constants'
+import { isPropertyManager, ROLES } from '@/lib/constants'
 
 export async function createProperty(formData: FormData) {
   const profile = await getUserProfile()
@@ -21,6 +21,19 @@ export async function createProperty(formData: FormData) {
   }
 
   const supabase = createClient()
+
+  // Enforce property limit for Started plan (5 properties max)
+  if (profile.role !== ROLES.SUPERADMINBOSS && profile.plan === 'started') {
+    const subscriberId = profile.subscriber_id || profile.id
+    const { count } = await supabase
+      .from('properties')
+      .select('id', { count: 'exact', head: true })
+      .eq('subscriber_id', subscriberId)
+    if ((count || 0) >= 5) {
+      return { error: 'Limite de propiedades alcanzado (5). Mejora tu plan para agregar mas.' }
+    }
+  }
+
   const { data, error } = await supabase
     .from('properties')
     .insert({

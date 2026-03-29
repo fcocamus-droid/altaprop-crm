@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserProfile } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { isAdmin, canModifyUser, getAllowedRolesForAdmin } from '@/lib/constants'
+import { isAdmin, canModifyUser, getAllowedRolesForAdmin, ROLES } from '@/lib/constants'
+import { getMaxAgents } from '@/lib/plan-features'
 
 export async function getUsers() {
   const profile = await getUserProfile()
@@ -58,6 +59,21 @@ export async function createUser(data: {
   const allowed = getAllowedRolesForAdmin(profile.role)
   if (!allowed.some(r => r.value === data.role)) {
     return { error: 'No tienes permiso para asignar este rol' }
+  }
+
+  // Enforce max_agents limit for SUPERADMIN subscribers
+  if (profile.role === ROLES.SUPERADMIN && data.role === 'AGENTE') {
+    const maxAgents = getMaxAgents(profile.plan)
+    const subscriberId = profile.subscriber_id || profile.id
+    const admin = createAdminClient()
+    const { count } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('subscriber_id', subscriberId)
+      .eq('role', 'AGENTE')
+    if ((count || 0) >= maxAgents) {
+      return { error: `Limite de agentes alcanzado (${maxAgents}). Mejora tu plan para agregar mas.` }
+    }
   }
 
   const admin = createAdminClient()

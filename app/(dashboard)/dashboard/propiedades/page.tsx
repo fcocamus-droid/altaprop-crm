@@ -12,6 +12,8 @@ import Link from 'next/link'
 import { Plus, Pencil } from 'lucide-react'
 import { ImportProperty } from '@/components/properties/import-property'
 import { PropertyList } from '@/components/properties/property-list'
+import { UpgradeBanner } from '@/components/shared/upgrade-banner'
+import { canImportProperties } from '@/lib/plan-features'
 import { formatPrice } from '@/lib/utils'
 import type { Metadata } from 'next'
 
@@ -44,7 +46,11 @@ export default async function PropiedadesDashboardPage() {
         </Button>
       </PageHeader>
 
-      <ImportProperty />
+      {(profile.role === ROLES.SUPERADMINBOSS || canImportProperties(profile.plan)) ? (
+        <ImportProperty />
+      ) : (
+        <UpgradeBanner feature="Importar desde Portal Inmobiliario" requiredPlan="Básico" />
+      )}
 
       {properties.length === 0 ? (
         <EmptyState title="No tienes propiedades" description="Publica tu primera propiedad para empezar a recibir postulaciones.">
