@@ -40,6 +40,7 @@ async function scrapeGenericSite(url: string) {
     const title = extractMeta(html, 'og:title') || extractTag(html, 'title') || ''
     const description = extractMeta(html, 'og:description') || extractMeta(html, 'description') || ''
     const price = extractPrice(html)
+    const propertyImages = extractPropertyImages(html, url)
 
     // Try to detect operation and type from text
     const lowerText = (title + ' ' + description).toLowerCase()
@@ -59,7 +60,7 @@ async function scrapeGenericSite(url: string) {
       city: '',
       sector: '',
       description: cleanText(description).substring(0, 500),
-      images: [],
+      images: propertyImages,
     })
   } catch {
     return NextResponse.json({ error: 'Error extrayendo datos del sitio' })
@@ -166,4 +167,83 @@ function mapType(type: string): string {
     'Local comercial': 'local', 'Terreno': 'terreno', 'Parcela': 'terreno',
   }
   return map[type] || 'departamento'
+}
+
+function extractPropertyImages(html: string, baseUrl: string): string[] {
+  const imgs: string[] = []
+
+  // Blacklist: patterns that are NOT property photos
+  const blacklist = /logo|icon|favicon|sprite|avatar|badge|brand|banner|header|footer|nav|menu|social|facebook|twitter|instagram|whatsapp|youtube|google|analytics|pixel|tracking|placeholder|loading|lazy|blank|spacer|arrow|chevron|close|search|cart|user|profile|thumb-small|1x1|transparent/i
+
+  // Whitelist: patterns that ARE likely property photos
+  const whitelist = /property|propiedad|gallery|galeria|slider|carousel|listing|foto|photo|image|img|picture|pic|media|upload|wp-content\/uploads|cloudinary|imgix|amazonaws|supabase.*storage/i
+
+  // 1. Get og:image first (usually the main property photo)
+  const ogImage = extractMeta(html, 'og:image')
+  if (ogImage && !blacklist.test(ogImage)) {
+    imgs.push(resolveUrl(ogImage, baseUrl))
+  }
+
+  // 2. Extract all img src from HTML
+  const regex = /<img[^>]*src=["']([^"']+)["'][^>]*/gi
+  let m
+  while ((m = regex.exec(html)) !== null) {
+    const tag = m[0]
+    let src = m[1]
+
+    // Skip tiny images (likely icons) by checking width/height attributes
+    const widthMatch = tag.match(/width=["']?(\d+)/i)
+    const heightMatch = tag.match(/height=["']?(\d+)/i)
+    if (widthMatch && parseInt(widthMatch[1]) < 100) continue
+    if (heightMatch && parseInt(heightMatch[1]) < 100) continue
+
+    // Skip blacklisted patterns
+    if (blacklist.test(src)) continue
+
+    // Must be a real image format
+    if (!src.match(/\.(jpg|jpeg|png|webp)/i) && !whitelist.test(src)) continue
+
+    const resolved = resolveUrl(src, baseUrl)
+    if (resolved && !imgs.includes(resolved)) {
+      imgs.push(resolved)
+    }
+  }
+
+  // 3. Also check data-src and data-lazy-src (lazy loaded images)
+  const lazyRegex = /data-(?:src|lazy-src|original|full)=["']([^"']+)["']/gi
+  while ((m = lazyRegex.exec(html)) !== null) {
+    const src = m[1]
+    if (blacklist.test(src)) continue
+    if (!src.match(/\.(jpg|jpeg|png|webp)/i) && !whitelist.test(src)) continue
+    const resolved = resolveUrl(src, baseUrl)
+    if (resolved && !imgs.includes(resolved)) {
+      imgs.push(resolved)
+    }
+  }
+
+  // 4. Check srcset for high-res images
+  const srcsetRegex = /srcset=["']([^"']+)["']/gi
+  while ((m = srcsetRegex.exec(html)) !== null) {
+    const parts = m[1].split(',')
+    for (const part of parts) {
+      const src = part.trim().split(/\s+/)[0]
+      if (blacklist.test(src)) continue
+      if (!src.match(/\.(jpg|jpeg|png|webp)/i)) continue
+      const resolved = resolveUrl(src, baseUrl)
+      if (resolved && !imgs.includes(resolved)) {
+        imgs.push(resolved)
+      }
+    }
+  }
+
+  return imgs.slice(0, 15)
+}
+
+function resolveUrl(src: string, baseUrl: string): string {
+  if (src.startsWith('//')) return 'https:' + src
+  if (src.startsWith('/')) {
+    try { return new URL(src, baseUrl).href } catch { return '' }
+  }
+  if (src.startsWith('http')) return src
+  try { return new URL(src, baseUrl).href } catch { return '' }
 }
