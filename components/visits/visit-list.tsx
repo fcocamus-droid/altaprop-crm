@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
-import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2 } from 'lucide-react'
+import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 interface Visit {
   id: string
@@ -44,6 +44,11 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [calendarOpen, setCalendarOpen] = useState<string | null>(null)
+  const [calDate, setCalDate] = useState('')
+  const [calTime, setCalTime] = useState('')
+  const [calMonth, setCalMonth] = useState(new Date().getMonth())
+  const [calYear, setCalYear] = useState(new Date().getFullYear())
 
   const [newVisit, setNewVisit] = useState({ property_id: '', date: '', time: '', notes: '' })
 
@@ -63,6 +68,26 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
       setNewVisit({ property_id: '', date: '', time: '', notes: '' })
       window.location.reload()
     }
+    setLoading(null)
+  }
+
+  function openCalendarFor(visitId: string) {
+    setCalendarOpen(calendarOpen === visitId ? null : visitId)
+    setCalDate('')
+    setCalTime('')
+    setCalMonth(new Date().getMonth())
+    setCalYear(new Date().getFullYear())
+  }
+
+  async function handleConfirmWithDate(visitId: string) {
+    if (!calDate || !calTime) return
+    setLoading(visitId)
+    const scheduledAt = `${calDate}T${calTime}:00`
+    const supabase = (await import('@/lib/supabase/client')).createClient()
+    await supabase.from('visits').update({ scheduled_at: scheduledAt, status: 'confirmed' }).eq('id', visitId)
+    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, status: 'confirmed', scheduled_at: scheduledAt } : v))
+    setCalendarOpen(null)
+    setSuccess('Visita confirmada')
     setLoading(null)
   }
 
@@ -173,9 +198,10 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                       {status.label}
                     </span>
                     {visit.status === 'pending' && (
-                      <Button size="sm" variant="outline" onClick={() => handleStatus(visit.id, 'confirmed')} disabled={isLoading}
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50 h-8 px-2">
-                        <CheckCircle className="h-4 w-4" />
+                      <Button size="sm" variant="outline" onClick={() => openCalendarFor(visit.id)} disabled={isLoading}
+                        className={`h-8 px-2 ${calendarOpen === visit.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'text-blue-600 border-blue-200 hover:bg-blue-50'}`}
+                        title="Agendar y confirmar">
+                        <CalendarDays className="h-4 w-4" />
                       </Button>
                     )}
                     {visit.status === 'confirmed' && (
@@ -196,6 +222,79 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                     </Button>
                   </div>
                 </div>
+
+                {/* Inline calendar for scheduling this visit */}
+                {calendarOpen === visit.id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-sm font-medium mb-2">Selecciona fecha y hora para confirmar:</p>
+                    <div className="flex flex-col md:flex-row gap-4">
+                      {/* Mini calendar */}
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <button type="button" onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1) } else setCalMonth(calMonth - 1) }} className="p-1 hover:bg-muted rounded"><ChevronLeft className="h-4 w-4" /></button>
+                          <span className="text-xs font-medium">{['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][calMonth]} {calYear}</span>
+                          <button type="button" onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1) } else setCalMonth(calMonth + 1) }} className="p-1 hover:bg-muted rounded"><ChevronRight className="h-4 w-4" /></button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-0.5 text-center">
+                          {['D','L','M','M','J','V','S'].map((d,i) => <div key={i} className="text-[10px] text-muted-foreground py-0.5">{d}</div>)}
+                          {(() => {
+                            const first = new Date(calYear, calMonth, 1).getDay()
+                            const days = new Date(calYear, calMonth + 1, 0).getDate()
+                            const today = new Date().toISOString().split('T')[0]
+                            const cells = []
+                            for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} />)
+                            for (let d = 1; d <= days; d++) {
+                              const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+                              const past = ds < today
+                              cells.push(
+                                <button key={d} type="button" disabled={past}
+                                  onClick={() => setCalDate(ds)}
+                                  className={`text-xs py-1 rounded ${past ? 'text-gray-300' : 'hover:bg-blue-100'} ${calDate === ds ? 'bg-navy text-white font-bold' : ''} ${ds === today ? 'font-bold' : ''}`}
+                                >{d}</button>
+                              )
+                            }
+                            return cells
+                          })()}
+                        </div>
+                      </div>
+                      {/* Time slots */}
+                      <div className="flex-1">
+                        {calDate ? (
+                          <>
+                            <p className="text-xs text-muted-foreground mb-2">Horarios:</p>
+                            <div className="grid grid-cols-4 gap-1 max-h-[160px] overflow-y-auto">
+                              {Array.from({ length: 26 }, (_, i) => {
+                                const h = Math.floor(i / 2) + 8
+                                const m = i % 2 === 0 ? '00' : '30'
+                                const t = `${String(h).padStart(2, '0')}:${m}`
+                                return h < 21 ? (
+                                  <button key={t} type="button" onClick={() => setCalTime(t)}
+                                    className={`py-1 text-[11px] rounded border ${calTime === t ? 'bg-navy text-white border-navy' : 'hover:bg-blue-50 border-gray-200'}`}
+                                  >{t}</button>
+                                ) : null
+                              })}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-4 text-center">Selecciona un dia primero</p>
+                        )}
+                      </div>
+                    </div>
+                    {calDate && calTime && (
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t">
+                        <p className="text-sm"><strong>{calDate}</strong> a las <strong>{calTime}</strong></p>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => setCalendarOpen(null)}>Cancelar</Button>
+                          <Button size="sm" onClick={() => handleConfirmWithDate(visit.id)} disabled={loading === visit.id}
+                            className="bg-green-600 hover:bg-green-700 text-white">
+                            {loading === visit.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                            Confirmar Visita
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
