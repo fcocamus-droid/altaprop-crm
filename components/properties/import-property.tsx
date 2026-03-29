@@ -171,29 +171,6 @@ export function ImportProperty() {
               </div>
             )}
 
-            {/* Images Preview */}
-            {data.images.length > 0 && (
-              <div className="mb-4">
-                <Label className="text-sm font-medium mb-2 block">Imágenes ({data.images.length})</Label>
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {data.images.slice(0, 6).map((img, i) => (
-                    <img
-                      key={i}
-                      src={img}
-                      alt={`Imagen ${i + 1}`}
-                      className="w-24 h-24 object-cover rounded-lg flex-shrink-0 border"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    />
-                  ))}
-                  {data.images.length > 6 && (
-                    <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 text-sm text-gray-500">
-                      +{data.images.length - 6} más
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-sm">Título</Label>
@@ -285,6 +262,41 @@ export function ImportProperty() {
                 />
               </div>
             </div>
+
+            {/* Images at the bottom */}
+            {data.images.length > 0 && (
+              <div className="mt-6 pt-4 border-t">
+                <Label className="text-sm font-medium mb-3 block">Fotos de la Propiedad ({data.images.length})</Label>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                  {data.images.map((img, i) => (
+                    <div key={i} className="relative aspect-square group">
+                      <img
+                        src={img}
+                        alt={`Foto ${i + 1}`}
+                        className="w-full h-full object-cover rounded-lg border"
+                        onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newImages = data.images.filter((_, idx) => idx !== i)
+                          handleEditField('images', newImages)
+                        }}
+                        className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {data.images.length === 0 && (
+              <div className="mt-6 pt-4 border-t">
+                <p className="text-sm text-muted-foreground text-center py-4">No se encontraron fotos. Podras subirlas despues de publicar.</p>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
               <Button variant="outline" onClick={() => { setStep('input'); setData(null) }}>
