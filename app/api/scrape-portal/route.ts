@@ -34,75 +34,65 @@ async function scrapeGenericSite(url: string) {
     const html = await res.text()
 
     // STRATEGY 1: __NEXT_DATA__ (AlterEstate, Next.js sites)
-    const nextDataMatch = html.match(/__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/)
-    if (nextDataMatch) {
-      try {
-        const nextData = JSON.parse(nextDataMatch[1])
-        const prop = nextData?.props?.pageProps?.property
-        if (prop) {
-          return NextResponse.json({
-            title: prop.name || prop.title || '',
-            price: prop.rent_price || prop.sale_price || prop.price || 0,
-            currency: prop.currency === 'CLF' ? 'UF' : prop.currency === 'USD' ? 'USD' : 'CLP',
-            operation: prop.operation_type === 'rent' || prop.name?.toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
-            type: mapType(prop.property_type_name || prop.type || ''),
-            bedrooms: prop.bedroom || prop.bedrooms || 0,
-            bathrooms: prop.bathroom || prop.bathrooms || 0,
-            sqm: prop.total_surface || prop.usable_surface || prop.sqm || 0,
-            address: prop.address || '',
-            city: prop.commune?.name || prop.commune || prop.city || '',
-            sector: prop.sector?.name || prop.sector || '',
-            description: prop.description || '',
-            images: (prop.images || prop.photos || [])
-              .map((img: any) => img.image || img.url || img.src || (typeof img === 'string' ? img : ''))
-              .filter(Boolean)
-              .slice(0, 15),
-            // Extra fields
-            common_expenses: prop.common_expenses || 0,
-            pets_allowed: prop.pets_allowed || false,
-            parking: prop.parkinglot || prop.parking || 0,
-            storage: prop.cellar || prop.storage || 0,
-            floor_level: prop.floor_level || prop.floor || null,
-            furnished: prop.furnished || false,
-            amenities: prop.amenities || [],
-          })
+    const nextDataStart = html.indexOf('__NEXT_DATA__')
+    if (nextDataStart !== -1) {
+      const jsonStart = html.indexOf('>', nextDataStart) + 1
+      const jsonEnd = html.indexOf('</script>', jsonStart)
+      if (jsonStart > 0 && jsonEnd > jsonStart) {
+        const jsonStr = html.substring(jsonStart, jsonEnd)
+        try {
+          const nextData = JSON.parse(jsonStr)
+          const prop = nextData?.props?.pageProps?.property
+          if (prop) {
+            return NextResponse.json(parseAlterEstateProperty(prop))
+          }
+        } catch (e) {
+          console.error('__NEXT_DATA__ parse error:', e)
         }
-      } catch {}
+      }
     }
 
-    // STRATEGY 2: JSON inline data pattern (common in property sites)
-    const jsonPropertyMatch = html.match(/"property"\s*:\s*(\{[\s\S]*?\})\s*[,}]/)
-    if (jsonPropertyMatch) {
-      try {
-        const prop = JSON.parse(jsonPropertyMatch[1])
-        if (prop.name || prop.title) {
-          return NextResponse.json({
-            title: prop.name || prop.title || '',
-            price: prop.rent_price || prop.sale_price || prop.price || 0,
-            currency: 'CLP',
-            operation: prop.name?.toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
-            type: detectPropertyType((prop.name || '').toLowerCase()),
-            bedrooms: prop.bedroom || prop.bedrooms || 0,
-            bathrooms: prop.bathroom || prop.bathrooms || 0,
-            sqm: prop.total_surface || prop.usable_surface || 0,
-            address: prop.address || '',
-            city: prop.commune || prop.city || '',
-            sector: '',
-            description: prop.description || '',
-            images: (prop.images || []).map((img: any) => img.image || img.url || '').filter(Boolean).slice(0, 15),
-            common_expenses: prop.common_expenses || 0,
-            pets_allowed: prop.pets_allowed || false,
-            parking: prop.parkinglot || 0,
-            storage: prop.cellar || 0,
-            floor_level: prop.floor_level || null,
-            furnished: prop.furnished || false,
-            amenities: prop.amenities || [],
-          })
+    // STRATEGY 2: Search for property JSON in any script tag
+    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi
+    let scriptMatch
+    while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+      const content = scriptMatch[1]
+      if (content.includes('"gallery_image"') || content.includes('"rent_price"') || content.includes('"sale_price"')) {
+        // Find the property object
+        const propStart = content.indexOf('"property"')
+        if (propStart !== -1) {
+          // Extract the property object by finding matching braces
+          const braceStart = content.indexOf('{', propStart)
+          if (braceStart !== -1) {
+            const propJson = extractJsonObject(content, braceStart)
+            if (propJson) {
+              try {
+                const prop = JSON.parse(propJson)
+                if (prop.name || prop.title || prop.rent_price || prop.sale_price) {
+                  return NextResponse.json(parseAlterEstateProperty(prop))
+                }
+              } catch {}
+            }
+          }
         }
-      } catch {}
+      }
     }
 
-    // STRATEGY 3: Fallback to meta tags + generic extraction
+    // STRATEGY 3: Extract image URLs from cloudfront pattern (AlterEstate CDN)
+    const cloudFrontImages: string[] = []
+    const cfRegex = /https:\/\/d2kflbb1pmooh4\.cloudfront\.net\/[^"'\s,]+/g
+    let cfMatch
+    while ((cfMatch = cfRegex.exec(html)) !== null) {
+      if (!cloudFrontImages.includes(cfMatch[0])) cloudFrontImages.push(cfMatch[0])
+    }
+    // Also check d2p0bx8wfdkjkb CDN
+    const cfRegex2 = /https:\/\/d2p0bx8wfdkjkb\.cloudfront\.net\/static\/properties\/[^"'\s,]+/g
+    while ((cfMatch = cfRegex2.exec(html)) !== null) {
+      if (!cloudFrontImages.includes(cfMatch[0])) cloudFrontImages.push(cfMatch[0])
+    }
+
+    // STRATEGY 4: Fallback to meta tags + generic extraction
+    // If cloudfront images found above, use them
     const title = extractMeta(html, 'og:title') || extractTag(html, 'title') || ''
     const description = extractMeta(html, 'og:description') || extractMeta(html, 'description') || ''
     const price = extractPrice(html)
@@ -128,7 +118,7 @@ async function scrapeGenericSite(url: string) {
       city: cleanText(city),
       sector: '',
       description: cleanText(description).substring(0, 500),
-      images,
+      images: cloudFrontImages.length > 0 ? deduplicateByFilename(cloudFrontImages).slice(0, 15) : images,
       common_expenses: 0,
       pets_allowed: false,
       parking: 0,
@@ -438,4 +428,101 @@ function resolveUrl(src: string, baseUrl: string): string {
   if (src.startsWith('/')) { try { return new URL(src, baseUrl).href } catch { return '' } }
   if (src.startsWith('http')) return src
   try { return new URL(src, baseUrl).href } catch { return '' }
+}
+
+function parseAlterEstateProperty(prop: any) {
+  // Extract images from gallery_image array (AlterEstate format)
+  let images: string[] = []
+  const gallery = prop.gallery_image || prop.images || prop.photos || []
+  if (Array.isArray(gallery)) {
+    const seen = new Set<string>()
+    for (const img of gallery) {
+      const url = typeof img === 'string' ? img : (img.image || img.url || img.src || '')
+      if (url && !seen.has(url)) {
+        seen.add(url)
+        images.push(url)
+      }
+    }
+  }
+  // Deduplicate by base filename
+  images = deduplicateByFilename(images)
+
+  // Clean HTML from description
+  let desc = prop.description || ''
+  desc = desc.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim()
+
+  // Detect operation
+  const name = (prop.name || prop.title || '').toLowerCase()
+  const listingTypes = prop.listing_type || []
+  let operation = 'venta'
+  if (name.includes('arriendo') || name.includes('alquiler') || listingTypes.some((l: any) => l.listing === 'Alquiler' || l.listing === 'Rent')) {
+    operation = 'arriendo'
+  }
+
+  // Detect type from category
+  let type = 'departamento'
+  const catName = (prop.category?.name || '').toLowerCase()
+  if (catName.includes('casa') || catName.includes('house')) type = 'casa'
+  else if (catName.includes('oficina') || catName.includes('office')) type = 'oficina'
+  else if (catName.includes('local') || catName.includes('commercial')) type = 'local'
+  else if (catName.includes('terreno') || catName.includes('land')) type = 'terreno'
+  else if (catName.includes('apart') || catName.includes('depart')) type = 'departamento'
+
+  // Currency detection
+  let currency = 'CLP'
+  const currRent = prop.currency_rent || prop.currency_sale || ''
+  if (currRent === 'CLF' || currRent === 'UF') currency = 'UF'
+  else if (currRent === 'USD') currency = 'USD'
+
+  return {
+    title: prop.name || prop.title || '',
+    price: prop.rent_price || prop.sale_price || prop.price || 0,
+    currency,
+    operation,
+    type,
+    bedrooms: prop.room || prop.bedroom || prop.bedrooms || 0,
+    bathrooms: prop.bathroom || prop.bathrooms || 0,
+    sqm: prop.property_area || prop.total_surface || prop.usable_surface || 0,
+    address: prop.address || '',
+    city: prop.city || '',
+    sector: typeof prop.sector === 'string' ? prop.sector : (prop.sector?.name || prop.commune || ''),
+    description: desc.substring(0, 1000),
+    images: images.slice(0, 15),
+    common_expenses: prop.maintenance_fee || prop.common_expenses || 0,
+    pets_allowed: prop.pets_allowed || false,
+    parking: prop.parkinglot || prop.parking || 0,
+    storage: prop.cellar || prop.storage || 0,
+    floor_level: prop.floor_level || null,
+    furnished: prop.furnished || false,
+    amenities: prop.amenities || [],
+  }
+}
+
+function deduplicateByFilename(images: string[]): string[] {
+  const seen = new Map<string, string>()
+  for (const url of images) {
+    // Extract the original filename from the URL or base64 key
+    const nameMatch = url.match(/\/([^/]+\.jpe?g|[^/]+\.png|[^/]+\.webp)/i)
+    const key = nameMatch ? nameMatch[1] : url.substring(url.length - 40)
+    if (!seen.has(key)) {
+      seen.set(key, url)
+    }
+  }
+  const result: string[] = []
+  seen.forEach(v => result.push(v))
+  return result
+}
+
+function extractJsonObject(text: string, start: number): string | null {
+  let depth = 0
+  let i = start
+  while (i < text.length && i < start + 500000) {
+    if (text[i] === '{') depth++
+    else if (text[i] === '}') {
+      depth--
+      if (depth === 0) return text.substring(start, i + 1)
+    }
+    i++
+  }
+  return null
 }
