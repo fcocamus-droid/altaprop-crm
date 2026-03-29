@@ -103,23 +103,37 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               )}
 
               {canApply ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="w-full" size="lg">Postular a esta Propiedad</Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                      <DialogTitle>Postular a {property.title}</DialogTitle>
-                    </DialogHeader>
-                    <ApplicationForm propertyId={property.id} />
-                  </DialogContent>
-                </Dialog>
+                <div className="space-y-3">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="w-full" size="lg">Postular a esta Propiedad</Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Postular a {property.title}</DialogTitle>
+                      </DialogHeader>
+                      <ApplicationForm propertyId={property.id} />
+                    </DialogContent>
+                  </Dialog>
+                  <Button asChild variant="outline" className="w-full" size="lg">
+                    <Link href={`/login?redirect=/propiedades/${property.id}`}>
+                      <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
+                    </Link>
+                  </Button>
+                </div>
               ) : profile ? (
                 <p className="text-sm text-muted-foreground text-center">Solo postulantes pueden aplicar</p>
               ) : (
-                <Button asChild className="w-full" size="lg">
-                  <Link href={`/login?redirect=/propiedades/${property.id}`}>Inicia sesion para postular</Link>
-                </Button>
+                <div className="space-y-3">
+                  <Button asChild className="w-full" size="lg">
+                    <Link href={`/login?redirect=/propiedades/${property.id}`}>Inicia sesion para postular</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full" size="lg">
+                    <Link href={`/login?redirect=/propiedades/${property.id}`}>
+                      <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
+                    </Link>
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
