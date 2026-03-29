@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle, Lock } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Lock, Camera, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function ConfiguracionPage() {
@@ -20,7 +20,32 @@ export default function ConfiguracionPage() {
   const [pwLoading, setPwLoading] = useState(false)
   const [pwSuccess, setPwSuccess] = useState(false)
   const [pwError, setPwError] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+
+    setUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const filePath = `avatars/${profile.id}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('property-images')
+      .upload(filePath, file, { upsert: true })
+
+    if (!uploadError) {
+      const { data } = supabase.storage.from('property-images').getPublicUrl(filePath)
+      const url = `${data.publicUrl}?t=${Date.now()}`
+      setAvatarUrl(url)
+      await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id)
+    }
+    setUploading(false)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -35,6 +60,7 @@ export default function ConfiguracionPage() {
       .from('profiles')
       .update({
         full_name: formData.get('full_name') as string,
+        rut: formData.get('rut') as string || null,
         phone: formData.get('phone') as string,
       })
       .eq('id', profile!.id)
@@ -50,6 +76,8 @@ export default function ConfiguracionPage() {
 
   if (profileLoading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
 
+  const displayAvatar = avatarUrl || profile?.avatar_url
+
   return (
     <div>
       <PageHeader title="Configuracion" description="Administra tu perfil y preferencias" />
@@ -62,6 +90,38 @@ export default function ConfiguracionPage() {
               {error && <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{error}</div>}
               {success && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-md flex items-center gap-2"><CheckCircle className="h-4 w-4" />Perfil actualizado correctamente</div>}
 
+              {/* Avatar / Logo */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gold/20 flex items-center justify-center overflow-hidden border-2 border-gold/30">
+                    {displayAvatar ? (
+                      <img src={displayAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="h-8 w-8 text-gold" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                    className="absolute -bottom-1 -right-1 w-7 h-7 bg-navy text-white rounded-full flex items-center justify-center hover:bg-navy/80 transition-colors"
+                  >
+                    {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                  </button>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Foto de perfil o logo</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB</p>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input value={profile?.email || ''} disabled />
@@ -73,6 +133,10 @@ export default function ConfiguracionPage() {
               <div className="space-y-2">
                 <Label htmlFor="full_name">Nombre Completo</Label>
                 <Input id="full_name" name="full_name" defaultValue={profile?.full_name || ''} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rut">RUT</Label>
+                <Input id="rut" name="rut" placeholder="12.345.678-9" defaultValue={profile?.rut || ''} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefono</Label>

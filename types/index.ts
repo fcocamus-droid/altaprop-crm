@@ -5,6 +5,7 @@ export interface Profile {
   role: UserRole
   full_name: string | null
   phone: string | null
+  rut: string | null
   avatar_url: string | null
   email?: string
   plan: string | null
