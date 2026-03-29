@@ -20,7 +20,7 @@ export default async function PostulacionesPage() {
 
   let applications: any[] = []
   try {
-    if (isAdmin(profile.role) || profile.role === 'AGENTE') {
+    if (profile.role === 'SUPERADMINBOSS' || profile.role === 'SUPERADMIN' || profile.role === 'AGENTE') {
       applications = await getAllApplications()
     } else if (profile.role === 'PROPIETARIO') {
       applications = await getApplicationsByOwner(profile.id)

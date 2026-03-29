@@ -13,6 +13,7 @@ export interface Profile {
   subscription_ends_at: string | null
   mp_subscription_id: string | null
   max_agents: number
+  subscriber_id: string | null
   created_at: string
   updated_at: string
 }
@@ -21,6 +22,7 @@ export interface Property {
   id: string
   owner_id: string
   agent_id: string | null
+  subscriber_id: string | null
   title: string
   description: string | null
   type: string
@@ -76,6 +78,7 @@ export interface Visit {
   id: string
   property_id: string
   visitor_id: string
+  subscriber_id: string | null
   scheduled_at: string
   status: string
   notes: string | null

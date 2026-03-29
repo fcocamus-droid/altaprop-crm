@@ -70,6 +70,18 @@ export async function getAllProperties() {
   return (data || []) as Property[]
 }
 
+export async function getPropertiesBySubscriber(subscriberId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name)')
+    .eq('subscriber_id', subscriberId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as Property[]
+}
+
 export async function getFeaturedProperties() {
   const supabase = createClient()
   const { data, error } = await supabase

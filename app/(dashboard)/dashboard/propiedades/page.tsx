@@ -1,8 +1,8 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getPropertiesByOwner, getPropertiesByAgent, getAllProperties } from '@/lib/queries/properties'
+import { getPropertiesByOwner, getPropertiesByAgent, getAllProperties, getPropertiesBySubscriber } from '@/lib/queries/properties'
 import { RoleGuard } from '@/components/auth/role-guard'
-import { isAdmin, PROPERTY_MANAGER_ROLES } from '@/lib/constants'
+import { isAdmin, ROLES, PROPERTY_MANAGER_ROLES } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -23,8 +23,10 @@ export default async function PropiedadesDashboardPage() {
 
   let properties: any[] = []
   try {
-    if (isAdmin(profile.role)) {
+    if (profile.role === ROLES.SUPERADMINBOSS) {
       properties = await getAllProperties()
+    } else if (profile.role === ROLES.SUPERADMIN) {
+      properties = await getPropertiesBySubscriber(profile.subscriber_id || profile.id)
     } else if (profile.role === 'AGENTE') {
       properties = await getPropertiesByAgent(profile.id)
     } else {

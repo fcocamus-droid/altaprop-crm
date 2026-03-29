@@ -26,6 +26,7 @@ export async function createProperty(formData: FormData) {
     .insert({
       ...parsed.data,
       owner_id: profile.id,
+      subscriber_id: profile.subscriber_id || profile.id,
     })
     .select('id')
     .single()
@@ -194,6 +195,7 @@ export async function importProperty(propertyData: {
       bathrooms: propertyData.bathrooms || 0,
       sqm: propertyData.sqm || 0,
       owner_id: profile.id,
+      subscriber_id: profile.subscriber_id || profile.id,
       status: 'available',
       featured: false,
     })

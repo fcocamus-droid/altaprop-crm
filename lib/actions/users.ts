@@ -14,9 +14,15 @@ export async function getUsers() {
 
   const admin = createAdminClient()
 
-  // Fetch profiles and auth users in parallel
+  // SUPERADMINBOSS sees all, SUPERADMIN sees only their subscriber group
+  let profilesQuery = admin.from('profiles').select('*').order('created_at', { ascending: false })
+  if (profile.role === 'SUPERADMIN') {
+    const subscriberId = profile.subscriber_id || profile.id
+    profilesQuery = profilesQuery.eq('subscriber_id', subscriberId)
+  }
+
   const [profilesResult, authResult] = await Promise.all([
-    admin.from('profiles').select('*').order('created_at', { ascending: false }),
+    profilesQuery,
     admin.auth.admin.listUsers({ perPage: 100 }),
   ])
 
@@ -67,6 +73,12 @@ export async function createUser(data: {
   })
 
   if (error) return { error: error.message }
+
+  // Assign subscriber_id to the new user's profile
+  const subscriberId = profile.role === 'SUPERADMIN' ? (profile.subscriber_id || profile.id) : null
+  if (subscriberId) {
+    await admin.from('profiles').update({ subscriber_id: subscriberId }).eq('id', newUser.user.id)
+  }
 
   revalidatePath('/dashboard/usuarios')
   return { success: true, userId: newUser.user.id }

@@ -19,6 +19,7 @@ export async function createVisit(data: {
   const { error } = await supabase.from('visits').insert({
     property_id: data.property_id,
     visitor_id: profile.id,
+    subscriber_id: profile.subscriber_id || profile.id,
     scheduled_at: data.scheduled_at,
     notes: data.notes || null,
     status: 'pending',
