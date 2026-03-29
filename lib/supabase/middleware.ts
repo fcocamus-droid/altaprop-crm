@@ -25,6 +25,13 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
+  // Redirect ?code= on root to /auth/callback
+  if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/auth/callback'
+    return NextResponse.redirect(url)
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()

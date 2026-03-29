@@ -57,6 +57,7 @@ function RegisterForm() {
     setLoading(true)
 
     const supabase = createClient()
+    const siteUrl = window.location.origin
     const { error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -68,6 +69,7 @@ function RegisterForm() {
           role: formData.role,
           plan: formData.plan,
         },
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     })
 
