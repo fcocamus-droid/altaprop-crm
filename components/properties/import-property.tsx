@@ -96,9 +96,11 @@ export function ImportProperty() {
 
     setStep('done')
     setTimeout(() => {
-      router.push('/dashboard/propiedades')
+      setStep('input')
+      setData(null)
+      setUrl('')
       router.refresh()
-    }, 2000)
+    }, 1500)
   }
 
   const handleEditField = (field: keyof ScrapedData, value: any) => {
@@ -395,7 +397,7 @@ export function ImportProperty() {
               </svg>
             </div>
             <p className="text-xl font-semibold text-green-700">Propiedad publicada exitosamente</p>
-            <p className="text-sm text-muted-foreground mt-1">Redirigiendo al listado...</p>
+            <p className="text-sm text-muted-foreground mt-1">Puedes importar otra propiedad...</p>
           </CardContent>
         </Card>
       )}
