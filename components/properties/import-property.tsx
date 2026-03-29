@@ -32,8 +32,8 @@ export function ImportProperty() {
   const router = useRouter()
 
   const handleExtract = async () => {
-    if (!url.includes('portalinmobiliario.com') && !url.includes('mercadolibre')) {
-      setError('Ingresa un link válido de Portal Inmobiliario')
+    if (!url.startsWith('http')) {
+      setError('Ingresa una URL valida (debe comenzar con https://)')
       return
     }
 
@@ -108,13 +108,14 @@ export function ImportProperty() {
             <div className="text-center mb-4">
               <div className="w-12 h-12 bg-gold/10 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gold">
-                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-navy">Publicar desde Portal Inmobiliario</h3>
+              <h3 className="text-lg font-semibold text-navy">Importar Propiedad desde tu Sitio Web</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Pega el link de tu publicación y se importará automáticamente
+                Pega la URL de una propiedad de tu sitio y se importara automaticamente
               </p>
             </div>
 
@@ -122,7 +123,7 @@ export function ImportProperty() {
               <Input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://www.portalinmobiliario.com/MLC-..."
+                placeholder="https://tusitio.cl/propiedad/departamento-santiago..."
                 className="flex-1"
               />
               <Button onClick={handleExtract} className="bg-gold hover:bg-gold/90 text-navy font-semibold whitespace-nowrap">
@@ -142,7 +143,7 @@ export function ImportProperty() {
         <Card>
           <CardContent className="p-12 text-center">
             <div className="animate-spin w-10 h-10 border-4 border-gold/30 border-t-gold rounded-full mx-auto mb-4" />
-            <p className="text-navy font-medium">Extrayendo datos de la publicación...</p>
+            <p className="text-navy font-medium">Extrayendo datos del sitio...</p>
             <p className="text-sm text-muted-foreground mt-1">Esto puede tomar unos segundos</p>
           </CardContent>
         </Card>

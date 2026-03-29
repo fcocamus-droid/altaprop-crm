@@ -49,7 +49,7 @@ export default async function PropiedadesDashboardPage() {
       {(profile.role === ROLES.SUPERADMINBOSS || canImportProperties(profile.plan)) ? (
         <ImportProperty />
       ) : (
-        <UpgradeBanner feature="Importar desde Portal Inmobiliario" requiredPlan="Básico" />
+        <UpgradeBanner feature="Importar propiedades desde tu sitio web" requiredPlan="Básico" />
       )}
 
       {properties.length === 0 ? (
