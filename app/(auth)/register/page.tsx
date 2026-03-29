@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { UserPlus, Loader2, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-react'
 import { PLANS } from '@/lib/constants'
 
@@ -174,7 +175,7 @@ function RegisterForm() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Contrasena</Label>
-                <Input id="password" name="password" type="password" placeholder="Minimo 6 caracteres" value={formData.password} onChange={handleChange} required minLength={6} />
+                <PasswordInput id="password" name="password" placeholder="Minimo 6 caracteres" value={formData.password} onChange={handleChange} required minLength={6} />
               </div>
               <div className="bg-muted/50 p-3 rounded-lg text-sm">
                 Plan seleccionado: <strong>{PLANS.find(p => p.id === formData.plan)?.name}</strong> - ${PLANS.find(p => p.id === formData.plan)?.price}/mes

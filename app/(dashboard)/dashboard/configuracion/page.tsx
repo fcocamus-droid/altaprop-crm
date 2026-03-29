@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
 import { Loader2, Save, CheckCircle, Lock } from 'lucide-react'
@@ -115,11 +116,11 @@ export default function ConfiguracionPage() {
               {pwSuccess && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-md flex items-center gap-2"><CheckCircle className="h-4 w-4" />Contrasena actualizada correctamente</div>}
               <div className="space-y-2">
                 <Label htmlFor="new_password">Nueva Contrasena</Label>
-                <Input id="new_password" name="new_password" type="password" placeholder="Minimo 6 caracteres" minLength={6} required />
+                <PasswordInput id="new_password" name="new_password" placeholder="Minimo 6 caracteres" minLength={6} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm_password">Confirmar Contrasena</Label>
-                <Input id="confirm_password" name="confirm_password" type="password" placeholder="Repite tu contrasena" minLength={6} required />
+                <PasswordInput id="confirm_password" name="confirm_password" placeholder="Repite tu contrasena" minLength={6} required />
               </div>
               <Button type="submit" disabled={pwLoading}>
                 {pwLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}

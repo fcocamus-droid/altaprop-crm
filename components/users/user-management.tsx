@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createUser, updateUserRole, deleteUser } from '@/lib/actions/users'
+import { PasswordInput } from '@/components/ui/password-input'
 import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
 
 function getRoleColor(role: string) {
@@ -160,9 +161,8 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Contraseña</Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                     placeholder="Mínimo 6 caracteres"
