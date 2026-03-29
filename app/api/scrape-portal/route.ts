@@ -432,20 +432,22 @@ function resolveUrl(src: string, baseUrl: string): string {
 
 function parseAlterEstateProperty(prop: any) {
   // Extract images from gallery_image array (AlterEstate format)
-  let images: string[] = []
+  const images: string[] = []
   const gallery = prop.gallery_image || prop.images || prop.photos || []
   if (Array.isArray(gallery)) {
-    const seen = new Set<string>()
+    const seenNames = new Set<string>()
     for (const img of gallery) {
       const url = typeof img === 'string' ? img : (img.image || img.url || img.src || '')
-      if (url && !seen.has(url)) {
-        seen.add(url)
+      // Use 'name' field to deduplicate (unique per real photo)
+      const name = typeof img === 'object' ? (img.name || '') : ''
+      // Extract base filename without path prefix to find real duplicates
+      const baseName = name.replace(/^properties\/[^/]+\/[^/]+\/[^/]+\//, '')
+      if (url && (!baseName || !seenNames.has(baseName))) {
+        if (baseName) seenNames.add(baseName)
         images.push(url)
       }
     }
   }
-  // Deduplicate by base filename
-  images = deduplicateByFilename(images)
 
   // Clean HTML from description
   let desc = prop.description || ''
