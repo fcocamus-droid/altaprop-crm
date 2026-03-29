@@ -30,7 +30,7 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
   const [step, setStep] = useState<'calendar' | 'form' | 'success'>('calendar')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', notes: '' })
+  const [formData, setFormData] = useState({ name: '', rut: '', phone: '', email: '', notes: '' })
 
   // Generate calendar days
   const firstDay = new Date(currentYear, currentMonth, 1).getDay()
@@ -128,6 +128,10 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
           <div>
             <Label className="text-sm">Nombre completo *</Label>
             <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="Tu nombre" />
+          </div>
+          <div>
+            <Label className="text-sm">RUT</Label>
+            <Input value={formData.rut} onChange={e => setFormData({...formData, rut: e.target.value})} placeholder="12.345.678-9" />
           </div>
           <div>
             <Label className="text-sm">Telefono *</Label>

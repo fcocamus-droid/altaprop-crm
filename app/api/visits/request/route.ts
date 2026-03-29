@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
-  const { propertyId, date, time, name, phone, email, notes } = await request.json()
+  const { propertyId, date, time, name, rut, phone, email, notes } = await request.json()
 
   if (!propertyId || !date || !time || !name || !phone) {
     return NextResponse.json({ error: 'Completa todos los campos requeridos' }, { status: 400 })
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     subscriber_id: property.subscriber_id,
     scheduled_at: scheduledAt,
     status: 'pending',
-    notes: `Solicitud de: ${name} | Tel: ${phone}${email ? ` | Email: ${email}` : ''}${notes ? ` | ${notes}` : ''}`,
+    notes: `Solicitud de: ${name}${rut ? ` | RUT: ${rut}` : ''} | Tel: ${phone}${email ? ` | Email: ${email}` : ''}${notes ? ` | ${notes}` : ''}`,
   })
 
   if (error) return NextResponse.json({ error: error.message })
