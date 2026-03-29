@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageHeader } from '@/components/shared/page-header'
 import { VisitList } from '@/components/visits/visit-list'
+import { ScheduleManager } from '@/components/visits/schedule-manager'
 import { getAllVisits, getVisitsByVisitor, getVisitsByPropertyOwner, getVisitsByAgent } from '@/lib/queries/visits'
 import { PROPERTY_MANAGER_ROLES, isAdmin } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/server'
@@ -49,7 +50,16 @@ export default async function VisitasPage() {
   return (
     <RoleGuard allowedRoles={PROPERTY_MANAGER_ROLES}>
       <PageHeader title="Visitas" description="Gestiona las visitas agendadas a propiedades" />
-      <VisitList visits={visits} properties={properties} canCreate={canCreate} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <VisitList visits={visits} properties={properties} canCreate={canCreate} />
+        </div>
+        {isAdmin(profile.role) && (
+          <div>
+            <ScheduleManager />
+          </div>
+        )}
+      </div>
     </RoleGuard>
   )
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { ApplicationForm } from '@/components/applications/application-form'
+import { VisitCalendar } from '@/components/visits/visit-calendar'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Bed, Bath, Maximize, MapPin, Calendar, User, Phone } from 'lucide-react'
 import Link from 'next/link'
@@ -115,24 +116,55 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
                       <ApplicationForm propertyId={property.id} />
                     </DialogContent>
                   </Dialog>
-                  <Button asChild variant="outline" className="w-full" size="lg">
-                    <Link href={`/login?redirect=/propiedades/${property.id}`}>
-                      <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
-                    </Link>
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full" size="lg">
+                        <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Agendar Visita</DialogTitle>
+                      </DialogHeader>
+                      <VisitCalendar propertyId={property.id} propertyTitle={property.title} />
+                    </DialogContent>
+                  </Dialog>
                 </div>
               ) : profile ? (
-                <p className="text-sm text-muted-foreground text-center">Solo postulantes pueden aplicar</p>
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground text-center">Solo postulantes pueden aplicar</p>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full" size="lg">
+                        <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Agendar Visita</DialogTitle>
+                      </DialogHeader>
+                      <VisitCalendar propertyId={property.id} propertyTitle={property.title} />
+                    </DialogContent>
+                  </Dialog>
+                </div>
               ) : (
                 <div className="space-y-3">
                   <Button asChild className="w-full" size="lg">
                     <Link href={`/login?redirect=/propiedades/${property.id}`}>Inicia sesion para postular</Link>
                   </Button>
-                  <Button asChild variant="outline" className="w-full" size="lg">
-                    <Link href={`/login?redirect=/propiedades/${property.id}`}>
-                      <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
-                    </Link>
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full" size="lg">
+                        <Calendar className="mr-2 h-4 w-4" />Solicitar Orden de Visita
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Agendar Visita</DialogTitle>
+                      </DialogHeader>
+                      <VisitCalendar propertyId={property.id} propertyTitle={property.title} />
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </CardContent>
