@@ -20,6 +20,7 @@ interface Property {
   title: string
   price: number
   currency: string
+  operation: string
   city: string
   sector: string
   status: string
