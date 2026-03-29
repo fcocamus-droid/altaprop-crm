@@ -33,6 +33,76 @@ async function scrapeGenericSite(url: string) {
 
     const html = await res.text()
 
+    // STRATEGY 1: __NEXT_DATA__ (AlterEstate, Next.js sites)
+    const nextDataMatch = html.match(/__NEXT_DATA__[^>]*>([\s\S]*?)<\/script>/)
+    if (nextDataMatch) {
+      try {
+        const nextData = JSON.parse(nextDataMatch[1])
+        const prop = nextData?.props?.pageProps?.property
+        if (prop) {
+          return NextResponse.json({
+            title: prop.name || prop.title || '',
+            price: prop.rent_price || prop.sale_price || prop.price || 0,
+            currency: prop.currency === 'CLF' ? 'UF' : prop.currency === 'USD' ? 'USD' : 'CLP',
+            operation: prop.operation_type === 'rent' || prop.name?.toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
+            type: mapType(prop.property_type_name || prop.type || ''),
+            bedrooms: prop.bedroom || prop.bedrooms || 0,
+            bathrooms: prop.bathroom || prop.bathrooms || 0,
+            sqm: prop.total_surface || prop.usable_surface || prop.sqm || 0,
+            address: prop.address || '',
+            city: prop.commune?.name || prop.commune || prop.city || '',
+            sector: prop.sector?.name || prop.sector || '',
+            description: prop.description || '',
+            images: (prop.images || prop.photos || [])
+              .map((img: any) => img.image || img.url || img.src || (typeof img === 'string' ? img : ''))
+              .filter(Boolean)
+              .slice(0, 15),
+            // Extra fields
+            common_expenses: prop.common_expenses || 0,
+            pets_allowed: prop.pets_allowed || false,
+            parking: prop.parkinglot || prop.parking || 0,
+            storage: prop.cellar || prop.storage || 0,
+            floor_level: prop.floor_level || prop.floor || null,
+            furnished: prop.furnished || false,
+            amenities: prop.amenities || [],
+          })
+        }
+      } catch {}
+    }
+
+    // STRATEGY 2: JSON inline data pattern (common in property sites)
+    const jsonPropertyMatch = html.match(/"property"\s*:\s*(\{[\s\S]*?\})\s*[,}]/)
+    if (jsonPropertyMatch) {
+      try {
+        const prop = JSON.parse(jsonPropertyMatch[1])
+        if (prop.name || prop.title) {
+          return NextResponse.json({
+            title: prop.name || prop.title || '',
+            price: prop.rent_price || prop.sale_price || prop.price || 0,
+            currency: 'CLP',
+            operation: prop.name?.toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
+            type: detectPropertyType((prop.name || '').toLowerCase()),
+            bedrooms: prop.bedroom || prop.bedrooms || 0,
+            bathrooms: prop.bathroom || prop.bathrooms || 0,
+            sqm: prop.total_surface || prop.usable_surface || 0,
+            address: prop.address || '',
+            city: prop.commune || prop.city || '',
+            sector: '',
+            description: prop.description || '',
+            images: (prop.images || []).map((img: any) => img.image || img.url || '').filter(Boolean).slice(0, 15),
+            common_expenses: prop.common_expenses || 0,
+            pets_allowed: prop.pets_allowed || false,
+            parking: prop.parkinglot || 0,
+            storage: prop.cellar || 0,
+            floor_level: prop.floor_level || null,
+            furnished: prop.furnished || false,
+            amenities: prop.amenities || [],
+          })
+        }
+      } catch {}
+    }
+
+    // STRATEGY 3: Fallback to meta tags + generic extraction
     const title = extractMeta(html, 'og:title') || extractTag(html, 'title') || ''
     const description = extractMeta(html, 'og:description') || extractMeta(html, 'description') || ''
     const price = extractPrice(html)
@@ -42,12 +112,11 @@ async function scrapeGenericSite(url: string) {
     const operation = lowerText.includes('arriendo') || lowerText.includes('alquiler') ? 'arriendo' : 'venta'
     const type = detectPropertyType(lowerText)
 
-    // Extract address from structured data or meta
     const address = extractMeta(html, 'og:street-address') || extractFromJsonLd(html, 'streetAddress') || ''
     const city = extractFromJsonLd(html, 'addressLocality') || ''
 
     return NextResponse.json({
-      title: cleanText(title).replace(/\s*[-|–]\s*[^-|–]*$/, ''), // Remove site name suffix
+      title: cleanText(title).replace(/\s*[-|–]\s*[^-|–]*$/, ''),
       price: price.amount,
       currency: price.currency,
       operation,
@@ -60,6 +129,13 @@ async function scrapeGenericSite(url: string) {
       sector: '',
       description: cleanText(description).substring(0, 500),
       images,
+      common_expenses: 0,
+      pets_allowed: false,
+      parking: 0,
+      storage: 0,
+      floor_level: null,
+      furnished: false,
+      amenities: [],
     })
   } catch {
     return NextResponse.json({ error: 'Error extrayendo datos del sitio' })

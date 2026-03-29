@@ -36,6 +36,13 @@ export interface Property {
   bedrooms: number | null
   bathrooms: number | null
   sqm: number | null
+  common_expenses: number
+  pets_allowed: boolean
+  parking: number
+  storage: number
+  floor_level: number | null
+  furnished: boolean
+  amenities: string[] | null
   status: string
   featured: boolean
   created_at: string

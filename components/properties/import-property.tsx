@@ -22,6 +22,13 @@ interface ScrapedData {
   sector: string
   description: string
   images: string[]
+  common_expenses?: number
+  pets_allowed?: boolean
+  parking?: number
+  storage?: number
+  floor_level?: number | null
+  furnished?: boolean
+  amenities?: string[]
 }
 
 export function ImportProperty() {
@@ -250,6 +257,37 @@ export function ImportProperty() {
               <div className="space-y-1">
                 <Label className="text-sm">Dirección</Label>
                 <Input value={data.address} onChange={(e) => handleEditField('address', e.target.value)} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Gastos Comunes ($)</Label>
+                <Input type="number" value={data.common_expenses || 0} onChange={(e) => handleEditField('common_expenses', Number(e.target.value))} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Estacionamientos</Label>
+                <Input type="number" value={data.parking || 0} onChange={(e) => handleEditField('parking', Number(e.target.value))} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Bodegas</Label>
+                <Input type="number" value={data.storage || 0} onChange={(e) => handleEditField('storage', Number(e.target.value))} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Piso</Label>
+                <Input type="number" value={data.floor_level || ''} onChange={(e) => handleEditField('floor_level', e.target.value ? Number(e.target.value) : null)} />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={data.pets_allowed || false} onChange={(e) => handleEditField('pets_allowed', e.target.checked)} className="rounded" />
+                  Acepta mascotas
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={data.furnished || false} onChange={(e) => handleEditField('furnished', e.target.checked)} className="rounded" />
+                  Amoblado
+                </label>
               </div>
 
               <div className="md:col-span-2 space-y-1">
