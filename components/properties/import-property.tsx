@@ -96,11 +96,8 @@ export function ImportProperty() {
 
     setStep('done')
     setTimeout(() => {
-      setStep('input')
-      setData(null)
-      setUrl('')
-      router.refresh()
-    }, 1500)
+      window.location.reload()
+    }, 1000)
   }
 
   const handleEditField = (field: keyof ScrapedData, value: any) => {
