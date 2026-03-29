@@ -18,7 +18,6 @@ export default function ActivarPlanPage() {
     if (!plan) return
 
     if (plan.trial) {
-      // Plans with trial: activate trial immediately
       const res = await fetch('/api/mp/activate-trial', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -26,8 +25,8 @@ export default function ActivarPlanPage() {
       })
       const data = await res.json()
       if (data.success) {
-        router.push('/dashboard')
-        router.refresh()
+        window.location.href = '/dashboard?plan_activated=true'
+        return
       }
     } else {
       // Started plan: redirect to Mercado Pago

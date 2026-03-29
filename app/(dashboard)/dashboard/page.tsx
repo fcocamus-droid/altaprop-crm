@@ -12,7 +12,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Panel Principal' }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: { plan_activated?: string } }) {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
 
@@ -48,6 +48,16 @@ export default async function DashboardPage() {
           </Button>
         )}
       </PageHeader>
+
+      {searchParams.plan_activated === 'true' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+          <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-green-800">Plan activado exitosamente</p>
+            <p className="text-sm text-green-700">Tu prueba gratuita ha comenzado. Ya puedes usar todas las funciones del CRM.</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       {isOwnerOrAgent && (
