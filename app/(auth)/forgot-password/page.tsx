@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Mail, Loader2, CheckCircle, ArrowLeft } from 'lucide-react'
-import { resetPassword } from '@/lib/auth-actions'
+import { Mail, Loader2, CheckCircle, ArrowLeft, ExternalLink } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [directLink, setDirectLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -20,12 +20,24 @@ export default function ForgotPasswordPage() {
     setError('')
     setLoading(true)
 
-    const result = await resetPassword(email)
+    try {
+      const res = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
 
-    if (result.error) {
-      setError(result.error)
-    } else {
-      setSuccess(true)
+      if (data.error) {
+        setError(data.error)
+      } else if (data.directLink) {
+        setDirectLink(data.directLink)
+        setSuccess(true)
+      } else {
+        setSuccess(true)
+      }
+    } catch {
+      setError('Error de conexion. Intenta de nuevo.')
     }
     setLoading(false)
   }
@@ -35,10 +47,23 @@ export default function ForgotPasswordPage() {
       <Card>
         <CardContent className="pt-6 text-center space-y-4">
           <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-          <h2 className="text-xl font-semibold">Email enviado</h2>
-          <p className="text-muted-foreground">
-            Revisa tu bandeja de entrada en <strong>{email}</strong>. Haz clic en el enlace para restablecer tu contrasena.
-          </p>
+          <h2 className="text-xl font-semibold">
+            {directLink ? 'Enlace de recuperacion generado' : 'Email enviado'}
+          </h2>
+          {directLink ? (
+            <>
+              <p className="text-muted-foreground text-sm">
+                Haz clic en el boton para restablecer tu contrasena:
+              </p>
+              <Button asChild className="w-full bg-navy hover:bg-navy/90">
+                <a href={directLink}><ExternalLink className="mr-2 h-4 w-4" />Restablecer Contrasena</a>
+              </Button>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              Revisa tu bandeja de entrada en <strong>{email}</strong>. Haz clic en el enlace para restablecer tu contrasena.
+            </p>
+          )}
           <Button asChild variant="outline" className="w-full">
             <Link href="/login"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Login</Link>
           </Button>
