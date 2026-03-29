@@ -118,7 +118,7 @@ async function scrapeGenericSite(url: string) {
       city: cleanText(city),
       sector: '',
       description: cleanText(description).substring(0, 500),
-      images: cloudFrontImages.length > 0 ? deduplicateByFilename(cloudFrontImages).slice(0, 15) : images,
+      images: cloudFrontImages.length > 0 ? deduplicateByFilename(cloudFrontImages).slice(0, 20) : images,
       common_expenses: 0,
       pets_allowed: false,
       parking: 0,
@@ -140,19 +140,19 @@ function extractPropertyPhotos(html: string, baseUrl: string): string[] {
   // STRATEGY 1: JSON-LD structured data (most reliable)
   photos = extractFromJsonLdImages(html)
   if (photos.length >= 3) {
-    return photos.slice(0, 15).map(src => resolveUrl(src, baseUrl)).filter(Boolean)
+    return photos.slice(0, 20).map(src => resolveUrl(src, baseUrl)).filter(Boolean)
   }
 
   // STRATEGY 2: og:image tags (multiple og:image = gallery)
   const ogPhotos = extractAllOgImages(html)
   if (ogPhotos.length >= 2) {
-    return ogPhotos.slice(0, 15).map(src => resolveUrl(src, baseUrl)).filter(Boolean)
+    return ogPhotos.slice(0, 20).map(src => resolveUrl(src, baseUrl)).filter(Boolean)
   }
 
   // STRATEGY 3: Gallery/carousel containers
   const galleryPhotos = extractGalleryImages(html, baseUrl)
   if (galleryPhotos.length >= 2) {
-    return galleryPhotos.slice(0, 15)
+    return galleryPhotos.slice(0, 20)
   }
 
   // STRATEGY 4: Large images from the page (fallback)
@@ -162,7 +162,7 @@ function extractPropertyPhotos(html: string, baseUrl: string): string[] {
   const all = [...ogPhotos.map(s => resolveUrl(s, baseUrl)), ...galleryPhotos, ...largePhotos]
   const unique = deduplicateImages(all.filter(Boolean))
 
-  return unique.slice(0, 15)
+  return unique.slice(0, 20)
 }
 
 function extractFromJsonLdImages(html: string): string[] {
@@ -489,7 +489,7 @@ function parseAlterEstateProperty(prop: any) {
     city: prop.city || '',
     sector: typeof prop.sector === 'string' ? prop.sector : (prop.sector?.name || prop.commune || ''),
     description: desc.substring(0, 3000),
-    images: images.slice(0, 15),
+    images: images.slice(0, 20),
     common_expenses: prop.maintenance_fee || prop.common_expenses || 0,
     pets_allowed: prop.pets_allowed || false,
     parking: prop.parkinglot || prop.parking || 0,
