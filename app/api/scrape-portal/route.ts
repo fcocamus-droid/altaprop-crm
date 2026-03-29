@@ -488,7 +488,7 @@ function parseAlterEstateProperty(prop: any) {
     address: prop.address || '',
     city: prop.city || '',
     sector: typeof prop.sector === 'string' ? prop.sector : (prop.sector?.name || prop.commune || ''),
-    description: desc.substring(0, 1000),
+    description: desc.substring(0, 3000),
     images: images.slice(0, 15),
     common_expenses: prop.maintenance_fee || prop.common_expenses || 0,
     pets_allowed: prop.pets_allowed || false,

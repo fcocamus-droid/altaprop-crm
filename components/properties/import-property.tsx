@@ -295,10 +295,37 @@ export function ImportProperty() {
                 <textarea
                   value={data.description}
                   onChange={(e) => handleEditField('description', e.target.value)}
-                  rows={3}
-                  className="w-full border rounded-md px-3 py-2 text-sm resize-none"
+                  rows={8}
+                  className="w-full border rounded-md px-3 py-2 text-sm resize-y min-h-[120px]"
                 />
               </div>
+
+              {/* Amenidades */}
+              {data.amenities && data.amenities.length > 0 && (
+                <div className="md:col-span-2 space-y-2">
+                  <Label className="text-sm font-medium">Amenidades ({data.amenities.length})</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {data.amenities.map((amenity, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-navy/5 text-navy border border-navy/10 group"
+                      >
+                        {amenity}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newAmenities = (data.amenities || []).filter((_: string, idx: number) => idx !== i)
+                            handleEditField('amenities', newAmenities)
+                          }}
+                          className="ml-1 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Images at the bottom */}
