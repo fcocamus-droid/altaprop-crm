@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteProperty } from '@/lib/actions/properties'
+import { deleteProperty, updatePropertyStatus } from '@/lib/actions/properties'
 import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2 } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
@@ -144,6 +144,7 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
           className="h-9 px-3 text-sm border rounded-lg bg-background">
           <option value="all">Estado</option>
           <option value="available">Disponible</option>
+          <option value="unavailable">No Disponible</option>
           <option value="reserved">Reservada</option>
           <option value="rented">Arrendada</option>
           <option value="sold">Vendida</option>
@@ -177,7 +178,29 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
                   <p className="text-sm text-muted-foreground">{property.city}{property.sector ? `, ${property.sector}` : ''}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="font-semibold text-sm text-navy">{formatPrice(property.price, property.currency)}</span>
-                    <StatusBadge status={property.status} type="property" />
+                    <select
+                      value={property.status}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value
+                        setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: newStatus } : p))
+                        await updatePropertyStatus(property.id, newStatus)
+                      }}
+                      className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer appearance-none pr-6 ${
+                        property.status === 'available' ? 'bg-green-100 text-green-800 border-green-200' :
+                        property.status === 'unavailable' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                        property.status === 'reserved' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                        property.status === 'rented' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                        property.status === 'sold' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                        'bg-gray-100 text-gray-800 border-gray-200'
+                      }`}
+                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+                    >
+                      <option value="available">Disponible</option>
+                      <option value="unavailable">No Disponible</option>
+                      <option value="reserved">Reservada</option>
+                      <option value="rented">Arrendada</option>
+                      <option value="sold">Vendida</option>
+                    </select>
                   </div>
                 </div>
               </div>
