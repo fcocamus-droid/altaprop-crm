@@ -28,6 +28,9 @@ interface Property {
 
 export function PropertyList({ properties: initialProperties }: { properties: Property[] }) {
   const [properties, setProperties] = useState(initialProperties)
+  const [search, setSearch] = useState('')
+  const [filterOp, setFilterOp] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [calOpen, setCalOpen] = useState<string | null>(null)
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
@@ -106,9 +109,57 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
     router.refresh()
   }
 
+  const filtered = properties.filter(p => {
+    if (search) {
+      const q = search.toLowerCase()
+      if (!p.title.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q) && !p.sector?.toLowerCase().includes(q)) return false
+    }
+    if (filterOp !== 'all' && p.operation !== filterOp) return false
+    if (filterStatus !== 'all' && p.status !== filterStatus) return false
+    return true
+  })
+
   return (
     <div className="space-y-4">
-      {properties.map((property) => (
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, ciudad o sector..."
+            className="w-full h-9 pl-9 pr-3 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-navy/20"
+          />
+          <svg className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" strokeLinecap="round"/></svg>
+        </div>
+        <select value={filterOp} onChange={e => setFilterOp(e.target.value)}
+          className="h-9 px-3 text-sm border rounded-lg bg-background">
+          <option value="all">Operacion</option>
+          <option value="arriendo">Arriendo</option>
+          <option value="venta">Venta</option>
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="h-9 px-3 text-sm border rounded-lg bg-background">
+          <option value="all">Estado</option>
+          <option value="available">Disponible</option>
+          <option value="reserved">Reservada</option>
+          <option value="rented">Arrendada</option>
+          <option value="sold">Vendida</option>
+        </select>
+        {(search || filterOp !== 'all' || filterStatus !== 'all') && (
+          <button onClick={() => { setSearch(''); setFilterOp('all'); setFilterStatus('all') }}
+            className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground border rounded-lg">
+            Limpiar
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 && properties.length > 0 && (
+        <p className="text-sm text-muted-foreground text-center py-6">No se encontraron propiedades con esos filtros</p>
+      )}
+
+      {filtered.map((property) => (
         <Card key={property.id} className={deleting === property.id ? 'opacity-50' : ''}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
