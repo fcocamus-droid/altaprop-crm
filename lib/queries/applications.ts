@@ -48,6 +48,18 @@ export async function getAllApplications() {
   return (data || []) as Application[]
 }
 
+export async function getApplicationsBySubscriber(subscriberId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('applications')
+    .select('*, property:properties!inner(id, title, subscriber_id), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .eq('property.subscriber_id', subscriberId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as Application[]
+}
+
 export async function getApplicationById(id: string) {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -60,11 +72,13 @@ export async function getApplicationById(id: string) {
   return data as Application
 }
 
-export async function getApplicationStats(ownerId?: string) {
+export async function getApplicationStats(ownerId?: string, subscriberId?: string) {
   const supabase = createClient()
-  let query = supabase.from('applications').select('status, property:properties!inner(owner_id)')
+  let query = supabase.from('applications').select('status, property:properties!inner(owner_id, subscriber_id)')
 
-  if (ownerId) {
+  if (subscriberId) {
+    query = query.eq('property.subscriber_id', subscriberId)
+  } else if (ownerId) {
     query = query.eq('property.owner_id', ownerId)
   }
 

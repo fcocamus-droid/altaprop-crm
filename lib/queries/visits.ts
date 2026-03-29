@@ -11,6 +11,16 @@ export async function getAllVisits() {
   return data || []
 }
 
+export async function getVisitsBySubscriber(subscriberId: string) {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('visits')
+    .select(VISIT_SELECT)
+    .eq('subscriber_id', subscriberId)
+    .order('scheduled_at', { ascending: true })
+  return data || []
+}
+
 export async function getVisitsByVisitor(visitorId: string) {
   const supabase = createClient()
   const { data } = await supabase

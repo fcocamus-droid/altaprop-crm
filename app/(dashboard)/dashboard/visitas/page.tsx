@@ -4,8 +4,8 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import { PageHeader } from '@/components/shared/page-header'
 import { VisitList } from '@/components/visits/visit-list'
 import { ScheduleManager } from '@/components/visits/schedule-manager'
-import { getAllVisits, getVisitsByVisitor, getVisitsByPropertyOwner, getVisitsByAgent } from '@/lib/queries/visits'
-import { PROPERTY_MANAGER_ROLES, isAdmin } from '@/lib/constants'
+import { getAllVisits, getVisitsByVisitor, getVisitsByPropertyOwner, getVisitsByAgent, getVisitsBySubscriber } from '@/lib/queries/visits'
+import { PROPERTY_MANAGER_ROLES, isAdmin, ROLES } from '@/lib/constants'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
@@ -19,8 +19,10 @@ export default async function VisitasPage() {
   let properties: any[] = []
 
   try {
-    if (isAdmin(profile.role)) {
+    if (profile.role === ROLES.SUPERADMINBOSS) {
       visits = await getAllVisits()
+    } else if (profile.role === ROLES.SUPERADMIN) {
+      visits = await getVisitsBySubscriber(profile.subscriber_id || profile.id)
     } else if (profile.role === 'AGENTE') {
       visits = await getVisitsByAgent(profile.id)
     } else if (profile.role === 'PROPIETARIO') {
@@ -31,8 +33,11 @@ export default async function VisitasPage() {
 
     // Get properties for the create form
     const supabase = createClient()
-    if (isAdmin(profile.role)) {
+    if (profile.role === ROLES.SUPERADMINBOSS) {
       const { data } = await supabase.from('properties').select('id, title').order('title')
+      properties = data || []
+    } else if (profile.role === ROLES.SUPERADMIN) {
+      const { data } = await supabase.from('properties').select('id, title').eq('subscriber_id', profile.subscriber_id || profile.id).order('title')
       properties = data || []
     } else if (profile.role === 'AGENTE') {
       const { data } = await supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title')

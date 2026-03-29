@@ -96,10 +96,11 @@ export async function getFeaturedProperties() {
   return (data || []) as Property[]
 }
 
-export async function getPropertyStats(ownerId?: string) {
+export async function getPropertyStats(ownerId?: string, subscriberId?: string) {
   const supabase = createClient()
   let query = supabase.from('properties').select('status')
-  if (ownerId) query = query.eq('owner_id', ownerId)
+  if (subscriberId) query = query.eq('subscriber_id', subscriberId)
+  else if (ownerId) query = query.eq('owner_id', ownerId)
 
   const { data, error } = await query
   if (error) return { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }

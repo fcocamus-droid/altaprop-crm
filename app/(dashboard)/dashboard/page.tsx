@@ -18,14 +18,15 @@ export default async function DashboardPage() {
 
   const isOwnerOrAgent = isPropertyManager(profile.role)
   const ownerId = profile.role === 'PROPIETARIO' ? profile.id : undefined
+  const subscriberId = profile.role === 'SUPERADMIN' ? (profile.subscriber_id || profile.id) : undefined
 
   let propertyStats = { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }
   let appStats = { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
 
   try {
     const [pStats, aStats] = await Promise.all([
-      isOwnerOrAgent ? getPropertyStats(ownerId) : Promise.resolve(propertyStats),
-      getApplicationStats(ownerId),
+      isOwnerOrAgent ? getPropertyStats(ownerId, subscriberId) : Promise.resolve(propertyStats),
+      getApplicationStats(ownerId, subscriberId),
     ])
     propertyStats = pStats
     appStats = aStats
