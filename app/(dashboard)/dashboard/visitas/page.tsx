@@ -1,0 +1,55 @@
+import { getUserProfile } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { RoleGuard } from '@/components/auth/role-guard'
+import { PageHeader } from '@/components/shared/page-header'
+import { VisitList } from '@/components/visits/visit-list'
+import { getAllVisits, getVisitsByVisitor, getVisitsByPropertyOwner, getVisitsByAgent } from '@/lib/queries/visits'
+import { PROPERTY_MANAGER_ROLES, isAdmin } from '@/lib/constants'
+import { createClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = { title: 'Visitas - Altaprop' }
+
+export default async function VisitasPage() {
+  const profile = await getUserProfile()
+  if (!profile) redirect('/login')
+
+  let visits: any[] = []
+  let properties: any[] = []
+
+  try {
+    if (isAdmin(profile.role)) {
+      visits = await getAllVisits()
+    } else if (profile.role === 'AGENTE') {
+      visits = await getVisitsByAgent(profile.id)
+    } else if (profile.role === 'PROPIETARIO') {
+      visits = await getVisitsByPropertyOwner(profile.id)
+    } else {
+      visits = await getVisitsByVisitor(profile.id)
+    }
+
+    // Get properties for the create form
+    const supabase = createClient()
+    if (isAdmin(profile.role)) {
+      const { data } = await supabase.from('properties').select('id, title').order('title')
+      properties = data || []
+    } else if (profile.role === 'AGENTE') {
+      const { data } = await supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title')
+      properties = data || []
+    } else if (profile.role === 'PROPIETARIO') {
+      const { data } = await supabase.from('properties').select('id, title').eq('owner_id', profile.id).order('title')
+      properties = data || []
+    }
+  } catch {
+    // Supabase may not be configured yet
+  }
+
+  const canCreate = PROPERTY_MANAGER_ROLES.includes(profile.role as any)
+
+  return (
+    <RoleGuard allowedRoles={PROPERTY_MANAGER_ROLES}>
+      <PageHeader title="Visitas" description="Gestiona las visitas agendadas a propiedades" />
+      <VisitList visits={visits} properties={properties} canCreate={canCreate} />
+    </RoleGuard>
+  )
+}

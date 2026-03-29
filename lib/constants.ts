@@ -78,6 +78,13 @@ export const APPLICATION_STATUSES = [
   { value: 'rejected', label: 'Rechazada', color: 'bg-red-100 text-red-800' },
 ] as const
 
+export const VISIT_STATUSES = [
+  { value: 'pending', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'confirmed', label: 'Confirmada', color: 'bg-blue-100 text-blue-800' },
+  { value: 'completed', label: 'Completada', color: 'bg-green-100 text-green-800' },
+  { value: 'canceled', label: 'Cancelada', color: 'bg-red-100 text-red-800' },
+] as const
+
 export const PLANS = [
   { id: 'started', name: 'Started', price: 19, agents: 1, trial: false, features: ['1 agente incluido', 'Gestión de propiedades', 'Postulaciones básicas', 'Soporte por email'] },
   { id: 'basico', name: 'Básico', price: 29, agents: 3, trial: true, trialDays: 7, features: ['3 agentes incluidos', 'Gestión de propiedades', 'Postulaciones ilimitadas', 'Importación automática', 'Soporte prioritario'] },

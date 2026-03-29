@@ -72,6 +72,19 @@ export interface ApplicationDocument {
   created_at: string
 }
 
+export interface Visit {
+  id: string
+  property_id: string
+  visitor_id: string
+  scheduled_at: string
+  status: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+  property?: Property
+  visitor?: Profile
+}
+
 export interface PropertyFilters {
   type?: string
   operation?: string
