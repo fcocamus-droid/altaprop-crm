@@ -23,10 +23,12 @@ export default async function DashboardPage() {
   let appStats = { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
 
   try {
-    if (isOwnerOrAgent) {
-      propertyStats = await getPropertyStats(ownerId)
-    }
-    appStats = await getApplicationStats(ownerId)
+    const [pStats, aStats] = await Promise.all([
+      isOwnerOrAgent ? getPropertyStats(ownerId) : Promise.resolve(propertyStats),
+      getApplicationStats(ownerId),
+    ])
+    propertyStats = pStats
+    appStats = aStats
   } catch {
     // Supabase may not be configured yet
   }

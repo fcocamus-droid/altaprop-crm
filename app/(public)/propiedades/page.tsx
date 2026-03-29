@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 import { getProperties } from '@/lib/queries/properties'
 import { PropertyCard } from '@/components/properties/property-card'

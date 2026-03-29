@@ -14,25 +14,22 @@ export async function getUsers() {
 
   const admin = createAdminClient()
 
-  // Get profiles
-  const { data: profiles, error } = await admin
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
+  // Fetch profiles and auth users in parallel
+  const [profilesResult, authResult] = await Promise.all([
+    admin.from('profiles').select('*').order('created_at', { ascending: false }),
+    admin.auth.admin.listUsers({ perPage: 100 }),
+  ])
 
-  if (error || !profiles) return { users: [], profile }
+  if (profilesResult.error || !profilesResult.data) return { users: [], profile }
 
-  // Get emails from auth.users using admin API
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
   const emailMap = new Map<string, string>()
-  if (authData?.users) {
-    for (const u of authData.users) {
+  if (authResult.data?.users) {
+    for (const u of authResult.data.users) {
       emailMap.set(u.id, u.email || '')
     }
   }
 
-  // Merge email into profiles
-  const usersWithEmail = profiles.map(p => ({
+  const usersWithEmail = profilesResult.data.map(p => ({
     ...p,
     email: emailMap.get(p.id) || '',
   }))
