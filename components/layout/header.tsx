@@ -40,21 +40,19 @@ export function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
-          {!loading && (
-            user ? (
-              <Button asChild className="bg-navy hover:bg-navy/90">
-                <Link href="/dashboard"><LogIn className="mr-2 h-4 w-4" />Mi Panel</Link>
+          {user ? (
+            <Button asChild className="bg-navy hover:bg-navy/90">
+              <Link href="/dashboard"><LogIn className="mr-2 h-4 w-4" />Mi Panel</Link>
+            </Button>
+          ) : (
+            <>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/login"><LogIn className="mr-2 h-4 w-4" />Iniciar Sesion</Link>
               </Button>
-            ) : (
-              <>
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/login"><LogIn className="mr-2 h-4 w-4" />Iniciar Sesion</Link>
-                </Button>
-                <Button asChild size="sm">
-                  <Link href="/register"><UserPlus className="mr-2 h-4 w-4" />Registrarse</Link>
-                </Button>
-              </>
-            )
+              <Button asChild size="sm">
+                <Link href="/register"><UserPlus className="mr-2 h-4 w-4" />Registrarse</Link>
+              </Button>
+            </>
           )}
         </div>
 
