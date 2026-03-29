@@ -39,14 +39,7 @@ async function scrapeGenericSite(url: string) {
     // Extract Open Graph and meta tags
     const title = extractMeta(html, 'og:title') || extractTag(html, 'title') || ''
     const description = extractMeta(html, 'og:description') || extractMeta(html, 'description') || ''
-    const ogImage = extractMeta(html, 'og:image') || ''
     const price = extractPrice(html)
-    const images = extractImages(html, url)
-
-    // Add OG image if not already in images
-    if (ogImage && !images.includes(ogImage)) {
-      images.unshift(ogImage)
-    }
 
     // Try to detect operation and type from text
     const lowerText = (title + ' ' + description).toLowerCase()
@@ -66,7 +59,7 @@ async function scrapeGenericSite(url: string) {
       city: '',
       sector: '',
       description: cleanText(description).substring(0, 500),
-      images: images.slice(0, 10),
+      images: [],
     })
   } catch {
     return NextResponse.json({ error: 'Error extrayendo datos del sitio' })
@@ -148,20 +141,6 @@ function extractPrice(html: string): { amount: number; currency: string } {
   return { amount: 0, currency: 'CLP' }
 }
 
-function extractImages(html: string, baseUrl: string): string[] {
-  const imgs: string[] = []
-  const regex = /<img[^>]*src=["']([^"']+)["'][^>]*>/gi
-  let m
-  while ((m = regex.exec(html)) !== null) {
-    let src = m[1]
-    if (src.startsWith('//')) src = 'https:' + src
-    else if (src.startsWith('/')) { try { src = new URL(src, baseUrl).href } catch {} }
-    if (src.match(/\.(jpg|jpeg|png|webp)/i) && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar')) {
-      imgs.push(src)
-    }
-  }
-  return Array.from(new Set(imgs))
-}
 
 function extractNumber(html: string, pattern: RegExp): number {
   const match = html.match(pattern)
