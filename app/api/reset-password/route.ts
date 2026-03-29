@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   // Send email via Resend
   const { error: emailError } = await resend.emails.send({
-    from: 'Altaprop <onboarding@resend.dev>',
+    from: 'Altaprop <noreply@altaprop-app.cl>',
     to: email,
     subject: 'Restablecer tu contrasena - Altaprop',
     html: `
