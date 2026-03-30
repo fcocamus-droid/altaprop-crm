@@ -12,6 +12,7 @@ import { ImportProperty } from '@/components/properties/import-property'
 import { PropertyList } from '@/components/properties/property-list'
 import { UpgradeBanner } from '@/components/shared/upgrade-banner'
 import { canImportProperties } from '@/lib/plan-features'
+import { getEffectivePlan } from '@/lib/plan-features-server'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
@@ -20,6 +21,8 @@ export const metadata: Metadata = { title: 'Mis Propiedades' }
 export default async function PropiedadesDashboardPage() {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
+
+  const effectivePlan = await getEffectivePlan(profile)
 
   let properties: any[] = []
   let agents: { id: string; full_name: string | null }[] = []
@@ -56,7 +59,7 @@ export default async function PropiedadesDashboardPage() {
         </Button>
       </PageHeader>
 
-      {(profile.role === ROLES.SUPERADMINBOSS || canImportProperties(profile.plan)) ? (
+      {canImportProperties(effectivePlan) ? (
         <ImportProperty />
       ) : (
         <UpgradeBanner feature="Importar propiedades desde tu sitio web" requiredPlan="Básico" />
