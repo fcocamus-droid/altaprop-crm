@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
-import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
 
 interface Visit {
   id: string
@@ -49,6 +49,9 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
   const [calTime, setCalTime] = useState('')
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [calYear, setCalYear] = useState(new Date().getFullYear())
+
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   const [newVisit, setNewVisit] = useState({ property_id: '', date: '', time: '', notes: '' })
 
@@ -166,8 +169,72 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
         </Card>
       )}
 
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por propiedad, visitante, RUT, email, teléfono..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          {[{ value: 'all', label: 'Todas' }, ...VISIT_STATUSES].map((s) => {
+            const statusInfo = s.value === 'all' ? null : getStatusInfo(s.value)
+            return (
+              <button
+                key={s.value}
+                onClick={() => setFilterStatus(s.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                  filterStatus === s.value
+                    ? s.value === 'all'
+                      ? 'bg-navy text-white border-navy'
+                      : `${statusInfo?.color} border-current ring-1 ring-offset-1`
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {(() => {
+        const filtered = visits.filter((v) => {
+          if (filterStatus !== 'all' && v.status !== filterStatus) return false
+          if (search) {
+            const q = search.toLowerCase()
+            const title = ((v.property as any)?.title || '').toLowerCase()
+            const city = ((v.property as any)?.city || '').toLowerCase()
+            const visitor = ((v.visitor as any)?.full_name || '').toLowerCase()
+            const notes = (v.notes || '').toLowerCase()
+            return title.includes(q) || city.includes(q) || visitor.includes(q) || notes.includes(q)
+          }
+          return true
+        })
+
+        if (visits.length === 0) return (
+          <div className="text-center py-12 text-muted-foreground">
+            <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No hay visitas agendadas</p>
+            <p className="text-sm">Agenda tu primera visita para empezar</p>
+          </div>
+        )
+
+        if (filtered.length === 0) return (
+          <div className="text-center py-8 text-muted-foreground">
+            <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <p className="font-medium">No se encontraron visitas</p>
+            <p className="text-sm">Prueba con otro término de búsqueda o filtro</p>
+          </div>
+        )
+
+        return (
       <div className="space-y-3">
-        {visits.map((visit) => {
+        {filtered.map((visit) => {
           const status = getStatusInfo(visit.status)
           const isLoading = loading === visit.id
           return (
@@ -300,14 +367,9 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
           )
         })}
 
-        {visits.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No hay visitas agendadas</p>
-            <p className="text-sm">Agenda tu primera visita para empezar</p>
-          </div>
-        )}
       </div>
+        )
+      })()}
     </div>
   )
 }
