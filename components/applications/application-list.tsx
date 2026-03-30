@@ -7,7 +7,9 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { deleteApplication, updateApplicationStatus } from '@/lib/actions/applications'
 import { ApplicationDocuments } from '@/components/applications/application-documents'
 import { formatDate } from '@/lib/utils'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { APPLICATION_STATUSES } from '@/lib/constants'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search } from 'lucide-react'
 
 interface ApplicationItem {
   id: string
@@ -22,6 +24,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
   const [applications, setApplications] = useState(initial)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
 
   async function handleDelete(id: string, title: string) {
     if (!confirm(`¿Eliminar postulación a "${title}"? Esta acción no se puede deshacer.`)) return
@@ -45,9 +49,58 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
   }
 
+  const filtered = applications.filter(app => {
+    if (filterStatus !== 'all' && app.status !== filterStatus) return false
+    if (search) {
+      const q = search.toLowerCase()
+      const title = (app.property?.title || '').toLowerCase()
+      const name = ((app.applicant as any)?.full_name || '').toLowerCase()
+      return title.includes(q) || name.includes(q)
+    }
+    return true
+  })
+
   return (
     <div className="space-y-4">
-      {applications.map((app) => {
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por propiedad o postulante..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {[{ value: 'all', label: 'Todas', color: '' }, ...APPLICATION_STATUSES].map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setFilterStatus(s.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
+                filterStatus === s.value
+                  ? s.value === 'all'
+                    ? 'bg-navy text-white border-navy'
+                    : `${s.color} border-current ring-1 ring-offset-1`
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 && applications.length > 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p className="font-medium">No se encontraron postulaciones</p>
+          <p className="text-sm">Prueba con otro término o filtro</p>
+        </div>
+      )}
+
+      {filtered.map((app) => {
         const isExpanded = expanded === app.id
         return (
           <Card key={app.id} className={`transition-all ${deleting === app.id ? 'opacity-50' : ''} ${isExpanded ? 'ring-2 ring-navy/20' : ''}`}>
