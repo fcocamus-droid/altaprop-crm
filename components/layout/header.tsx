@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, LogIn, UserPlus } from 'lucide-react'
+import { Menu, X, LogIn, UserPlus, Home } from 'lucide-react'
 import { useState } from 'react'
 import { Logo } from './logo'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,9 @@ export function Header() {
             </Button>
           ) : (
             <>
+              <Button asChild size="sm" className="bg-gold text-navy hover:bg-gold/90 font-semibold">
+                <Link href="/registro-propietario"><Home className="mr-2 h-4 w-4" />Publica Gratis</Link>
+              </Button>
               <Button asChild variant="outline" size="sm">
                 <Link href="/login"><LogIn className="mr-2 h-4 w-4" />Iniciar Sesion</Link>
               </Button>
@@ -75,8 +78,8 @@ export function Header() {
               <Button asChild className="w-full"><Link href="/dashboard">Mi Panel</Link></Button>
             ) : (
               <>
+                <Button asChild className="flex-1 bg-gold text-navy hover:bg-gold/90"><Link href="/registro-propietario">Publica Gratis</Link></Button>
                 <Button asChild variant="outline" className="flex-1"><Link href="/login">Iniciar Sesion</Link></Button>
-                <Button asChild className="flex-1"><Link href="/register">Registrarse</Link></Button>
               </>
             )}
           </div>

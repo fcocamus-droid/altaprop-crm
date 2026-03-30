@@ -36,6 +36,17 @@ export default async function PropiedadesPage({
         <p className="text-muted-foreground">Encuentra tu propiedad ideal en arriendo o venta.</p>
       </div>
 
+      {/* CTA Banner */}
+      <div className="mb-6 bg-gradient-to-r from-gold/10 to-gold/5 border border-gold/20 rounded-lg p-4 flex items-center justify-between">
+        <div>
+          <p className="font-semibold text-navy">¿Eres propietario?</p>
+          <p className="text-sm text-muted-foreground">Publica gratis tu propiedad y encuentra arrendatarios o compradores</p>
+        </div>
+        <Button asChild className="bg-gold text-navy hover:bg-gold/90 font-semibold shrink-0">
+          <Link href="/registro-propietario">Publica Gratis</Link>
+        </Button>
+      </div>
+
       {/* Filters */}
       <form className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8 p-4 bg-muted/50 rounded-lg">
         <select name="operation" defaultValue={searchParams.operation || ''} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
