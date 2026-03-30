@@ -15,7 +15,7 @@ interface ExistingDoc {
   type: string
 }
 
-export function ApplicationDocuments({ applicationId, readOnly = false }: { applicationId: string; readOnly?: boolean }) {
+export function ApplicationDocuments({ applicationId, readOnly = false, onAllDocsUploaded }: { applicationId: string; readOnly?: boolean; onAllDocsUploaded?: () => void }) {
   const [applicantType, setApplicantType] = useState<'persona' | 'empresa'>('persona')
   const [showCodeudor, setShowCodeudor] = useState(false)
   const [existingDocs, setExistingDocs] = useState<ExistingDoc[]>([])
@@ -70,6 +70,16 @@ export function ApplicationDocuments({ applicationId, readOnly = false }: { appl
   function getExistingDoc(docType: string): ExistingDoc | undefined {
     return existingDocs.find(d => d.type === docType)
   }
+
+  // Check if all required docs are uploaded
+  useEffect(() => {
+    if (readOnly || !onAllDocsUploaded) return
+    const slots = applicantType === 'persona' ? REQUIRED_DOC_SLOTS : EMPRESA_DOC_SLOTS
+    const allUploaded = slots.every(s => existingDocs.some(d => d.type === s.type))
+    if (allUploaded && existingDocs.length >= slots.length) {
+      onAllDocsUploaded()
+    }
+  }, [existingDocs, applicantType, readOnly, onAllDocsUploaded])
 
   const personaSlots = REQUIRED_DOC_SLOTS
   const empresaSlots = EMPRESA_DOC_SLOTS

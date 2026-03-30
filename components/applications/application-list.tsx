@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteApplication } from '@/lib/actions/applications'
+import { deleteApplication, updateApplicationStatus } from '@/lib/actions/applications'
 import { ApplicationDocuments } from '@/components/applications/application-documents'
 import { formatDate } from '@/lib/utils'
 import { FileText, ChevronDown, ChevronUp, Trash2, Loader2 } from 'lucide-react'
@@ -36,6 +36,13 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
 
   function toggleExpand(id: string) {
     setExpanded(prev => prev === id ? null : id)
+  }
+
+  async function handleDocsComplete(id: string) {
+    const app = applications.find(a => a.id === id)
+    if (!app || app.status !== 'pending') return
+    await updateApplicationStatus(id, 'reviewing')
+    setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
   }
 
   return (
@@ -95,6 +102,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                   <ApplicationDocuments
                     applicationId={app.id}
                     readOnly={!isApplicant}
+                    onAllDocsUploaded={() => handleDocsComplete(app.id)}
                   />
                 </div>
               )}
