@@ -406,8 +406,9 @@ function ExtraUploadButton({ sectionPrefix, existingDocs, uploading, deleting, o
 }
 
 function DownloadButton({ url, name }: { url: string; name: string }) {
+  const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`
   return (
-    <a href={`${url}?download=`} download={name} target="_blank" rel="noopener noreferrer">
+    <a href={downloadUrl}>
       <Button variant="outline" size="sm" className="h-7 text-xs shrink-0">
         <Download className="mr-1 h-3 w-3" />Descargar
       </Button>
