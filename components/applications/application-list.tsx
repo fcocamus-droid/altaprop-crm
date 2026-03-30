@@ -63,8 +63,10 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold truncate">{app.property?.title || 'Propiedad'}</h3>
+                    {!isApplicant && app.applicant?.full_name && (
+                      <p className="text-sm text-navy font-medium">{app.applicant.full_name}</p>
+                    )}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      {!isApplicant && <span>{app.applicant?.full_name || 'Postulante'}</span>}
                       <span>{formatDate(app.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
