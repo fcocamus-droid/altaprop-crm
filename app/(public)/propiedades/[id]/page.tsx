@@ -109,11 +109,13 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
                     <DialogTrigger asChild>
                       <Button className="w-full" size="lg">Postular a esta Propiedad</Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-lg">
+                    <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
                       <DialogHeader>
                         <DialogTitle>Postular a {property.title}</DialogTitle>
                       </DialogHeader>
-                      <ApplicationForm propertyId={property.id} />
+                      <div className="overflow-y-auto flex-1 pr-2 -mr-2">
+                        <ApplicationForm propertyId={property.id} />
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </div>
