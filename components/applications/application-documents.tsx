@@ -406,32 +406,11 @@ function ExtraUploadButton({ sectionPrefix, existingDocs, uploading, deleting, o
 }
 
 function DownloadButton({ url, name }: { url: string; name: string }) {
-  const [downloading, setDownloading] = useState(false)
-
-  async function handleDownload() {
-    setDownloading(true)
-    try {
-      const res = await fetch(url)
-      const blob = await res.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      a.download = name
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(blobUrl)
-    } catch {
-      // Fallback: open in new tab
-      window.open(url, '_blank')
-    }
-    setDownloading(false)
-  }
-
   return (
-    <Button variant="outline" size="sm" className="h-7 text-xs shrink-0" onClick={handleDownload} disabled={downloading}>
-      {downloading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
-      Descargar
-    </Button>
+    <a href={`${url}?download=`} download={name} target="_blank" rel="noopener noreferrer">
+      <Button variant="outline" size="sm" className="h-7 text-xs shrink-0">
+        <Download className="mr-1 h-3 w-3" />Descargar
+      </Button>
+    </a>
   )
 }
