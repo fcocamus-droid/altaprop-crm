@@ -35,44 +35,41 @@ export default async function PostulacionesPage() {
       applications = await getApplicationsByApplicant(profile.id)
     }
 
-    // Fetch applicants database for admins/agents
+    // Fetch applicants database for admins/agents using admin client to bypass RLS
     if (canManage) {
-      const supabase = createClient()
+      const { createAdminClient } = await import('@/lib/supabase/admin')
+      const admin = createAdminClient()
 
-      // Get applicant IDs from applications
+      // Get all POSTULANTE profiles that have applications to our properties
       const applicantIds = Array.from(new Set(applications.map((a: any) => a.applicant_id).filter(Boolean)))
 
       if (applicantIds.length > 0) {
-        const { data } = await supabase
+        const { data } = await admin
           .from('profiles')
           .select('id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, created_at')
           .in('id', applicantIds)
           .order('created_at', { ascending: false })
 
-        if (data) {
-          // Get emails from auth
-          const { createAdminClient } = await import('@/lib/supabase/admin')
-          const admin = createAdminClient()
-          const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
-          const emailMap = new Map<string, string>()
-          if (authData?.users) {
-            for (const u of authData.users) {
-              emailMap.set(u.id, u.email || '')
-            }
+        // Get emails
+        const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
+        const emailMap = new Map<string, string>()
+        if (authData?.users) {
+          for (const u of authData.users) {
+            emailMap.set(u.id, u.email || '')
           }
-
-          // Count applications per applicant
-          const appCounts = new Map<string, number>()
-          applications.forEach((a: any) => {
-            appCounts.set(a.applicant_id, (appCounts.get(a.applicant_id) || 0) + 1)
-          })
-
-          applicants = data.map(p => ({
-            ...p,
-            email: emailMap.get(p.id) || '',
-            application_count: appCounts.get(p.id) || 0,
-          }))
         }
+
+        // Count applications per applicant
+        const appCounts = new Map<string, number>()
+        applications.forEach((a: any) => {
+          appCounts.set(a.applicant_id, (appCounts.get(a.applicant_id) || 0) + 1)
+        })
+
+        applicants = (data || []).map(p => ({
+          ...p,
+          email: emailMap.get(p.id) || '',
+          application_count: appCounts.get(p.id) || 0,
+        }))
       }
     }
   } catch {
