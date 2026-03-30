@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { ApplicationForm } from '@/components/applications/application-form'
+import { ApplyButton } from '@/components/applications/apply-button'
 import { VisitCalendarToggle } from '@/components/visits/visit-calendar-toggle'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Bed, Bath, Maximize, MapPin, Calendar, User, Phone } from 'lucide-react'
@@ -104,19 +103,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               )}
 
               {canApply ? (
-                <div className="space-y-3">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="w-full" size="lg">Postular a esta Propiedad</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Postular a {property.title}</DialogTitle>
-                      </DialogHeader>
-                      <ApplicationForm propertyId={property.id} />
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <ApplyButton propertyId={property.id} propertyTitle={property.title} />
               ) : profile ? (
                 <p className="text-sm text-muted-foreground text-center">Solo postulantes pueden aplicar</p>
               ) : (
