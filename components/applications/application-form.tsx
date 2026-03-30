@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { REQUIRED_DOC_SLOTS } from '@/lib/constants'
 import { createApplication } from '@/lib/actions/applications'
-import { Loader2, Upload, FileText, X, CheckCircle, Plus, UserCheck, ShieldCheck } from 'lucide-react'
+import { Loader2, Upload, FileText, X, CheckCircle, Plus, UserCheck, ShieldCheck, User, Building2 } from 'lucide-react'
 
 interface ApplicationFormProps {
   propertyId: string
@@ -25,6 +25,7 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [message, setMessage] = useState('')
+  const [applicantType, setApplicantType] = useState<'persona' | 'empresa'>('persona')
   const [showCodeudor, setShowCodeudor] = useState(false)
 
   // Initialize doc slots for arrendatario
@@ -104,6 +105,7 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
     const formData = new FormData()
     formData.set('property_id', propertyId)
     formData.set('message', message)
+    formData.set('applicant_type', applicantType)
     allDocs.forEach(d => {
       formData.append('documents', d.file!)
       formData.append('doc_types', d.type)
@@ -150,6 +152,37 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
           required
           minLength={10}
         />
+      </div>
+
+      {/* APPLICANT TYPE SELECTOR */}
+      <div className="space-y-2">
+        <Label>Tipo de postulante *</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setApplicantType('persona')}
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+              applicantType === 'persona'
+                ? 'border-navy bg-navy/5 text-navy ring-2 ring-navy/20'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            <User className="h-4 w-4" />
+            Persona Natural
+          </button>
+          <button
+            type="button"
+            onClick={() => setApplicantType('empresa')}
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 text-sm font-medium transition-all ${
+              applicantType === 'empresa'
+                ? 'border-navy bg-navy/5 text-navy ring-2 ring-navy/20'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            <Building2 className="h-4 w-4" />
+            Empresa
+          </button>
+        </div>
       </div>
 
       {/* ARRENDATARIO SECTION */}
