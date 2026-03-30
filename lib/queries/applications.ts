@@ -29,7 +29,7 @@ export async function getApplicationsByOwner(ownerId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('applications')
-    .select('*, property:properties!inner(id, title, owner_id), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .select('*, property:properties!inner(id, title, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.owner_id', ownerId)
     .order('created_at', { ascending: false })
 
@@ -41,7 +41,7 @@ export async function getAllApplications() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('applications')
-    .select('*, property:properties(id, title), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .select('*, property:properties(id, title), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -52,7 +52,7 @@ export async function getApplicationsByAgent(agentId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('applications')
-    .select('*, property:properties!inner(id, title, agent_id), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .select('*, property:properties!inner(id, title, agent_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.agent_id', agentId)
     .order('created_at', { ascending: false })
 
@@ -64,7 +64,7 @@ export async function getApplicationsBySubscriber(subscriberId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('applications')
-    .select('*, property:properties!inner(id, title, subscriber_id), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .select('*, property:properties!inner(id, title, subscriber_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.subscriber_id', subscriberId)
     .order('created_at', { ascending: false })
 
