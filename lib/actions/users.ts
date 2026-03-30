@@ -16,7 +16,8 @@ export async function getUsers() {
   const admin = createAdminClient()
 
   // SUPERADMINBOSS sees all, SUPERADMIN sees only their subscriber group
-  let profilesQuery = admin.from('profiles').select('*').order('created_at', { ascending: false })
+  // Exclude POSTULANTE from users panel (they are managed in Postulaciones)
+  let profilesQuery = admin.from('profiles').select('*').neq('role', 'POSTULANTE').order('created_at', { ascending: false })
   if (profile.role === 'SUPERADMIN') {
     const subscriberId = profile.subscriber_id || profile.id
     profilesQuery = profilesQuery.eq('subscriber_id', subscriberId)
