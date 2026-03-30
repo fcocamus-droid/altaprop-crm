@@ -123,7 +123,31 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       <span>{formatDate(app.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <StatusBadge status={app.status} type="application" />
+                      {!isApplicant ? (
+                        <select
+                          value={app.status}
+                          onChange={async (e) => {
+                            e.stopPropagation()
+                            const newStatus = e.target.value
+                            setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
+                            await updateApplicationStatus(app.id, newStatus)
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer ${
+                            app.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                            app.status === 'reviewing' ? 'bg-green-100 text-green-800 border-green-200' :
+                            app.status === 'approved' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            app.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+                            'bg-gray-100 text-gray-800 border-gray-200'
+                          }`}
+                        >
+                          {APPLICATION_STATUSES.map(s => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <StatusBadge status={app.status} type="application" />
+                      )}
                       {app.documents && <span className="text-xs text-muted-foreground">{app.documents.length} doc(s)</span>}
                     </div>
                   </div>
