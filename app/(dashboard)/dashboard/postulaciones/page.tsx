@@ -40,8 +40,19 @@ export default async function PostulacionesPage() {
       const { createAdminClient } = await import('@/lib/supabase/admin')
       const admin = createAdminClient()
 
-      // Get all POSTULANTE profiles that have applications to our properties
-      const applicantIds = Array.from(new Set(applications.map((a: any) => a.applicant_id).filter(Boolean)))
+      // Get ALL postulantes who have applied (via admin to bypass RLS)
+      let allApps: any[] = []
+      if (profile.role === ROLES.SUPERADMINBOSS) {
+        const { data } = await admin.from('applications').select('applicant_id')
+        allApps = data || []
+      } else if (profile.role === ROLES.SUPERADMIN) {
+        const { data } = await admin.from('applications').select('applicant_id, property:properties!inner(subscriber_id)').eq('property.subscriber_id', profile.subscriber_id || profile.id)
+        allApps = data || []
+      } else if (profile.role === 'AGENTE') {
+        const { data } = await admin.from('applications').select('applicant_id, property:properties!inner(agent_id)').eq('property.agent_id', profile.id)
+        allApps = data || []
+      }
+      const applicantIds = Array.from(new Set((allApps || []).map((a: any) => a.applicant_id).filter(Boolean)))
 
       if (applicantIds.length > 0) {
         const { data } = await admin
@@ -61,7 +72,7 @@ export default async function PostulacionesPage() {
 
         // Count applications per applicant
         const appCounts = new Map<string, number>()
-        applications.forEach((a: any) => {
+        ;(allApps || []).forEach((a: any) => {
           appCounts.set(a.applicant_id, (appCounts.get(a.applicant_id) || 0) + 1)
         })
 
