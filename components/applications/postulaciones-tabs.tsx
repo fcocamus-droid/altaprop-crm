@@ -8,11 +8,10 @@ import { FileText, Users } from 'lucide-react'
 
 interface Props {
   applications: any[]
-  applicants: any[]
   showApplicantsTab: boolean
 }
 
-export function PostulacionesTabs({ applications, applicants, showApplicantsTab }: Props) {
+export function PostulacionesTabs({ applications, showApplicantsTab }: Props) {
   const [tab, setTab] = useState<'postulaciones' | 'postulantes'>('postulaciones')
 
   return (
@@ -43,9 +42,6 @@ export function PostulacionesTabs({ applications, applicants, showApplicantsTab 
           >
             <Users className="h-4 w-4" />
             Base de Postulantes
-            <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === 'postulantes' ? 'bg-navy text-white' : 'bg-muted'}`}>
-              {applicants.length}
-            </span>
           </button>
         </div>
       )}
@@ -62,7 +58,7 @@ export function PostulacionesTabs({ applications, applicants, showApplicantsTab 
       )}
 
       {tab === 'postulantes' && (
-        <ApplicantsDatabase applicants={applicants} />
+        <ApplicantsDatabase />
       )}
     </div>
   )

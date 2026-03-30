@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
-import { Search, User, Briefcase, Phone, Mail, MapPin, DollarSign, FileText } from 'lucide-react'
+import { Search, User, Briefcase, Phone, Mail, MapPin, DollarSign, FileText, Loader2 } from 'lucide-react'
 
 interface Applicant {
   id: string
@@ -25,11 +25,24 @@ interface Applicant {
   application_count: number
 }
 
-export function ApplicantsDatabase({ applicants: initial }: { applicants: Applicant[] }) {
+export function ApplicantsDatabase() {
+  const [applicants, setApplicants] = useState<Applicant[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const filtered = initial.filter(a => {
+  useEffect(() => {
+    fetch('/api/postulantes')
+      .then(r => r.json())
+      .then(data => { setApplicants(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+  }
+
+  const filtered = applicants.filter(a => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
