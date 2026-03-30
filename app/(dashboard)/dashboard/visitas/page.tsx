@@ -24,7 +24,9 @@ export default async function VisitasPage() {
     } else if (profile.role === ROLES.SUPERADMIN) {
       visits = await getVisitsBySubscriber(profile.subscriber_id || profile.id)
     } else if (profile.role === 'AGENTE') {
-      visits = await getVisitsByAgent(profile.id)
+      visits = profile.subscriber_id
+        ? await getVisitsBySubscriber(profile.subscriber_id)
+        : await getVisitsByAgent(profile.id)
     } else if (profile.role === 'PROPIETARIO') {
       visits = await getVisitsByPropertyOwner(profile.id)
     } else {
@@ -40,7 +42,9 @@ export default async function VisitasPage() {
       const { data } = await supabase.from('properties').select('id, title').eq('subscriber_id', profile.subscriber_id || profile.id).order('title')
       properties = data || []
     } else if (profile.role === 'AGENTE') {
-      const { data } = await supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title')
+      const { data } = profile.subscriber_id
+        ? await supabase.from('properties').select('id, title').eq('subscriber_id', profile.subscriber_id).order('title')
+        : await supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title')
       properties = data || []
     } else if (profile.role === 'PROPIETARIO') {
       const { data } = await supabase.from('properties').select('id, title').eq('owner_id', profile.id).order('title')

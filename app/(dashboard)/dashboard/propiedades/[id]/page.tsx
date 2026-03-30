@@ -15,8 +15,9 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
   const property = await getPropertyById(params.id)
   if (!property) notFound()
 
-  // Only owner, assigned agent, or admin can edit
-  if (!isAdmin(profile.role) && property.owner_id !== profile.id && property.agent_id !== profile.id) {
+  // Only owner, agent from same subscriber, or admin can edit
+  const sameSubscriber = profile.subscriber_id && property.subscriber_id && profile.subscriber_id === property.subscriber_id
+  if (!isAdmin(profile.role) && !sameSubscriber && property.owner_id !== profile.id && property.agent_id !== profile.id) {
     redirect('/dashboard/propiedades')
   }
 

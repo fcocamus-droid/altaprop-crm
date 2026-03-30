@@ -18,7 +18,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   const isOwnerOrAgent = isPropertyManager(profile.role)
   const ownerId = profile.role === 'PROPIETARIO' ? profile.id : undefined
-  const subscriberId = profile.role === 'SUPERADMIN' ? (profile.subscriber_id || profile.id) : undefined
+  const subscriberId = (profile.role === 'SUPERADMIN' || profile.role === 'AGENTE') ? (profile.subscriber_id || profile.id) : undefined
 
   let propertyStats = { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }
   let appStats = { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
