@@ -6,13 +6,18 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteProperty, updatePropertyStatus } from '@/lib/actions/properties'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2 } from 'lucide-react'
+import { deleteProperty, updatePropertyStatus, updatePropertyAgent } from '@/lib/actions/properties'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
   if (currency === 'USD') return `$${price.toLocaleString('en-US')} USD`
   return `$${price.toLocaleString('es-CL')}`
+}
+
+interface Agent {
+  id: string
+  full_name: string | null
 }
 
 interface Property {
@@ -24,10 +29,12 @@ interface Property {
   city: string
   sector: string
   status: string
+  agent_id: string | null
+  agent?: { id: string; full_name: string | null } | null
   images?: { url: string }[]
 }
 
-export function PropertyList({ properties: initialProperties }: { properties: Property[] }) {
+export function PropertyList({ properties: initialProperties, agents = [], currentUserRole = '' }: { properties: Property[]; agents?: Agent[]; currentUserRole?: string }) {
   const [properties, setProperties] = useState(initialProperties)
   const [search, setSearch] = useState('')
   const [filterOp, setFilterOp] = useState('all')
@@ -201,6 +208,30 @@ export function PropertyList({ properties: initialProperties }: { properties: Pr
                       <option value="rented">Arrendada</option>
                       <option value="sold">Vendida</option>
                     </select>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <UserCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    {agents.length > 0 && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') ? (
+                      <select
+                        value={property.agent_id || ''}
+                        onChange={async (e) => {
+                          const newAgentId = e.target.value || null
+                          const newAgent = agents.find(a => a.id === newAgentId) || null
+                          setProperties(prev => prev.map(p => p.id === property.id ? { ...p, agent_id: newAgentId, agent: newAgent ? { id: newAgent.id, full_name: newAgent.full_name } : null } : p))
+                          await updatePropertyAgent(property.id, newAgentId)
+                        }}
+                        className="text-xs text-muted-foreground bg-transparent border-none cursor-pointer hover:text-foreground p-0 focus:outline-none focus:ring-0"
+                      >
+                        <option value="">Sin asignar</option>
+                        {agents.map(a => (
+                          <option key={a.id} value={a.id}>{a.full_name || 'Sin nombre'}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {property.agent?.full_name || 'Sin asignar'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

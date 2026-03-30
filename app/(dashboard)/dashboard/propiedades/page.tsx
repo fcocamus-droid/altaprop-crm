@@ -5,16 +5,14 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import { isAdmin, ROLES, PROPERTY_MANAGER_ROLES } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
-import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { ImportProperty } from '@/components/properties/import-property'
 import { PropertyList } from '@/components/properties/property-list'
 import { UpgradeBanner } from '@/components/shared/upgrade-banner'
 import { canImportProperties } from '@/lib/plan-features'
-import { formatPrice } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Mis Propiedades' }
@@ -24,18 +22,29 @@ export default async function PropiedadesDashboardPage() {
   if (!profile) redirect('/login')
 
   let properties: any[] = []
+  let agents: { id: string; full_name: string | null }[] = []
   try {
     if (profile.role === ROLES.SUPERADMINBOSS) {
       properties = await getAllProperties()
     } else if (profile.role === ROLES.SUPERADMIN) {
       properties = await getPropertiesBySubscriber(profile.subscriber_id || profile.id)
     } else if (profile.role === 'AGENTE') {
-      // Agent sees all properties from their subscriber's organization
       properties = profile.subscriber_id
         ? await getPropertiesBySubscriber(profile.subscriber_id)
         : await getPropertiesByAgent(profile.id)
     } else {
       properties = await getPropertiesByOwner(profile.id)
+    }
+
+    // Fetch agents for assignment (SUPERADMIN and SUPERADMINBOSS)
+    if (isAdmin(profile.role)) {
+      const supabase = createClient()
+      let agentQuery = supabase.from('profiles').select('id, full_name').in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
+      if (profile.role === ROLES.SUPERADMIN) {
+        agentQuery = supabase.from('profiles').select('id, full_name').eq('subscriber_id', profile.subscriber_id || profile.id).in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
+      }
+      const { data } = await agentQuery
+      agents = data || []
     }
   } catch {
     // Supabase may not be configured yet
@@ -60,7 +69,7 @@ export default async function PropiedadesDashboardPage() {
           <Button asChild><Link href="/dashboard/propiedades/nueva">Publicar Propiedad</Link></Button>
         </EmptyState>
       ) : (
-        <PropertyList properties={properties} />
+        <PropertyList properties={properties} agents={agents} currentUserRole={profile.role} />
       )}
     </RoleGuard>
   )

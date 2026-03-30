@@ -63,7 +63,7 @@ export async function getAllProperties() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -74,7 +74,7 @@ export async function getPropertiesBySubscriber(subscriberId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .eq('subscriber_id', subscriberId)
     .order('created_at', { ascending: false })
 

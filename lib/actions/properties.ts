@@ -170,6 +170,24 @@ export async function updatePropertyStatus(id: string, status: string) {
   return { success: true }
 }
 
+export async function updatePropertyAgent(propertyId: string, agentId: string | null) {
+  const profile = await getUserProfile()
+  if (!profile || !isPropertyManager(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('properties')
+    .update({ agent_id: agentId || null })
+    .eq('id', propertyId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/propiedades')
+  return { success: true }
+}
+
 export async function importProperty(propertyData: {
   title: string
   description: string
