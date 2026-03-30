@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
 import { FileText, Download, CheckCircle, XCircle, Clock, User, Loader2, Briefcase, Home, Shield } from 'lucide-react'
+import { ApplicationDocuments } from '@/components/applications/application-documents'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -141,26 +142,10 @@ export default function PostulacionDetallePage({ params }: { params: { id: strin
         <Card className="md:col-span-2">
           <CardHeader><CardTitle>Documentos</CardTitle></CardHeader>
           <CardContent>
-            {application.documents && application.documents.length > 0 ? (
-              <div className="space-y-2">
-                {application.documents.map((doc: any) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-navy dark:text-gold" />
-                      <div>
-                        <p className="text-sm font-medium">{doc.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{doc.type || 'documento'}</p>
-                      </div>
-                    </div>
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm"><Download className="mr-2 h-3 w-3" />Descargar</Button>
-                    </a>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Sin documentos adjuntos</p>
-            )}
+            <ApplicationDocuments
+              applicationId={params.id}
+              readOnly={profile?.role !== 'POSTULANTE' || application.applicant_id !== profile?.id}
+            />
           </CardContent>
         </Card>
 
