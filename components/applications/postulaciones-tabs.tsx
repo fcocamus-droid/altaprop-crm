@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ApplicationList } from '@/components/applications/application-list'
 import { ApplicantsDatabase } from '@/components/applications/applicants-database'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -13,6 +13,16 @@ interface Props {
 
 export function PostulacionesTabs({ applications, showApplicantsTab }: Props) {
   const [tab, setTab] = useState<'postulaciones' | 'postulantes'>('postulaciones')
+  const [postulantesCount, setPostulantesCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (showApplicantsTab) {
+      fetch('/api/postulantes')
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setPostulantesCount(data.length) })
+        .catch(() => {})
+    }
+  }, [showApplicantsTab])
 
   return (
     <div className="space-y-4">
@@ -42,6 +52,11 @@ export function PostulacionesTabs({ applications, showApplicantsTab }: Props) {
           >
             <Users className="h-4 w-4" />
             Base de Postulantes
+            {postulantesCount !== null && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${tab === 'postulantes' ? 'bg-navy text-white' : 'bg-muted'}`}>
+                {postulantesCount}
+              </span>
+            )}
           </button>
         </div>
       )}
