@@ -19,6 +19,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const verified = searchParams.get('verified') === 'true'
+  const redirectTo = searchParams.get('redirect')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -38,7 +39,7 @@ function LoginForm() {
       return
     }
 
-    router.push('/dashboard')
+    router.push(redirectTo || '/dashboard')
     router.refresh()
   }
 
@@ -94,9 +95,15 @@ function LoginForm() {
           </Button>
           <p className="text-sm text-muted-foreground text-center">
             No tienes cuenta?{' '}
-            <Link href="/register" className="text-primary hover:underline font-medium">
-              Registrate aqui
-            </Link>
+            {redirectTo?.startsWith('/propiedades/') ? (
+              <Link href={`/registro-postulante?property=${redirectTo.split('/').pop()}`} className="text-primary hover:underline font-medium">
+                Regístrate como postulante
+              </Link>
+            ) : (
+              <Link href="/register" className="text-primary hover:underline font-medium">
+                Registrate aqui
+              </Link>
+            )}
           </p>
         </CardFooter>
       </form>

@@ -120,9 +120,17 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               ) : profile ? (
                 <p className="text-sm text-muted-foreground text-center">Solo postulantes pueden aplicar</p>
               ) : (
-                <Button asChild className="w-full" size="lg">
-                  <Link href={`/login?redirect=/propiedades/${property.id}`}>Inicia sesion para postular</Link>
-                </Button>
+                <>
+                  <Button asChild className="w-full" size="lg">
+                    <Link href={`/registro-postulante?property=${property.id}`}>Inicia sesion para postular</Link>
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    ¿Ya tienes cuenta?{' '}
+                    <Link href={`/login?redirect=/propiedades/${property.id}`} className="text-primary hover:underline">
+                      Inicia sesión aquí
+                    </Link>
+                  </p>
+                </>
               )}
 
               <VisitCalendarToggle propertyId={property.id} propertyTitle={property.title} />

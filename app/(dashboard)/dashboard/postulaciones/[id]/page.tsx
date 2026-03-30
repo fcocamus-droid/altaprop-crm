@@ -10,7 +10,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { FileText, Download, CheckCircle, XCircle, Clock, User, Loader2 } from 'lucide-react'
+import { FileText, Download, CheckCircle, XCircle, Clock, User, Loader2, Briefcase, Home, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -26,7 +26,7 @@ export default function PostulacionDetallePage({ params }: { params: { id: strin
       const supabase = createClient()
       const { data } = await supabase
         .from('applications')
-        .select('*, property:properties(id, title, address, city, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
+        .select('*, property:properties(id, title, address, city, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, emergency_contact_name, emergency_contact_phone), documents:application_documents(*)')
         .eq('id', params.id)
         .single()
       setApplication(data)
@@ -85,6 +85,51 @@ export default function PostulacionDetallePage({ params }: { params: { id: strin
             </div>
           </CardContent>
         </Card>
+
+        {canManage && application.applicant && (
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><User className="h-4 w-4" /> Perfil del Postulante</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {application.applicant.rut && (
+                <div className="flex justify-between"><span className="text-muted-foreground">RUT</span><span className="font-medium">{application.applicant.rut}</span></div>
+              )}
+              {application.applicant.birth_date && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Fecha Nacimiento</span><span>{formatDate(application.applicant.birth_date)}</span></div>
+              )}
+              {application.applicant.marital_status && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Estado Civil</span><span className="capitalize">{application.applicant.marital_status}</span></div>
+              )}
+              {application.applicant.nationality && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Nacionalidad</span><span>{application.applicant.nationality}</span></div>
+              )}
+              <div className="border-t pt-2 mt-2">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1"><Briefcase className="h-3 w-3" /> LABORAL</p>
+                {application.applicant.occupation && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Ocupación</span><span>{application.applicant.occupation}</span></div>
+                )}
+                {application.applicant.employer && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Empresa</span><span>{application.applicant.employer}</span></div>
+                )}
+                {application.applicant.employment_years != null && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Antigüedad</span><span>{application.applicant.employment_years} año(s)</span></div>
+                )}
+                {application.applicant.monthly_income && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Renta Líquida</span><span className="font-semibold text-green-700">${application.applicant.monthly_income.toLocaleString('es-CL')}/mes</span></div>
+                )}
+              </div>
+              {(application.applicant.housing_status || application.applicant.emergency_contact_name) && (
+                <div className="border-t pt-2 mt-2">
+                  {application.applicant.housing_status && (
+                    <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1"><Home className="h-3 w-3" /> Vivienda</span><span className="capitalize">{application.applicant.housing_status}</span></div>
+                  )}
+                  {application.applicant.emergency_contact_name && (
+                    <div className="flex justify-between mt-1"><span className="text-muted-foreground flex items-center gap-1"><Shield className="h-3 w-3" /> Emergencia</span><span>{application.applicant.emergency_contact_name} {application.applicant.emergency_contact_phone && `— ${application.applicant.emergency_contact_phone}`}</span></div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Mensaje</CardTitle></CardHeader>
