@@ -26,6 +26,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
   const [expanded, setExpanded] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [docCounts, setDocCounts] = useState<Record<string, number>>({})
 
   async function handleDelete(id: string, title: string) {
     if (!confirm(`¿Eliminar postulación a "${title}"? Esta acción no se puede deshacer.`)) return
@@ -148,7 +149,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       ) : (
                         <StatusBadge status={app.status} type="application" />
                       )}
-                      {app.documents && <span className="text-xs text-muted-foreground">{app.documents.length} doc(s)</span>}
+                      <span className="text-xs text-muted-foreground">{docCounts[app.id] ?? app.documents?.length ?? 0} doc(s)</span>
                     </div>
                   </div>
                 </div>
@@ -182,6 +183,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     applicationId={app.id}
                     readOnly={!isApplicant}
                     onAllDocsUploaded={() => handleDocsComplete(app.id)}
+                    onDocCountChange={(count) => setDocCounts(prev => ({ ...prev, [app.id]: count }))}
                   />
                 </div>
               )}

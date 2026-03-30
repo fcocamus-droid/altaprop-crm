@@ -104,9 +104,11 @@ export async function deleteApplicationDocument(docId: string) {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
 
-  const supabase = createClient()
+  // Use admin client to bypass RLS
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
 
-  const { data: doc } = await supabase
+  const { data: doc } = await admin
     .from('application_documents')
     .select('url, application_id, application:applications(applicant_id)')
     .eq('id', docId)
@@ -122,13 +124,14 @@ export async function deleteApplicationDocument(docId: string) {
   // Delete from storage
   const path = doc.url.split('/application-documents/')[1]
   if (path) {
-    await supabase.storage.from('application-documents').remove([path])
+    await admin.storage.from('application-documents').remove([path])
   }
 
-  const { error } = await supabase.from('application_documents').delete().eq('id', docId)
+  const { error } = await admin.from('application_documents').delete().eq('id', docId)
   if (error) return { error: error.message }
 
   revalidatePath(`/dashboard/postulaciones/${doc.application_id}`)
+  revalidatePath('/dashboard/postulaciones')
   return { success: true }
 }
 

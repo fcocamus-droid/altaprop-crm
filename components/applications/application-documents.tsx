@@ -15,7 +15,7 @@ interface ExistingDoc {
   type: string
 }
 
-export function ApplicationDocuments({ applicationId, readOnly = false, onAllDocsUploaded }: { applicationId: string; readOnly?: boolean; onAllDocsUploaded?: () => void }) {
+export function ApplicationDocuments({ applicationId, readOnly = false, onAllDocsUploaded, onDocCountChange }: { applicationId: string; readOnly?: boolean; onAllDocsUploaded?: () => void; onDocCountChange?: (count: number) => void }) {
   const [applicantType, setApplicantType] = useState<'persona' | 'empresa'>('persona')
   const [showCodeudor, setShowCodeudor] = useState(false)
   const [existingDocs, setExistingDocs] = useState<ExistingDoc[]>([])
@@ -47,13 +47,25 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
     e.target.value = ''
 
     setUploading(docType)
+
+    // Delete existing doc of same type first (allows re-upload/correction)
+    const existing = existingDocs.find(d => d.type === docType)
+    if (existing) {
+      await deleteApplicationDocument(existing.id)
+      setExistingDocs(prev => prev.filter(d => d.id !== existing.id))
+    }
+
     const formData = new FormData()
     formData.set('file', file)
     formData.set('doc_type', docType)
 
     const result = await uploadApplicationDocument(applicationId, formData)
     if (result.success && result.document) {
-      setExistingDocs(prev => [...prev, result.document as ExistingDoc])
+      setExistingDocs(prev => {
+        const updated = [...prev, result.document as ExistingDoc]
+        onDocCountChange?.(updated.length)
+        return updated
+      })
     }
     setUploading(null)
   }
@@ -62,7 +74,11 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
     setDeleting(docId)
     const result = await deleteApplicationDocument(docId)
     if (result.success) {
-      setExistingDocs(prev => prev.filter(d => d.id !== docId))
+      setExistingDocs(prev => {
+        const updated = prev.filter(d => d.id !== docId)
+        onDocCountChange?.(updated.length)
+        return updated
+      })
     }
     setDeleting(null)
   }
@@ -71,15 +87,15 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
     return existingDocs.find(d => d.type === docType)
   }
 
-  // Check if all required docs are uploaded
+  // Notify doc count on load
   useEffect(() => {
-    if (readOnly || !onAllDocsUploaded) return
+    onDocCountChange?.(existingDocs.length)
+  }, [existingDocs.length, onDocCountChange])
+
+  const allRequiredUploaded = (() => {
     const slots = applicantType === 'persona' ? REQUIRED_DOC_SLOTS : EMPRESA_DOC_SLOTS
-    const allUploaded = slots.every(s => existingDocs.some(d => d.type === s.type))
-    if (allUploaded && existingDocs.length >= slots.length) {
-      onAllDocsUploaded()
-    }
-  }, [existingDocs, applicantType, readOnly, onAllDocsUploaded])
+    return slots.every(s => existingDocs.some(d => d.type === s.type))
+  })()
 
   const personaSlots = REQUIRED_DOC_SLOTS
   const empresaSlots = EMPRESA_DOC_SLOTS
@@ -213,6 +229,28 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
               />
             )}
           </div>
+        </div>
+      )}
+
+      {/* LISTO BUTTON - only for postulante */}
+      {!readOnly && onAllDocsUploaded && (
+        <div className="pt-2">
+          {allRequiredUploaded ? (
+            <Button
+              type="button"
+              onClick={onAllDocsUploaded}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Documentos Listos — Enviar a Revisión
+            </Button>
+          ) : (
+            <div className="text-center py-2">
+              <p className="text-xs text-muted-foreground">
+                Sube todos los documentos requeridos ({mainCount}/{mainSlots.length}) para enviar a revisión
+              </p>
+            </div>
+          )}
         </div>
       )}
 
