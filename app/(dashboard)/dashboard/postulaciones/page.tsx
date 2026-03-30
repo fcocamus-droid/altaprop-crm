@@ -1,11 +1,14 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getApplicationsByApplicant, getApplicationsByOwner, getAllApplications, getApplicationsBySubscriber, getApplicationsByAgent } from '@/lib/queries/applications'
-import { ROLES } from '@/lib/constants'
+import { ROLES, isAdmin } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
 import { Button } from '@/components/ui/button'
 import { ApplicationList } from '@/components/applications/application-list'
+import { ApplicantsDatabase } from '@/components/applications/applicants-database'
+import { PostulacionesTabs } from '@/components/applications/postulaciones-tabs'
+import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
@@ -16,6 +19,9 @@ export default async function PostulacionesPage() {
   if (!profile) redirect('/login')
 
   let applications: any[] = []
+  let applicants: any[] = []
+  const canManage = isAdmin(profile.role) || profile.role === 'AGENTE'
+
   try {
     if (profile.role === ROLES.SUPERADMINBOSS) {
       applications = await getAllApplications()
@@ -27,6 +33,47 @@ export default async function PostulacionesPage() {
       applications = await getApplicationsByOwner(profile.id)
     } else {
       applications = await getApplicationsByApplicant(profile.id)
+    }
+
+    // Fetch applicants database for admins/agents
+    if (canManage) {
+      const supabase = createClient()
+
+      // Get applicant IDs from applications
+      const applicantIds = Array.from(new Set(applications.map((a: any) => a.applicant_id).filter(Boolean)))
+
+      if (applicantIds.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, created_at')
+          .in('id', applicantIds)
+          .order('created_at', { ascending: false })
+
+        if (data) {
+          // Get emails from auth
+          const { createAdminClient } = await import('@/lib/supabase/admin')
+          const admin = createAdminClient()
+          const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
+          const emailMap = new Map<string, string>()
+          if (authData?.users) {
+            for (const u of authData.users) {
+              emailMap.set(u.id, u.email || '')
+            }
+          }
+
+          // Count applications per applicant
+          const appCounts = new Map<string, number>()
+          applications.forEach((a: any) => {
+            appCounts.set(a.applicant_id, (appCounts.get(a.applicant_id) || 0) + 1)
+          })
+
+          applicants = data.map(p => ({
+            ...p,
+            email: emailMap.get(p.id) || '',
+            application_count: appCounts.get(p.id) || 0,
+          }))
+        }
+      }
     }
   } catch {
     // Supabase may not be configured yet
@@ -41,17 +88,25 @@ export default async function PostulacionesPage() {
         description={isApplicant ? 'Revisa el estado de tus postulaciones' : 'Gestiona las postulaciones recibidas'}
       />
 
-      {applications.length === 0 ? (
-        <EmptyState
-          title={isApplicant ? 'No tienes postulaciones' : 'No hay postulaciones'}
-          description={isApplicant ? 'Explora propiedades disponibles y postula.' : 'Las postulaciones a tus propiedades apareceran aqui.'}
-        >
-          {isApplicant && (
+      {isApplicant ? (
+        // POSTULANTE view - just the list
+        applications.length === 0 ? (
+          <EmptyState
+            title="No tienes postulaciones"
+            description="Explora propiedades disponibles y postula."
+          >
             <Button asChild><Link href="/propiedades">Explorar Propiedades</Link></Button>
-          )}
-        </EmptyState>
+          </EmptyState>
+        ) : (
+          <ApplicationList applications={applications} isApplicant={true} />
+        )
       ) : (
-        <ApplicationList applications={applications} isApplicant={isApplicant} />
+        // ADMIN/AGENT view - tabs
+        <PostulacionesTabs
+          applications={applications}
+          applicants={applicants}
+          showApplicantsTab={canManage}
+        />
       )}
     </div>
   )
