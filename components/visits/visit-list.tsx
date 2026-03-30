@@ -261,26 +261,21 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                      {status.label}
-                    </span>
+                    <select
+                      value={visit.status}
+                      onChange={(e) => handleStatus(visit.id, e.target.value)}
+                      disabled={isLoading}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full border cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${status.color}`}
+                    >
+                      {VISIT_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
                     {visit.status === 'pending' && (
                       <Button size="sm" variant="outline" onClick={() => openCalendarFor(visit.id)} disabled={isLoading}
                         className={`h-8 px-2 ${calendarOpen === visit.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'text-blue-600 border-blue-200 hover:bg-blue-50'}`}
                         title="Agendar y confirmar">
                         <CalendarDays className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {visit.status === 'confirmed' && (
-                      <Button size="sm" variant="outline" onClick={() => handleStatus(visit.id, 'completed')} disabled={isLoading}
-                        className="text-green-600 border-green-200 hover:bg-green-50 h-8 px-2">
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {(visit.status === 'pending' || visit.status === 'confirmed') && (
-                      <Button size="sm" variant="outline" onClick={() => handleStatus(visit.id, 'canceled')} disabled={isLoading}
-                        className="text-red-500 border-red-200 hover:bg-red-50 h-8 px-2">
-                        <XCircle className="h-4 w-4" />
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => handleDelete(visit.id)} disabled={isLoading}
