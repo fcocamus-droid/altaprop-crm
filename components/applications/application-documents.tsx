@@ -288,9 +288,7 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-green-800 truncate">{doc.name}</p>
                 </div>
-                <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="h-7 text-xs"><Download className="mr-1 h-3 w-3" />Ver</Button>
-                </a>
+                <DownloadButton url={doc.url} name={doc.name} />
               </div>
             ))}
           </div>
@@ -321,9 +319,7 @@ function DocSlotRow({ docType, label, existingDoc, uploading, deleting, readOnly
           <p className="text-xs font-medium text-green-800 truncate">{label}</p>
           <p className="text-[10px] text-green-600 truncate">{existingDoc.name}</p>
         </div>
-        <a href={existingDoc.url} target="_blank" rel="noopener noreferrer">
-          <Button variant="outline" size="sm" className="h-7 text-xs shrink-0"><Download className="mr-1 h-3 w-3" />Ver</Button>
-        </a>
+        <DownloadButton url={existingDoc.url} name={existingDoc.name} />
         {!readOnly && (
           <button
             type="button"
@@ -406,5 +402,36 @@ function ExtraUploadButton({ sectionPrefix, existingDocs, uploading, deleting, o
         <Plus className="h-3 w-3" /> Agregar documento adicional
       </button>
     </>
+  )
+}
+
+function DownloadButton({ url, name }: { url: string; name: string }) {
+  const [downloading, setDownloading] = useState(false)
+
+  async function handleDownload() {
+    setDownloading(true)
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch {
+      // Fallback: open in new tab
+      window.open(url, '_blank')
+    }
+    setDownloading(false)
+  }
+
+  return (
+    <Button variant="outline" size="sm" className="h-7 text-xs shrink-0" onClick={handleDownload} disabled={downloading}>
+      {downloading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Download className="mr-1 h-3 w-3" />}
+      Descargar
+    </Button>
   )
 }
