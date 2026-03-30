@@ -116,3 +116,19 @@ export const REQUIRED_DOC_SLOTS = [
   { type: 'contrato', label: 'Contrato de Trabajo / Cert. Antigüedad' },
   { type: 'informe_comercial', label: 'Informe Comercial (Dicom / Equifax)' },
 ] as const
+
+export const EMPRESA_DOC_SLOTS = [
+  { type: 'emp_rut', label: 'RUT de la Empresa' },
+  { type: 'emp_escritura', label: 'Escritura de Constitución' },
+  { type: 'emp_vigencia', label: 'Certificado de Vigencia de la Sociedad' },
+  { type: 'emp_cedula_rep', label: 'Cédula de Identidad del Representante Legal' },
+  { type: 'emp_carpeta_tributaria', label: 'Carpeta Tributaria (SII)' },
+  { type: 'emp_f29_1', label: 'IVA F29 - Mes 1 (últimos 6 meses)' },
+  { type: 'emp_f29_2', label: 'IVA F29 - Mes 2' },
+  { type: 'emp_f29_3', label: 'IVA F29 - Mes 3' },
+  { type: 'emp_f29_4', label: 'IVA F29 - Mes 4' },
+  { type: 'emp_f29_5', label: 'IVA F29 - Mes 5' },
+  { type: 'emp_f29_6', label: 'IVA F29 - Mes 6' },
+  { type: 'emp_f22', label: 'Declaración de Renta (F22)' },
+  { type: 'emp_informe_comercial', label: 'Informe Comercial (Dicom empresa y/o representante)' },
+] as const
