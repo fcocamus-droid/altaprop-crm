@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { REQUIRED_DOC_SLOTS, EMPRESA_DOC_SLOTS } from '@/lib/constants'
-import { uploadApplicationDocument, deleteApplicationDocument } from '@/lib/actions/applications'
+import { uploadApplicationDocument, deleteApplicationDocument, updateApplicationStatus } from '@/lib/actions/applications'
 import { createClient } from '@/lib/supabase/client'
 import { Loader2, Upload, FileText, X, CheckCircle, Plus, UserCheck, ShieldCheck, User, Building2, Download } from 'lucide-react'
 
@@ -15,12 +15,14 @@ interface ExistingDoc {
   type: string
 }
 
-export function ApplicationDocuments({ applicationId, readOnly = false, onAllDocsUploaded, onDocCountChange }: { applicationId: string; readOnly?: boolean; onAllDocsUploaded?: () => void; onDocCountChange?: (count: number) => void }) {
+export function ApplicationDocuments({ applicationId, readOnly = false, onAllDocsUploaded, onDocCountChange, onStatusChange }: { applicationId: string; readOnly?: boolean; onAllDocsUploaded?: () => void; onDocCountChange?: (count: number) => void; onStatusChange?: (status: string) => void }) {
   const [applicantType, setApplicantType] = useState<'persona' | 'empresa'>('persona')
   const [showCodeudor, setShowCodeudor] = useState(false)
   const [existingDocs, setExistingDocs] = useState<ExistingDoc[]>([])
   const [uploading, setUploading] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
   // Load existing documents
   useEffect(() => {
@@ -233,21 +235,40 @@ export function ApplicationDocuments({ applicationId, readOnly = false, onAllDoc
       )}
 
       {/* LISTO BUTTON - only for postulante */}
-      {!readOnly && onAllDocsUploaded && (
+      {!readOnly && (
         <div className="pt-2">
-          {allRequiredUploaded ? (
+          {submitted ? (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+              <p className="font-semibold text-green-800">Documentos enviados a revisión</p>
+              <p className="text-xs text-green-600 mt-1">El corredor revisará tus documentos y te contactará</p>
+            </div>
+          ) : allRequiredUploaded ? (
             <Button
               type="button"
-              onClick={onAllDocsUploaded}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              disabled={submitting}
+              onClick={async () => {
+                setSubmitting(true)
+                const result = await updateApplicationStatus(applicationId, 'reviewing')
+                if (!result.error) {
+                  setSubmitted(true)
+                  onStatusChange?.('reviewing')
+                  onAllDocsUploaded?.()
+                }
+                setSubmitting(false)
+              }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
             >
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Documentos Listos — Enviar a Revisión
+              {submitting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+              ) : (
+                <><CheckCircle className="mr-2 h-4 w-4" />Documentos Listos — Enviar a Revisión</>
+              )}
             </Button>
           ) : (
-            <div className="text-center py-2">
-              <p className="text-xs text-muted-foreground">
-                Sube todos los documentos requeridos ({mainCount}/{mainSlots.length}) para enviar a revisión
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+              <p className="text-sm text-amber-700">
+                Sube todos los documentos requeridos <strong>({mainCount}/{mainSlots.length})</strong> para enviar a revisión
               </p>
             </div>
           )}

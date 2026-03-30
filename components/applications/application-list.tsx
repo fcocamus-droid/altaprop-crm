@@ -187,6 +187,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     readOnly={!isApplicant}
                     onAllDocsUploaded={() => handleDocsComplete(app.id)}
                     onDocCountChange={(count) => setDocCounts(prev => ({ ...prev, [app.id]: count }))}
+                    onStatusChange={(status) => setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status } : a))}
                   />
                 </div>
               )}
