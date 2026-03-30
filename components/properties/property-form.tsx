@@ -23,6 +23,30 @@ export function PropertyForm({ property }: PropertyFormProps) {
   const router = useRouter()
   const isEditing = !!property
 
+  async function compressImage(file: File, maxWidth = 1600, quality = 0.8): Promise<File> {
+    if (!file.type.startsWith('image/')) return file
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file)
+        }, 'image/jpeg', quality)
+      }
+      img.onerror = () => resolve(file)
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
@@ -30,8 +54,9 @@ export function PropertyForm({ property }: PropertyFormProps) {
 
     const formData = new FormData(e.currentTarget)
 
-    // Add images
-    selectedImages.forEach(img => formData.append('images', img))
+    // Compress images before upload (max 1600px, 80% quality)
+    const compressed = await Promise.all(selectedImages.map(img => compressImage(img)))
+    compressed.forEach(img => formData.append('images', img))
 
     const result = isEditing
       ? await updateProperty(property!.id, formData)
@@ -182,10 +207,13 @@ export function PropertyForm({ property }: PropertyFormProps) {
       </div>
 
       <div className="flex justify-end gap-3 mt-6">
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>Cancelar</Button>
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isEditing ? 'Guardar Cambios' : 'Publicar Propiedad'}
+          {loading
+            ? (selectedImages.length > 0 ? `Subiendo ${selectedImages.length} imagen(es)...` : 'Guardando...')
+            : (isEditing ? 'Guardar Cambios' : 'Publicar Propiedad')
+          }
         </Button>
       </div>
     </form>
