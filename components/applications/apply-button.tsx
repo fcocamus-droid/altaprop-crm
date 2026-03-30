@@ -32,12 +32,7 @@ export function ApplyButton({ propertyId, propertyTitle }: { propertyId: string;
       return
     }
 
-    // Redirect to the application detail in the panel
-    if (result.applicationId) {
-      router.push(`/dashboard/postulaciones/${result.applicationId}`)
-    } else {
-      router.push('/dashboard/postulaciones')
-    }
+    router.push('/dashboard/postulaciones')
   }
 
   return (
