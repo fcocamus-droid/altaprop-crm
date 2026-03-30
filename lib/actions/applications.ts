@@ -136,8 +136,13 @@ export async function deleteApplicationDocument(docId: string) {
 }
 
 export async function updateApplicationStatus(id: string, status: string) {
-  const supabase = createClient()
-  const { error } = await supabase
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const { error } = await admin
     .from('applications')
     .update({ status })
     .eq('id', id)

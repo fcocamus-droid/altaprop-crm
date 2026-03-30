@@ -45,9 +45,12 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
 
   async function handleDocsComplete(id: string) {
     const app = applications.find(a => a.id === id)
-    if (!app || app.status !== 'pending') return
-    await updateApplicationStatus(id, 'reviewing')
-    setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
+    if (!app) return
+    if (app.status === 'reviewing' || app.status === 'approved') return // already done
+    const result = await updateApplicationStatus(id, 'reviewing')
+    if (!result.error) {
+      setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
+    }
   }
 
   const filtered = applications.filter(app => {
