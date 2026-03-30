@@ -29,9 +29,7 @@ export default async function PropiedadesDashboardPage() {
     } else if (profile.role === ROLES.SUPERADMIN) {
       properties = await getPropertiesBySubscriber(profile.subscriber_id || profile.id)
     } else if (profile.role === 'AGENTE') {
-      properties = profile.subscriber_id
-        ? await getPropertiesBySubscriber(profile.subscriber_id)
-        : await getPropertiesByAgent(profile.id)
+      properties = await getPropertiesByAgent(profile.id)
     } else {
       properties = await getPropertiesByOwner(profile.id)
     }

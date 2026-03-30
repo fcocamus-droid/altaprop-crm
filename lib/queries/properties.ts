@@ -51,7 +51,7 @@ export async function getPropertiesByAgent(agentId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: false })
 
@@ -94,6 +94,20 @@ export async function getFeaturedProperties() {
 
   if (error) throw error
   return (data || []) as Property[]
+}
+
+export async function getPropertyStatsByAgent(agentId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from('properties').select('status').eq('agent_id', agentId)
+  if (error) return { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }
+  const items = data || []
+  return {
+    total: items.length,
+    available: items.filter(p => p.status === 'available').length,
+    reserved: items.filter(p => p.status === 'reserved').length,
+    rented: items.filter(p => p.status === 'rented').length,
+    sold: items.filter(p => p.status === 'sold').length,
+  }
 }
 
 export async function getPropertyStats(ownerId?: string, subscriberId?: string) {

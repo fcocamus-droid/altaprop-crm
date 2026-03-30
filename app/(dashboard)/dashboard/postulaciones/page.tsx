@@ -1,6 +1,6 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getApplicationsByApplicant, getApplicationsByOwner, getAllApplications, getApplicationsBySubscriber } from '@/lib/queries/applications'
+import { getApplicationsByApplicant, getApplicationsByOwner, getAllApplications, getApplicationsBySubscriber, getApplicationsByAgent } from '@/lib/queries/applications'
 import { ROLES } from '@/lib/constants'
 import { PageHeader } from '@/components/shared/page-header'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -22,8 +22,10 @@ export default async function PostulacionesPage() {
   try {
     if (profile.role === ROLES.SUPERADMINBOSS) {
       applications = await getAllApplications()
-    } else if (profile.role === ROLES.SUPERADMIN || profile.role === 'AGENTE') {
+    } else if (profile.role === ROLES.SUPERADMIN) {
       applications = await getApplicationsBySubscriber(profile.subscriber_id || profile.id)
+    } else if (profile.role === 'AGENTE') {
+      applications = await getApplicationsByAgent(profile.id)
     } else if (profile.role === 'PROPIETARIO') {
       applications = await getApplicationsByOwner(profile.id)
     } else {

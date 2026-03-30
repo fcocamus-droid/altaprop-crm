@@ -1,7 +1,7 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getPropertyStats } from '@/lib/queries/properties'
-import { getApplicationStats } from '@/lib/queries/applications'
+import { getPropertyStats, getPropertyStatsByAgent } from '@/lib/queries/properties'
+import { getApplicationStats, getApplicationStatsByAgent } from '@/lib/queries/applications'
 import { isPropertyManager, ROLE_LABELS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
@@ -18,15 +18,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   const isOwnerOrAgent = isPropertyManager(profile.role)
   const ownerId = profile.role === 'PROPIETARIO' ? profile.id : undefined
-  const subscriberId = (profile.role === 'SUPERADMIN' || profile.role === 'AGENTE') ? (profile.subscriber_id || profile.id) : undefined
+  const subscriberId = (profile.role === 'SUPERADMIN') ? (profile.subscriber_id || profile.id) : undefined
 
   let propertyStats = { total: 0, available: 0, reserved: 0, rented: 0, sold: 0 }
   let appStats = { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
 
   try {
     const [pStats, aStats] = await Promise.all([
-      isOwnerOrAgent ? getPropertyStats(ownerId, subscriberId) : Promise.resolve(propertyStats),
-      getApplicationStats(ownerId, subscriberId),
+      profile.role === 'AGENTE'
+        ? getPropertyStatsByAgent(profile.id)
+        : isOwnerOrAgent ? getPropertyStats(ownerId, subscriberId) : Promise.resolve(propertyStats),
+      profile.role === 'AGENTE'
+        ? getApplicationStatsByAgent(profile.id)
+        : getApplicationStats(ownerId, subscriberId),
     ])
     propertyStats = pStats
     appStats = aStats

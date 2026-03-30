@@ -48,6 +48,18 @@ export async function getAllApplications() {
   return (data || []) as Application[]
 }
 
+export async function getApplicationsByAgent(agentId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('applications')
+    .select('*, property:properties!inner(id, title, agent_id), applicant:profiles!applications_applicant_id_fkey(full_name, phone), documents:application_documents(*)')
+    .eq('property.agent_id', agentId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as Application[]
+}
+
 export async function getApplicationsBySubscriber(subscriberId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
@@ -70,6 +82,24 @@ export async function getApplicationById(id: string) {
 
   if (error) return null
   return data as Application
+}
+
+export async function getApplicationStatsByAgent(agentId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('applications')
+    .select('status, property:properties!inner(agent_id)')
+    .eq('property.agent_id', agentId)
+
+  if (error) return { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
+  const items = data || []
+  return {
+    total: items.length,
+    pending: items.filter(a => a.status === 'pending').length,
+    reviewing: items.filter(a => a.status === 'reviewing').length,
+    approved: items.filter(a => a.status === 'approved').length,
+    rejected: items.filter(a => a.status === 'rejected').length,
+  }
 }
 
 export async function getApplicationStats(ownerId?: string, subscriberId?: string) {
