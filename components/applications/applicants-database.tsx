@@ -34,7 +34,12 @@ export function ApplicantsDatabase() {
   useEffect(() => {
     fetch('/api/postulantes')
       .then(r => r.json())
-      .then(data => { setApplicants(data); setLoading(false) })
+      .then(data => {
+        if (Array.isArray(data)) {
+          setApplicants(data)
+        }
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [])
 

@@ -1,33 +1,48 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
-export async function GET() {
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+export const dynamic = 'force-dynamic'
 
-  const [profilesResult, authResult] = await Promise.all([
-    admin.from('profiles')
+export async function GET() {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!url || !key) {
+      return NextResponse.json({ error: 'Missing env vars' }, { status: 500 })
+    }
+
+    const admin = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
+
+    const { data: profiles, error } = await admin
+      .from('profiles')
       .select('id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, created_at')
       .eq('role', 'POSTULANTE')
-      .order('created_at', { ascending: false }),
-    admin.auth.admin.listUsers({ perPage: 500 }),
-  ])
+      .order('created_at', { ascending: false })
 
-  const emailMap = new Map<string, string>()
-  if (authResult.data?.users) {
-    for (const u of authResult.data.users) {
-      emailMap.set(u.id, u.email || '')
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Get emails
+    const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
+    const emailMap = new Map<string, string>()
+    if (authData?.users) {
+      for (const u of authData.users) {
+        emailMap.set(u.id, u.email || '')
+      }
+    }
+
+    const applicants = (profiles || []).map(p => ({
+      ...p,
+      email: emailMap.get(p.id) || '',
+      application_count: 0,
+    }))
+
+    return NextResponse.json(applicants)
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
-
-  const applicants = (profilesResult.data || []).map(p => ({
-    ...p,
-    email: emailMap.get(p.id) || '',
-    application_count: 0,
-  }))
-
-  return NextResponse.json(applicants)
 }
