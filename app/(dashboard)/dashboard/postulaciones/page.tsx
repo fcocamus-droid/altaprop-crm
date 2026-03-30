@@ -21,7 +21,6 @@ export default async function PostulacionesPage() {
   let applicants: any[] = []
   const canManage = isAdmin(profile.role) || profile.role === 'AGENTE'
 
-  // Load applications
   try {
     if (profile.role === ROLES.SUPERADMINBOSS) {
       applications = await getAllApplications()
@@ -38,43 +37,43 @@ export default async function PostulacionesPage() {
     // query error
   }
 
-  // Load applicants database separately (won't be caught by applications error)
-  if (canManage && applications.length > 0) {
+  // Load ALL postulantes directly from DB using admin client
+  if (canManage) {
     try {
       const admin = createAdminClient()
 
-      // Extract applicant IDs - try applicant_id field first, then applicant.id from join
-      const ids = applications.map((a: any) => a.applicant_id || (a.applicant as any)?.id).filter(Boolean)
-      const applicantIds = Array.from(new Set(ids))
+      // Get all POSTULANTE profiles directly
+      const { data: postulantProfiles } = await admin
+        .from('profiles')
+        .select('id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, created_at')
+        .eq('role', 'POSTULANTE')
+        .order('created_at', { ascending: false })
 
-      if (applicantIds.length > 0) {
-        const [profilesResult, authResult] = await Promise.all([
-          admin.from('profiles')
-            .select('id, full_name, phone, rut, birth_date, marital_status, nationality, occupation, employer, employment_years, monthly_income, housing_status, created_at')
-            .in('id', applicantIds),
-          admin.auth.admin.listUsers({ perPage: 500 }),
-        ])
-
+      if (postulantProfiles && postulantProfiles.length > 0) {
+        // Get emails
+        const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
         const emailMap = new Map<string, string>()
-        if (authResult.data?.users) {
-          for (const u of authResult.data.users) {
+        if (authData?.users) {
+          for (const u of authData.users) {
             emailMap.set(u.id, u.email || '')
           }
         }
 
+        // Count applications per applicant from loaded applications
         const appCounts = new Map<string, number>()
-        ids.forEach((id: string) => {
-          appCounts.set(id, (appCounts.get(id) || 0) + 1)
+        applications.forEach((a: any) => {
+          const aid = a.applicant_id || (a.applicant as any)?.id
+          if (aid) appCounts.set(aid, (appCounts.get(aid) || 0) + 1)
         })
 
-        applicants = (profilesResult.data || []).map(p => ({
+        applicants = postulantProfiles.map(p => ({
           ...p,
           email: emailMap.get(p.id) || '',
           application_count: appCounts.get(p.id) || 0,
         }))
       }
     } catch {
-      // applicants load error - non-blocking
+      // non-blocking
     }
   }
 
