@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { createUser, updateUserRole, deleteUser } from '@/lib/actions/users'
 import { PasswordInput } from '@/components/ui/password-input'
 import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
+import { getMaxAgents, getPlanName } from '@/lib/plan-features'
 
 function getRoleColor(role: string) {
   return ROLE_CONFIG.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800'
@@ -28,6 +29,7 @@ interface User {
   phone: string | null
   email: string
   role: string
+  plan: string | null
   subscriber_id: string | null
   created_at: string
 }
@@ -232,11 +234,18 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
                 {noGroup.map(user => renderUser(user))}
                 {Array.from(groups.entries()).map(([subId, members]) => {
                   const admin = members.find(m => m.role === 'SUPERADMIN')
+                  const agentCount = members.filter(m => m.role === 'AGENTE').length
+                  const maxAgents = getMaxAgents(admin?.plan || null)
+                  const planName = getPlanName(admin?.plan || null)
                   return (
                     <div key={subId} className="border-2 border-navy/10 rounded-lg overflow-hidden">
-                      <div className="bg-navy/5 px-4 py-2 text-xs font-medium text-navy flex items-center gap-2">
+                      <div className="bg-navy/5 px-4 py-2 text-xs font-medium text-navy flex items-center gap-2 flex-wrap">
                         <span className="w-5 h-5 bg-navy/20 rounded-full flex items-center justify-center text-[10px] font-bold">{admin?.full_name?.[0] || '?'}</span>
                         {admin?.full_name || 'Suscriptor'} — {admin?.email || ''}
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-200">{planName}</Badge>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${agentCount >= maxAgents ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                          Agentes: {agentCount}/{maxAgents}
+                        </span>
                         <span className="ml-auto text-muted-foreground">{members.length} usuario{members.length !== 1 ? 's' : ''}</span>
                       </div>
                       <div className="space-y-0 divide-y">
