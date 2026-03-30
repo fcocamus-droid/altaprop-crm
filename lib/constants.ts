@@ -97,10 +97,22 @@ export type PlanId = (typeof PLANS)[number]['id']
 export const SUBSCRIPTION_STATUSES = ['none', 'trialing', 'active', 'past_due', 'canceled'] as const
 
 export const DOCUMENT_TYPES = [
-  { value: 'cedula', label: 'Cedula de Identidad' },
-  { value: 'liquidacion', label: 'Liquidacion de Sueldo' },
-  { value: 'contrato', label: 'Contrato de Trabajo' },
-  { value: 'certificado_afp', label: 'Certificado AFP' },
-  { value: 'certificado_dicom', label: 'Certificado DICOM' },
+  { value: 'cedula', label: 'Cédula de Identidad (ambos lados)' },
+  { value: 'liquidacion_1', label: '1era Última Liquidación de Sueldo' },
+  { value: 'liquidacion_2', label: '2da Última Liquidación de Sueldo' },
+  { value: 'liquidacion_3', label: '3era Última Liquidación de Sueldo' },
+  { value: 'certificado_afp', label: 'Certificado Cotizaciones AFP (12 meses)' },
+  { value: 'contrato', label: 'Contrato de Trabajo / Cert. Antigüedad' },
+  { value: 'informe_comercial', label: 'Informe Comercial (Dicom / Equifax)' },
   { value: 'otro', label: 'Otro Documento' },
+] as const
+
+export const REQUIRED_DOC_SLOTS = [
+  { type: 'cedula', label: 'Cédula de Identidad (ambos lados)' },
+  { type: 'liquidacion_1', label: '1era Última Liquidación de Sueldo' },
+  { type: 'liquidacion_2', label: '2da Última Liquidación de Sueldo' },
+  { type: 'liquidacion_3', label: '3era Última Liquidación de Sueldo' },
+  { type: 'certificado_afp', label: 'Certificado Cotizaciones AFP (12 meses)' },
+  { type: 'contrato', label: 'Contrato de Trabajo / Cert. Antigüedad' },
+  { type: 'informe_comercial', label: 'Informe Comercial (Dicom / Equifax)' },
 ] as const

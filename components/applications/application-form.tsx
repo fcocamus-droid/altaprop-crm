@@ -4,18 +4,20 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { DOCUMENT_TYPES } from '@/lib/constants'
+import { REQUIRED_DOC_SLOTS } from '@/lib/constants'
 import { createApplication } from '@/lib/actions/applications'
-import { Loader2, Upload, FileText, X, CheckCircle } from 'lucide-react'
+import { Loader2, Upload, FileText, X, CheckCircle, Plus, UserCheck, ShieldCheck } from 'lucide-react'
 
 interface ApplicationFormProps {
   propertyId: string
   onSuccess?: () => void
 }
 
-interface DocFile {
-  file: File
+interface DocSlot {
   type: string
+  label: string
+  file: File | null
+  section: 'arrendatario' | 'codeudor'
 }
 
 export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps) {
@@ -23,37 +25,87 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [message, setMessage] = useState('')
-  const [docs, setDocs] = useState<DocFile[]>([])
+  const [showCodeudor, setShowCodeudor] = useState(false)
 
-  function addDocument(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    const newDocs = files.map(file => ({ file, type: 'otro' }))
-    setDocs(prev => [...prev, ...newDocs])
+  // Initialize doc slots for arrendatario
+  const [arrendatarioDocs, setArrendatarioDocs] = useState<DocSlot[]>(
+    REQUIRED_DOC_SLOTS.map(s => ({ type: s.type, label: s.label, file: null, section: 'arrendatario' }))
+  )
+  const [extraArrendatarioDocs, setExtraArrendatarioDocs] = useState<DocSlot[]>([])
+
+  const [codeudorDocs, setCodeudorDocs] = useState<DocSlot[]>(
+    REQUIRED_DOC_SLOTS.map(s => ({ type: `codeudor_${s.type}`, label: s.label, file: null, section: 'codeudor' }))
+  )
+  const [extraCodeudorDocs, setExtraCodeudorDocs] = useState<DocSlot[]>([])
+
+  function addExtraDoc(section: 'arrendatario' | 'codeudor') {
+    const count = section === 'arrendatario' ? extraArrendatarioDocs.length : extraCodeudorDocs.length
+    const newDoc: DocSlot = { type: `${section}_extra_${count}`, label: `Documento Adicional ${count + 1}`, file: null, section }
+    if (section === 'arrendatario') {
+      setExtraArrendatarioDocs(prev => [...prev, newDoc])
+    } else {
+      setExtraCodeudorDocs(prev => [...prev, newDoc])
+    }
+  }
+
+  function handleExtraFileSelect(section: 'arrendatario' | 'codeudor', index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    if (section === 'arrendatario') {
+      setExtraArrendatarioDocs(prev => prev.map((d, i) => i === index ? { ...d, file } : d))
+    } else {
+      setExtraCodeudorDocs(prev => prev.map((d, i) => i === index ? { ...d, file } : d))
+    }
     e.target.value = ''
   }
 
-  function removeDoc(index: number) {
-    setDocs(prev => prev.filter((_, i) => i !== index))
+  function removeExtraDoc(section: 'arrendatario' | 'codeudor', index: number) {
+    if (section === 'arrendatario') {
+      setExtraArrendatarioDocs(prev => prev.filter((_, i) => i !== index))
+    } else {
+      setExtraCodeudorDocs(prev => prev.filter((_, i) => i !== index))
+    }
   }
 
-  function updateDocType(index: number, type: string) {
-    setDocs(prev => prev.map((d, i) => i === index ? { ...d, type } : d))
+  function handleFileSelect(section: 'arrendatario' | 'codeudor', index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    if (section === 'arrendatario') {
+      setArrendatarioDocs(prev => prev.map((d, i) => i === index ? { ...d, file } : d))
+    } else {
+      setCodeudorDocs(prev => prev.map((d, i) => i === index ? { ...d, file } : d))
+    }
+    e.target.value = ''
+  }
+
+  function removeFile(section: 'arrendatario' | 'codeudor', index: number) {
+    if (section === 'arrendatario') {
+      setArrendatarioDocs(prev => prev.map((d, i) => i === index ? { ...d, file: null } : d))
+    } else {
+      setCodeudorDocs(prev => prev.map((d, i) => i === index ? { ...d, file: null } : d))
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (docs.length === 0) {
-      setError('Debes adjuntar al menos un documento')
+
+    const allDocs = [
+      ...arrendatarioDocs.filter(d => d.file),
+      ...extraArrendatarioDocs.filter(d => d.file),
+      ...(showCodeudor ? [...codeudorDocs.filter(d => d.file), ...extraCodeudorDocs.filter(d => d.file)] : []),
+    ]
+
+    if (allDocs.length === 0) {
+      setError('Debes adjuntar al menos un documento del arrendatario')
       return
     }
+
     setLoading(true)
     setError('')
 
     const formData = new FormData()
     formData.set('property_id', propertyId)
     formData.set('message', message)
-    docs.forEach(d => {
-      formData.append('documents', d.file)
+    allDocs.forEach(d => {
+      formData.append('documents', d.file!)
       formData.append('doc_types', d.type)
     })
 
@@ -73,11 +125,14 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
     return (
       <div className="text-center py-6 space-y-3">
         <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-        <h3 className="font-semibold text-lg">Postulacion Enviada</h3>
-        <p className="text-muted-foreground text-sm">El propietario revisara tu postulacion y te contactara.</p>
+        <h3 className="font-semibold text-lg">Postulación Enviada</h3>
+        <p className="text-muted-foreground text-sm">El corredor revisará tu postulación y te contactará.</p>
       </div>
     )
   }
+
+  const arrendatarioCount = arrendatarioDocs.filter(d => d.file).length + extraArrendatarioDocs.filter(d => d.file).length
+  const codeudorCount = codeudorDocs.filter(d => d.file).length + extraCodeudorDocs.filter(d => d.file).length
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -90,50 +145,148 @@ export function ApplicationForm({ propertyId, onSuccess }: ApplicationFormProps)
         <Textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Presentate y explica por que te interesa esta propiedad..."
-          rows={4}
+          placeholder="Preséntate y explica por qué te interesa esta propiedad..."
+          rows={3}
           required
           minLength={10}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Documentos (PDF) *</Label>
-        <div className="border-2 border-dashed rounded-lg p-4 text-center">
-          <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground mb-2">Sube tu cedula, liquidaciones, contrato, etc.</p>
-          <input type="file" accept=".pdf" multiple onChange={addDocument} className="hidden" id="doc-upload" />
-          <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('doc-upload')?.click()}>
-            <Upload className="mr-2 h-3 w-3" />Seleccionar PDFs
-          </Button>
+      {/* ARRENDATARIO SECTION */}
+      <div className="border rounded-lg overflow-hidden">
+        <div className="bg-navy/5 px-4 py-2.5 flex items-center gap-2">
+          <UserCheck className="h-4 w-4 text-navy" />
+          <span className="text-sm font-semibold text-navy">Documentos del Arrendatario</span>
+          <span className="ml-auto text-xs text-muted-foreground">{arrendatarioCount}/{REQUIRED_DOC_SLOTS.length}</span>
+        </div>
+        <div className="p-3 space-y-2">
+          {arrendatarioDocs.map((slot, i) => (
+            <DocSlotRow
+              key={slot.type}
+              slot={slot}
+              index={i}
+              section="arrendatario"
+              onFileSelect={handleFileSelect}
+              onRemove={removeFile}
+            />
+          ))}
+          {extraArrendatarioDocs.map((slot, i) => (
+            <DocSlotRow
+              key={slot.type}
+              slot={slot}
+              index={i}
+              section="arrendatario"
+              onFileSelect={handleExtraFileSelect}
+              onRemove={removeExtraDoc}
+              isExtra
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => addExtraDoc('arrendatario')}
+            className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground py-1.5 border border-dashed rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> Agregar documento adicional
+          </button>
         </div>
       </div>
 
-      {docs.length > 0 && (
-        <div className="space-y-2">
-          {docs.map((doc, i) => (
-            <div key={i} className="flex items-center gap-2 bg-muted rounded-lg p-2">
-              <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="text-sm truncate flex-1">{doc.file.name}</span>
-              <select
-                value={doc.type}
-                onChange={(e) => updateDocType(i, e.target.value)}
-                className="text-xs rounded border px-1 py-0.5 bg-background"
-              >
-                {DOCUMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              <button type="button" onClick={() => removeDoc(i)} className="text-destructive hover:text-destructive/80">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+      {/* CODEUDOR TOGGLE */}
+      {!showCodeudor ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowCodeudor(true)}
+          className="w-full border-dashed border-2 text-muted-foreground hover:text-foreground"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Agregar Codeudor (Aval)
+        </Button>
+      ) : (
+        <div className="border rounded-lg overflow-hidden border-amber-200">
+          <div className="bg-amber-50 px-4 py-2.5 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-amber-700" />
+            <span className="text-sm font-semibold text-amber-800">Documentos del Codeudor (Aval)</span>
+            <span className="ml-auto text-xs text-amber-600">{codeudorCount}/{REQUIRED_DOC_SLOTS.length}</span>
+            <button type="button" onClick={() => setShowCodeudor(false)} className="text-amber-400 hover:text-amber-600 ml-1">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-3 space-y-2">
+            {codeudorDocs.map((slot, i) => (
+              <DocSlotRow
+                key={slot.type}
+                slot={slot}
+                index={i}
+                section="codeudor"
+                onFileSelect={handleFileSelect}
+                onRemove={removeFile}
+              />
+            ))}
+            {extraCodeudorDocs.map((slot, i) => (
+              <DocSlotRow
+                key={slot.type}
+                slot={slot}
+                index={i}
+                section="codeudor"
+                onFileSelect={handleExtraFileSelect}
+                onRemove={removeExtraDoc}
+                isExtra
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => addExtraDoc('codeudor')}
+              className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground py-1.5 border border-dashed rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <Plus className="h-3 w-3" /> Agregar documento adicional
+            </button>
+          </div>
         </div>
       )}
 
       <Button type="submit" className="w-full" disabled={loading}>
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        Enviar Postulacion
+        Enviar Postulación
       </Button>
     </form>
+  )
+}
+
+function DocSlotRow({ slot, index, section, onFileSelect, onRemove, isExtra }: {
+  slot: DocSlot
+  index: number
+  section: 'arrendatario' | 'codeudor'
+  onFileSelect: (section: 'arrendatario' | 'codeudor', index: number, e: React.ChangeEvent<HTMLInputElement>) => void
+  onRemove: (section: 'arrendatario' | 'codeudor', index: number) => void
+  isExtra?: boolean
+}) {
+  const inputId = `doc-${section}-${isExtra ? 'extra-' : ''}${index}`
+
+  return (
+    <div className={`flex items-center gap-2 rounded-lg p-2 text-sm ${slot.file ? 'bg-green-50 border border-green-200' : 'bg-muted/50 border border-dashed border-gray-300'}`}>
+      {slot.file ? (
+        <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+      ) : (
+        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs truncate ${slot.file ? 'font-medium text-green-800' : 'text-muted-foreground'}`}>
+          {slot.label}
+        </p>
+        {slot.file && (
+          <p className="text-[10px] text-green-600 truncate">{slot.file.name}</p>
+        )}
+      </div>
+      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => onFileSelect(section, index, e)} className="hidden" id={inputId} />
+      {slot.file ? (
+        <button type="button" onClick={() => onRemove(section, index)} className="text-red-400 hover:text-red-600 shrink-0">
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <Button type="button" variant="outline" size="sm" className="h-7 text-xs shrink-0" onClick={() => document.getElementById(inputId)?.click()}>
+          <Upload className="mr-1 h-3 w-3" />Subir
+        </Button>
+      )}
+    </div>
   )
 }
