@@ -2,14 +2,20 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function GET() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    return NextResponse.json({ error: 'Missing env' }, { status: 500 })
+  }
+
   try {
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
+    const admin = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    })
 
     const { data: profiles, error } = await admin
       .from('profiles')
@@ -17,8 +23,15 @@ export async function GET() {
       .eq('role', 'PROPIETARIO')
       .order('created_at', { ascending: false })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      return NextResponse.json({ error: error.message, debug: 'profiles_query' }, { status: 500 })
+    }
 
+    if (!profiles || profiles.length === 0) {
+      return NextResponse.json([])
+    }
+
+    // Get emails and metadata from auth
     const { data: authData } = await admin.auth.admin.listUsers({ perPage: 500 })
     const emailMap = new Map<string, string>()
     const metaMap = new Map<string, any>()
@@ -29,32 +42,27 @@ export async function GET() {
       }
     }
 
-    // Get subscriber names
-    const subscriberIds = Array.from(new Set((profiles || []).map(p => p.subscriber_id).filter(Boolean)))
-    let subscriberMap = new Map<string, string>()
-    if (subscriberIds.length > 0) {
-      const { data: subs } = await admin.from('profiles').select('id, full_name').in('id', subscriberIds)
-      if (subs) {
-        for (const s of subs) subscriberMap.set(s.id, s.full_name || 'Sin nombre')
-      }
-    }
-
-    const propietarios = (profiles || []).map(p => {
+    const propietarios = profiles.map(p => {
       const meta = metaMap.get(p.id) || {}
       return {
-        ...p,
+        id: p.id,
+        full_name: p.full_name,
+        phone: p.phone,
+        rut: p.rut,
+        subscriber_id: p.subscriber_id,
+        created_at: p.created_at,
         email: emailMap.get(p.id) || '',
         property_address: meta.property_address || '',
         property_city: meta.property_city || '',
         property_sector: meta.property_sector || '',
         property_type: meta.property_type || '',
         property_operation: meta.property_operation || '',
-        subscriber_name: p.subscriber_id ? subscriberMap.get(p.subscriber_id) || '' : '',
+        subscriber_name: '',
       }
     })
 
     return NextResponse.json(propietarios)
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    return NextResponse.json({ error: e.message, stack: e.stack?.slice(0, 200) }, { status: 500 })
   }
 }
