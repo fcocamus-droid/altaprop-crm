@@ -48,29 +48,24 @@ export async function createProperty(formData: FormData) {
     return { error: error.message }
   }
 
-  // Handle image uploads
+  // Handle image uploads in parallel
   const images = formData.getAll('images') as File[]
   if (images.length > 0 && images[0].size > 0) {
-    for (let i = 0; i < images.length; i++) {
-      const file = images[i]
+    const uploadPromises = images.map(async (file, i) => {
       const ext = file.name.split('.').pop()
       const filePath = `${data.id}/${Date.now()}-${i}.${ext}`
-
       const { error: uploadError } = await supabase.storage
         .from('property-images')
         .upload(filePath, file)
-
       if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from('property-images')
-          .getPublicUrl(filePath)
-
-        await supabase.from('property_images').insert({
-          property_id: data.id,
-          url: urlData.publicUrl,
-          order: i,
-        })
+        const { data: urlData } = supabase.storage.from('property-images').getPublicUrl(filePath)
+        return { property_id: data.id, url: urlData.publicUrl, order: i }
       }
+      return null
+    })
+    const results = (await Promise.all(uploadPromises)).filter(Boolean)
+    if (results.length > 0) {
+      await supabase.from('property_images').insert(results)
     }
   }
 
@@ -98,29 +93,24 @@ export async function updateProperty(id: string, formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // Handle new image uploads
+  // Handle new image uploads in parallel
   const images = formData.getAll('images') as File[]
   if (images.length > 0 && images[0].size > 0) {
-    for (let i = 0; i < images.length; i++) {
-      const file = images[i]
+    const uploadPromises = images.map(async (file, i) => {
       const ext = file.name.split('.').pop()
       const filePath = `${id}/${Date.now()}-${i}.${ext}`
-
       const { error: uploadError } = await supabase.storage
         .from('property-images')
         .upload(filePath, file)
-
       if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from('property-images')
-          .getPublicUrl(filePath)
-
-        await supabase.from('property_images').insert({
-          property_id: id,
-          url: urlData.publicUrl,
-          order: i,
-        })
+        const { data: urlData } = supabase.storage.from('property-images').getPublicUrl(filePath)
+        return { property_id: id, url: urlData.publicUrl, order: i }
       }
+      return null
+    })
+    const results = (await Promise.all(uploadPromises)).filter(Boolean)
+    if (results.length > 0) {
+      await supabase.from('property_images').insert(results)
     }
   }
 

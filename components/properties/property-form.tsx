@@ -40,6 +40,8 @@ export function PropertyForm({ property }: PropertyFormProps) {
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+    } else if (isEditing) {
+      router.push('/dashboard/propiedades')
     }
   }
 
