@@ -28,6 +28,7 @@ interface User {
   phone: string | null
   email: string
   role: string
+  subscriber_id: string | null
   created_at: string
 }
 
@@ -206,17 +207,64 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
       )}
 
       <div className="space-y-3">
-        {users.map((user) => {
-          const isCurrentUser = user.id === currentUserId
-          const isLoading = loading === user.id
-          const isProtected = !canModifyUser(currentUserRole, user.role)
+        {(() => {
+          // Group users by subscriber for SUPERADMINBOSS view
+          if (currentUserRole === 'SUPERADMINBOSS') {
+            const groups = new Map<string, typeof users>()
+            const noGroup: typeof users = []
+            users.forEach(user => {
+              if (user.role === 'SUPERADMINBOSS') {
+                noGroup.push(user)
+              } else if (user.role === 'SUPERADMIN') {
+                const key = user.subscriber_id || user.id
+                if (!groups.has(key)) groups.set(key, [])
+                groups.get(key)!.unshift(user)
+              } else if (user.subscriber_id) {
+                if (!groups.has(user.subscriber_id)) groups.set(user.subscriber_id, [])
+                groups.get(user.subscriber_id)!.push(user)
+              } else {
+                noGroup.push(user)
+              }
+            })
 
-          return (
-            <Card key={user.id} className={`transition-all ${isLoading ? 'opacity-60' : ''}`}>
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center flex-shrink-0">
+            return (
+              <>
+                {noGroup.map(user => renderUser(user))}
+                {Array.from(groups.entries()).map(([subId, members]) => {
+                  const admin = members.find(m => m.role === 'SUPERADMIN')
+                  return (
+                    <div key={subId} className="border-2 border-navy/10 rounded-lg overflow-hidden">
+                      <div className="bg-navy/5 px-4 py-2 text-xs font-medium text-navy flex items-center gap-2">
+                        <span className="w-5 h-5 bg-navy/20 rounded-full flex items-center justify-center text-[10px] font-bold">{admin?.full_name?.[0] || '?'}</span>
+                        {admin?.full_name || 'Suscriptor'} — {admin?.email || ''}
+                        <span className="ml-auto text-muted-foreground">{members.length} usuario{members.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="space-y-0 divide-y">
+                        {members.map(user => renderUser(user))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )
+          }
+          return users.map(user => renderUser(user))
+        })()}
+      </div>
+    </div>
+  )
+
+  function renderUser(user: User) {
+    const isCurrentUser = user.id === currentUserId
+    const isLoading = loading === user.id
+    const isProtected = !canModifyUser(currentUserRole, user.role)
+
+    return (
+      <Card key={user.id} className={`transition-all ${isLoading ? 'opacity-60' : ''} border-0 shadow-none`}>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center flex-shrink-0">
                       <span className="font-semibold text-navy text-sm">
                         {user.full_name?.[0]?.toUpperCase() || '?'}
                       </span>
@@ -267,14 +315,11 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
               </CardContent>
             </Card>
           )
-        })}
+        }
 
         {users.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             No hay usuarios registrados
           </div>
         )}
-      </div>
-    </div>
-  )
 }
