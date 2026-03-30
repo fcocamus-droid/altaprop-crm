@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
 import { UserPlus, Loader2, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-react'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 const MARITAL_OPTIONS = [
   { value: 'soltero', label: 'Soltero/a' },
@@ -62,7 +63,14 @@ function RegistroForm() {
   })
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    if (name === 'rut') {
+      setForm({ ...form, rut: formatRut(value) })
+    } else if (name === 'phone' || name === 'emergency_contact_phone') {
+      setForm({ ...form, [name]: formatPhone(value) })
+    } else {
+      setForm({ ...form, [name]: value })
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -71,6 +79,14 @@ function RegistroForm() {
     if (step === 1) {
       if (!form.full_name || !form.rut || !form.email || !form.phone || !form.password) {
         setError('Completa todos los campos obligatorios')
+        return
+      }
+      if (!validateRut(form.rut)) {
+        setError('RUT inválido. Formato: 12.345.678-9')
+        return
+      }
+      if (!validatePhone(form.phone)) {
+        setError('Teléfono inválido. Formato: +56 9 1234 5678')
         return
       }
       if (form.password.length < 6) {

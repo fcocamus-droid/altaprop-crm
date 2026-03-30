@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
 import { UserPlus, Loader2, CheckCircle, ArrowLeft, ArrowRight } from 'lucide-react'
 import { PLANS } from '@/lib/constants'
+import { formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 export default function RegisterPage() {
   return (
@@ -39,7 +40,12 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    if (name === 'phone') {
+      setFormData({ ...formData, phone: formatPhone(value) })
+    } else {
+      setFormData({ ...formData, [name]: value })
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
