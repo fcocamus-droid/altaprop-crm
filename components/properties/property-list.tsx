@@ -38,6 +38,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
   const [properties, setProperties] = useState(initialProperties)
   const [search, setSearch] = useState('')
   const [filterOp, setFilterOp] = useState('all')
+  const [filterAgent, setFilterAgent] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [statusTab, setStatusTab] = useState('available')
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -133,6 +134,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
       if (!p.title.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q) && !p.sector?.toLowerCase().includes(q)) return false
     }
     if (filterOp !== 'all' && p.operation !== filterOp) return false
+    if (filterAgent !== 'all' && (p.agent_id || 'none') !== filterAgent) return false
     return true
   })
 
@@ -174,12 +176,22 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
         </div>
         <select value={filterOp} onChange={e => setFilterOp(e.target.value)}
           className="h-9 px-3 text-sm border rounded-lg bg-background">
-          <option value="all">Operacion</option>
+          <option value="all">Operación</option>
           <option value="arriendo">Arriendo</option>
           <option value="venta">Venta</option>
         </select>
-        {(search || filterOp !== 'all') && (
-          <button onClick={() => { setSearch(''); setFilterOp('all') }}
+        {agents.length > 0 && (
+          <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)}
+            className="h-9 px-3 text-sm border rounded-lg bg-background">
+            <option value="all">Agente</option>
+            <option value="none">Sin asignar</option>
+            {agents.map(a => (
+              <option key={a.id} value={a.id}>{a.full_name || 'Sin nombre'}</option>
+            ))}
+          </select>
+        )}
+        {(search || filterOp !== 'all' || filterAgent !== 'all') && (
+          <button onClick={() => { setSearch(''); setFilterOp('all'); setFilterAgent('all') }}
             className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground border rounded-lg">
             Limpiar
           </button>
