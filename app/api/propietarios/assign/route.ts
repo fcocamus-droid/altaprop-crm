@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
+import { getUserProfile } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  const profile = await getUserProfile()
+  if (!profile || profile.role !== 'SUPERADMINBOSS') {
+    return NextResponse.json({ error: 'Solo SUPERADMINBOSS puede asignar propietarios' }, { status: 403 })
+  }
+
   try {
     const { propietarioId, subscriberId } = await request.json()
 
