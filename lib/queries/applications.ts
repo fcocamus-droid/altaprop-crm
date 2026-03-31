@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { Application } from '@/types'
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
+}
 
 export async function getApplicationsByApplicant(applicantId: string) {
   const supabase = createClient()
@@ -26,8 +35,8 @@ export async function getApplicationsByProperty(propertyId: string) {
 }
 
 export async function getApplicationsByOwner(ownerId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('applications')
     .select('*, property:properties!inner(id, title, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.owner_id', ownerId)
@@ -38,8 +47,8 @@ export async function getApplicationsByOwner(ownerId: string) {
 }
 
 export async function getAllApplications() {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('applications')
     .select('*, property:properties(id, title), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .order('created_at', { ascending: false })
@@ -49,8 +58,8 @@ export async function getAllApplications() {
 }
 
 export async function getApplicationsByAgent(agentId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('applications')
     .select('*, property:properties!inner(id, title, agent_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.agent_id', agentId)
@@ -61,8 +70,8 @@ export async function getApplicationsByAgent(agentId: string) {
 }
 
 export async function getApplicationsBySubscriber(subscriberId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('applications')
     .select('*, property:properties!inner(id, title, subscriber_id), applicant:profiles!applications_applicant_id_fkey(id, full_name, phone), documents:application_documents(*)')
     .eq('property.subscriber_id', subscriberId)

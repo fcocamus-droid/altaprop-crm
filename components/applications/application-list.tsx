@@ -9,7 +9,7 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User } from 'lucide-react'
 import Link from 'next/link'
 
 interface ApplicationItem {
@@ -201,7 +201,10 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       <h3 className="font-semibold truncate">Propiedad</h3>
                     )}
                     {!isApplicant && app.applicant?.full_name && (
-                      <p className="text-sm text-navy font-medium">{app.applicant.full_name}</p>
+                      <p className="flex items-center gap-1 text-sm font-semibold text-navy">
+                        <User className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                        {app.applicant.full_name}
+                      </p>
                     )}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>{formatDate(app.created_at)}</span>
