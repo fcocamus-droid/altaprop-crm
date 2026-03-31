@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteProperty, updatePropertyStatus, updatePropertyAgent } from '@/lib/actions/properties'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home } from 'lucide-react'
+import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty } from '@/lib/actions/properties'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -42,6 +42,8 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
   const [filterStatus, setFilterStatus] = useState('all')
   const [statusTab, setStatusTab] = useState('available')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [finalizingProp, setFinalizingProp] = useState<string | null>(null)   // property id showing confirm panel
+  const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null) // property id being finalized
   const [calOpen, setCalOpen] = useState<string | null>(null)
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
   const [calYear, setCalYear] = useState(new Date().getFullYear())
@@ -225,29 +227,41 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                   <p className="text-sm text-muted-foreground">{property.city}{property.sector ? `, ${property.sector}` : ''}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="font-semibold text-sm text-navy">{formatPrice(property.price, property.currency)}</span>
-                    <select
-                      value={property.status}
-                      onChange={async (e) => {
-                        const newStatus = e.target.value
-                        setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: newStatus } : p))
-                        await updatePropertyStatus(property.id, newStatus)
-                      }}
-                      className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer appearance-none pr-6 ${
-                        property.status === 'available' ? 'bg-green-100 text-green-800 border-green-200' :
-                        property.status === 'unavailable' ? 'bg-gray-100 text-gray-800 border-gray-200' :
-                        property.status === 'reserved' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                        property.status === 'rented' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                        property.status === 'sold' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                        'bg-gray-100 text-gray-800 border-gray-200'
-                      }`}
-                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
-                    >
-                      <option value="available">Disponible</option>
-                      <option value="unavailable">No Disponible</option>
-                      <option value="reserved">Reservada</option>
-                      <option value="rented">Arrendada</option>
-                      <option value="sold">Vendida</option>
-                    </select>
+                    {/* Read-only badge for finalized properties */}
+                    {(property.status === 'rented' || property.status === 'sold') ? (
+                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                        property.status === 'rented' ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-purple-100 text-purple-800 border-purple-200'
+                      }`}>
+                        {property.status === 'rented' ? '🔑 Arrendada' : '🏆 Vendida'}
+                      </span>
+                    ) : (
+                      <select
+                        value={property.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value
+                          // Finalizing from reserved → rented/sold requires full flow
+                          if (property.status === 'reserved' && (newStatus === 'rented' || newStatus === 'sold')) {
+                            setFinalizingProp(`${property.id}:${newStatus}`)
+                            return
+                          }
+                          setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: newStatus } : p))
+                          await updatePropertyStatus(property.id, newStatus)
+                        }}
+                        className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer appearance-none pr-6 ${
+                          property.status === 'available'   ? 'bg-green-100 text-green-800 border-green-200' :
+                          property.status === 'unavailable' ? 'bg-gray-100 text-gray-800 border-gray-200' :
+                          property.status === 'reserved'    ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                          'bg-gray-100 text-gray-800 border-gray-200'
+                        }`}
+                        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+                      >
+                        <option value="available">Disponible</option>
+                        <option value="unavailable">No Disponible</option>
+                        <option value="reserved">Reservada</option>
+                        <option value="rented">→ Finalizar como Arrendada</option>
+                        <option value="sold">→ Finalizar como Vendida</option>
+                      </select>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <UserCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -301,6 +315,54 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                 </Button>
               </div>
             </div>
+
+            {/* Finalize confirmation panel — reserved → rented / sold */}
+            {finalizingProp?.startsWith(`${property.id}:`) && (() => {
+              const targetStatus = finalizingProp.split(':')[1] as 'rented' | 'sold'
+              const isRented = targetStatus === 'rented'
+              return (
+                <div className={`mt-3 pt-3 border-t rounded-xl border-2 p-4 space-y-3 ${isRented ? 'border-blue-200 bg-blue-50' : 'border-purple-200 bg-purple-50'}`}>
+                  <div className="flex items-center gap-2">
+                    {isRented
+                      ? <Key className="h-5 w-5 text-blue-600 shrink-0" />
+                      : <Trophy className="h-5 w-5 text-purple-600 shrink-0" />}
+                    <p className={`font-semibold ${isRented ? 'text-blue-900' : 'text-purple-900'}`}>
+                      Confirmar {isRented ? 'Arriendo' : 'Venta'}
+                    </p>
+                  </div>
+                  <p className={`text-sm ${isRented ? 'text-blue-800' : 'text-purple-800'}`}>
+                    La propiedad <strong>{property.title}</strong> pasará a <strong>{isRented ? 'Arrendada' : 'Vendida'}</strong>.
+                    Se enviará email de confirmación al arrendatario aprobado y se archivará su postulación.
+                  </p>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      disabled={finalizeLoading === property.id}
+                      className={isRented ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}
+                      onClick={async () => {
+                        setFinalizeLoading(property.id)
+                        const result = await finalizeProperty(property.id, targetStatus)
+                        if (!result.error) {
+                          setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: targetStatus } : p))
+                          setFinalizingProp(null)
+                        }
+                        setFinalizeLoading(null)
+                      }}
+                    >
+                      {finalizeLoading === property.id
+                        ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />Procesando...</>
+                        : isRented ? <><Key className="mr-1 h-3.5 w-3.5" />Confirmar Arriendo</>
+                                   : <><Trophy className="mr-1 h-3.5 w-3.5" />Confirmar Venta</>
+                      }
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={finalizeLoading === property.id}
+                      onClick={() => setFinalizingProp(null)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Inline calendar for blocking/unblocking visit hours */}
             {calOpen === property.id && (
