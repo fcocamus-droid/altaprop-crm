@@ -483,9 +483,13 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                                         {STATUS_LABELS[prop.status] || prop.status}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground capitalize">{prop.operation}</span>
-                                      {prop.status === 'reserved' && prop.approved_applicant_name && (
-                                        <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
-                                          <UserCheck className="h-3 w-3" />
+                                      {prop.approved_applicant_name && ['reserved', 'rented', 'sold'].includes(prop.status) && (
+                                        <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium border ${
+                                          prop.status === 'reserved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                          prop.status === 'rented'   ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                          'bg-violet-50 text-violet-700 border-violet-200'
+                                        }`}>
+                                          {prop.status === 'rented' ? <Key className="h-3 w-3" /> : prop.status === 'sold' ? <Trophy className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
                                           {prop.approved_applicant_name}
                                         </span>
                                       )}
