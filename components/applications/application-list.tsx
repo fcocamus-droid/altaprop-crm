@@ -9,7 +9,8 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 
 interface ApplicationItem {
   id: string
@@ -119,7 +120,19 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     <FileText className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold truncate">{app.property?.title || 'Propiedad'}</h3>
+                    {app.property?.id ? (
+                      <Link
+                        href={`/propiedades/${app.property.id}`}
+                        target="_blank"
+                        onClick={e => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 font-semibold truncate hover:text-navy hover:underline"
+                      >
+                        {app.property.title || 'Propiedad'}
+                        <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      </Link>
+                    ) : (
+                      <h3 className="font-semibold truncate">Propiedad</h3>
+                    )}
                     {!isApplicant && app.applicant?.full_name && (
                       <p className="text-sm text-navy font-medium">{app.applicant.full_name}</p>
                     )}
