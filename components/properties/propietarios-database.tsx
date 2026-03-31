@@ -77,6 +77,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [addError, setAddError] = useState('')
   const [assigningAgent, setAssigningAgent] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState('all')
+  const [filterAgent, setFilterAgent] = useState('all')
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -175,6 +176,12 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
     if (statusTab === 'free' && p.subscriber_id) return false
     if (statusTab === 'assigned' && (!p.subscriber_id || p.agent_id)) return false
     if (statusTab === 'with_agent' && !p.agent_id) return false
+
+    // Agent filter
+    if (filterAgent !== 'all') {
+      if (filterAgent === 'none' && p.agent_id) return false
+      if (filterAgent !== 'none' && p.agent_id !== filterAgent) return false
+    }
 
     // Search filter
     if (search) {
@@ -298,12 +305,22 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
         </Card>
       )}
 
-      {/* SEARCH */}
-      <div className="flex items-center gap-3">
+      {/* SEARCH + AGENT FILTER */}
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Buscar por nombre, RUT, email, dirección..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
+        {agents && agents.length > 0 && (
+          <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)}
+            className="h-9 px-3 text-sm border rounded-lg bg-background shrink-0">
+            <option value="all">Agente</option>
+            <option value="none">Sin agente</option>
+            {agents.map(a => (
+              <option key={a.id} value={a.id}>{a.full_name}</option>
+            ))}
+          </select>
+        )}
         <Badge variant="outline" className="shrink-0">{filtered.length} propietario{filtered.length !== 1 ? 's' : ''}</Badge>
       </div>
 
