@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink } from 'lucide-react'
 import { finalizeProperty } from '@/lib/actions/properties'
 import Link from 'next/link'
 
@@ -88,6 +88,8 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [filterAgent, setFilterAgent] = useState('all')
   const [finalizingProp, setFinalizingProp] = useState<string | null>(null) // prop id showing confirm panel
   const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null)
+  const [removingProp, setRemovingProp] = useState<string | null>(null)    // prop id showing remove confirm
+  const [removeLoading, setRemoveLoading] = useState<string | null>(null)  // prop id being removed
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -506,6 +508,18 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                                         Editar
                                       </Button>
                                     </Link>
+                                    {/* REMOVE FROM PROPIETARIO BUTTON */}
+                                    {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className={`h-7 text-xs gap-1 ${removingProp === prop.id ? 'border-red-400 text-red-600 bg-red-50' : 'border-red-200 text-red-400 hover:border-red-400 hover:text-red-600 hover:bg-red-50'}`}
+                                        onClick={() => setRemovingProp(removingProp === prop.id ? null : prop.id)}
+                                        title="Quitar del propietario"
+                                      >
+                                        <Unlink className="h-3 w-3" />
+                                      </Button>
+                                    )}
                                     {/* FINALIZE BUTTON */}
                                     {prop.status === 'reserved' && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
                                       <Button
@@ -580,6 +594,59 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                                   </p>
                                 </div>
                               )}
+
+                                {/* REMOVE FROM PROPIETARIO CONFIRMATION PANEL */}
+                                {removingProp === prop.id && (
+                                  <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 space-y-3 mt-2">
+                                    <div className="flex items-start justify-between">
+                                      <div>
+                                        <p className="font-semibold text-red-900 text-sm flex items-center gap-1.5">
+                                          <Unlink className="h-4 w-4" />
+                                          Quitar propiedad del módulo
+                                        </p>
+                                        <p className="text-xs text-red-700 mt-0.5">
+                                          La propiedad <strong>{prop.title}</strong> se desvinculará de <strong>{p.full_name}</strong>. La propiedad seguirá existiendo en el sistema.
+                                        </p>
+                                      </div>
+                                      <button onClick={() => setRemovingProp(null)} className="text-red-400 hover:text-red-600 ml-2">
+                                        <X className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        disabled={removeLoading === prop.id}
+                                        className="bg-red-600 hover:bg-red-700 text-white gap-1.5 text-xs"
+                                        onClick={async () => {
+                                          setRemoveLoading(prop.id)
+                                          const res = await fetch('/api/propietarios/unassign-property', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ propertyId: prop.id }),
+                                          })
+                                          if (res.ok) {
+                                            setPropietarios(prev => prev.map(pr =>
+                                              pr.id === p.id
+                                                ? { ...pr, properties: pr.properties.filter(pp => pp.id !== prop.id) }
+                                                : pr
+                                            ))
+                                            setRemovingProp(null)
+                                          }
+                                          setRemoveLoading(null)
+                                        }}
+                                      >
+                                        {removeLoading === prop.id
+                                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                          : <Unlink className="h-3.5 w-3.5" />}
+                                        Confirmar desvinculación
+                                      </Button>
+                                      <Button size="sm" variant="outline" disabled={removeLoading === prop.id}
+                                        onClick={() => setRemovingProp(null)}>
+                                        Cancelar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
