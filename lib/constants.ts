@@ -72,10 +72,12 @@ export const PROPERTY_STATUSES = [
 ] as const
 
 export const APPLICATION_STATUSES = [
-  { value: 'pending', label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'pending',   label: 'Pendiente',   color: 'bg-yellow-100 text-yellow-800' },
   { value: 'reviewing', label: 'Docs. Listos', color: 'bg-green-100 text-green-800' },
-  { value: 'approved', label: 'Aprobada', color: 'bg-emerald-100 text-emerald-800' },
-  { value: 'rejected', label: 'Rechazada', color: 'bg-red-100 text-red-800' },
+  { value: 'approved',  label: 'Aprobada',    color: 'bg-emerald-100 text-emerald-800' },
+  { value: 'rejected',  label: 'Rechazada',   color: 'bg-red-100 text-red-800' },
+  { value: 'rented',    label: 'Arrendada',   color: 'bg-blue-100 text-blue-800' },
+  { value: 'sold',      label: 'Vendida',     color: 'bg-purple-100 text-purple-800' },
 ] as const
 
 export const VISIT_STATUSES = [

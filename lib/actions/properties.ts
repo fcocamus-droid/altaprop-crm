@@ -286,7 +286,14 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
 
   if (propError || !property) return { error: propError?.message || 'Propiedad no encontrada' }
 
-  // 2. Send emails — non-blocking
+  // 2. Update the approved application status to match (rented or sold)
+  await admin
+    .from('applications')
+    .update({ status: newStatus })
+    .eq('property_id', propertyId)
+    .eq('status', 'approved')
+
+  // 3. Send emails — non-blocking
   try {
     const resendKey = process.env.RESEND_API_KEY
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'

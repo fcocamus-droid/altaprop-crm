@@ -9,7 +9,7 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy } from 'lucide-react'
 import Link from 'next/link'
 
 interface ApplicationItem {
@@ -22,14 +22,16 @@ interface ApplicationItem {
   documents?: any[]
 }
 
-type StageTab = 'all' | 'pending' | 'reviewing' | 'approved' | 'rejected'
+type StageTab = 'all' | 'pending' | 'reviewing' | 'approved' | 'rejected' | 'rented' | 'sold'
 
 const STAGE_TABS: { value: StageTab; label: string; icon: React.ReactNode; activeClass: string }[] = [
-  { value: 'all',       label: 'Todas',       icon: <FileText className="h-3.5 w-3.5" />,     activeClass: 'border-navy text-navy' },
-  { value: 'pending',   label: 'Pendientes',  icon: <Clock className="h-3.5 w-3.5" />,        activeClass: 'border-yellow-500 text-yellow-700' },
-  { value: 'reviewing', label: 'Docs. Listos',icon: <FolderOpen className="h-3.5 w-3.5" />,   activeClass: 'border-green-500 text-green-700' },
-  { value: 'approved',  label: 'Aprobadas',   icon: <CheckCircle2 className="h-3.5 w-3.5" />, activeClass: 'border-emerald-600 text-emerald-700' },
-  { value: 'rejected',  label: 'Rechazadas',  icon: <ThumbsDown className="h-3.5 w-3.5" />,   activeClass: 'border-red-500 text-red-600' },
+  { value: 'all',       label: 'Todas',        icon: <FileText className="h-3.5 w-3.5" />,     activeClass: 'border-navy text-navy' },
+  { value: 'pending',   label: 'Pendientes',   icon: <Clock className="h-3.5 w-3.5" />,        activeClass: 'border-yellow-500 text-yellow-700' },
+  { value: 'reviewing', label: 'Docs. Listos', icon: <FolderOpen className="h-3.5 w-3.5" />,   activeClass: 'border-green-500 text-green-700' },
+  { value: 'approved',  label: 'Aprobadas',    icon: <CheckCircle2 className="h-3.5 w-3.5" />, activeClass: 'border-emerald-600 text-emerald-700' },
+  { value: 'rented',    label: 'Arrendadas',   icon: <Key className="h-3.5 w-3.5" />,          activeClass: 'border-blue-500 text-blue-700' },
+  { value: 'sold',      label: 'Vendidas',     icon: <Trophy className="h-3.5 w-3.5" />,       activeClass: 'border-purple-500 text-purple-700' },
+  { value: 'rejected',  label: 'Rechazadas',   icon: <ThumbsDown className="h-3.5 w-3.5" />,   activeClass: 'border-red-500 text-red-600' },
 ]
 
 const BADGE_CLASS: Record<string, string> = {
@@ -37,6 +39,8 @@ const BADGE_CLASS: Record<string, string> = {
   pending:   'bg-yellow-100 text-yellow-800',
   reviewing: 'bg-green-100 text-green-800',
   approved:  'bg-emerald-100 text-emerald-800',
+  rented:    'bg-blue-100 text-blue-800',
+  sold:      'bg-purple-100 text-purple-800',
   rejected:  'bg-red-100 text-red-800',
 }
 
@@ -109,6 +113,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     pending:   applications.filter(a => a.status === 'pending').length,
     reviewing: applications.filter(a => a.status === 'reviewing').length,
     approved:  applications.filter(a => a.status === 'approved').length,
+    rented:    applications.filter(a => a.status === 'rented').length,
+    sold:      applications.filter(a => a.status === 'sold').length,
     rejected:  applications.filter(a => a.status === 'rejected').length,
   }
 
@@ -214,7 +220,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       <span>{formatDate(app.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      {!isApplicant ? (
+                      {!isApplicant && app.status !== 'rented' && app.status !== 'sold' ? (
+                        // Editable dropdown — only for active statuses
                         <select
                           value={app.status}
                           onChange={async (e) => {
@@ -237,11 +244,12 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                             'bg-gray-100 text-gray-800 border-gray-200'
                           }`}
                         >
-                          {APPLICATION_STATUSES.map(s => (
+                          {APPLICATION_STATUSES.filter(s => !['rented','sold'].includes(s.value)).map(s => (
                             <option key={s.value} value={s.value}>{s.label}</option>
                           ))}
                         </select>
                       ) : (
+                        // Read-only badge — for finalized or applicant view
                         <StatusBadge status={app.status} type="application" />
                       )}
                       <span className="text-xs text-muted-foreground">{docCounts[app.id] ?? app.documents?.length ?? 0} doc(s)</span>
@@ -249,8 +257,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {/* Applicant self-delete — allowed for any status except approved */}
-                  {isApplicant && app.status !== 'approved' && (
+                  {/* Applicant self-delete — allowed except for approved/rented/sold */}
+                  {isApplicant && !['approved','rented','sold'].includes(app.status) && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -297,8 +305,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     onStatusChange={(status) => setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status } : a))}
                   />
 
-                  {/* APPROVE BUTTON */}
-                  {!isApplicant && app.status !== 'approved' && app.status !== 'rejected' && (
+                  {/* APPROVE BUTTON — hidden for finalized applications */}
+                  {!isApplicant && !['approved','rejected','rented','sold'].includes(app.status) && (
                     <div className="pt-3 border-t">
                       {pendingApproval !== app.id ? (
                         <Button
@@ -365,6 +373,32 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       <div>
                         <p className="text-sm font-semibold">Postulante Aprobado</p>
                         <p className="text-xs text-emerald-600">La propiedad fue reservada para {app.applicant?.full_name || 'este postulante'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* RENTED BADGE */}
+                  {app.status === 'rented' && (
+                    <div className="pt-3 border-t flex items-center gap-2 text-blue-700 bg-blue-50 rounded-lg p-3">
+                      <Key className="h-5 w-5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">Arriendo Confirmado</p>
+                        <p className="text-xs text-blue-600">
+                          {isApplicant ? 'Tu arriendo fue confirmado exitosamente.' : `La propiedad fue arrendada a ${app.applicant?.full_name || 'este postulante'}.`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SOLD BADGE */}
+                  {app.status === 'sold' && (
+                    <div className="pt-3 border-t flex items-center gap-2 text-purple-700 bg-purple-50 rounded-lg p-3">
+                      <Trophy className="h-5 w-5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">Venta Confirmada</p>
+                        <p className="text-xs text-purple-600">
+                          {isApplicant ? 'Tu compra fue confirmada exitosamente.' : `La propiedad fue vendida a ${app.applicant?.full_name || 'este postulante'}.`}
+                        </p>
                       </div>
                     </div>
                   )}
