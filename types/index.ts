@@ -17,6 +17,22 @@ export interface Profile {
   subscriber_id: string | null
   created_at: string
   updated_at: string
+  // Bank account fields (PROPIETARIO)
+  bank_name?: string | null
+  bank_account_type?: string | null
+  bank_account_holder?: string | null
+  bank_account_rut?: string | null
+  bank_account_number?: string | null
+  bank_email?: string | null
+}
+
+export interface PaymentReceipt {
+  id: string
+  application_id: string
+  applicant_id: string
+  file_url: string
+  file_name: string | null
+  uploaded_at: string
 }
 
 export interface Property {

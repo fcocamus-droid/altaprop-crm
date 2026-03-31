@@ -9,8 +9,9 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark } from 'lucide-react'
 import Link from 'next/link'
+import { PaymentPanel } from '@/components/applications/payment-panel'
 
 interface ApplicationItem {
   id: string
@@ -430,6 +431,17 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                           {isApplicant ? 'Tu compra fue confirmada exitosamente.' : `La propiedad fue vendida a ${app.applicant?.full_name || 'este postulante'}.`}
                         </p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* PAYMENT PANEL — only for postulante when status is approved, rented or sold */}
+                  {isApplicant && ['approved', 'rented', 'sold'].includes(app.status) && (
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Landmark className="h-4 w-4 text-navy shrink-0" />
+                        <p className="text-sm font-semibold text-navy">Realizar Pago</p>
+                      </div>
+                      <PaymentPanel applicationId={app.id} />
                     </div>
                   )}
                 </div>

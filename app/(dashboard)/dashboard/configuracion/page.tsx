@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle, Lock, Camera, User } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function ConfiguracionPage() {
@@ -24,6 +24,11 @@ export default function ConfiguracionPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  // Bank account state
+  const [bankLoading, setBankLoading] = useState(false)
+  const [bankSuccess, setBankSuccess] = useState(false)
+  const [bankError, setBankError] = useState('')
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -72,6 +77,37 @@ export default function ConfiguracionPage() {
       router.refresh()
     }
     setLoading(false)
+  }
+
+  async function handleBankSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setBankLoading(true)
+    setBankError('')
+    setBankSuccess(false)
+
+    const formData = new FormData(e.currentTarget)
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        bank_name: formData.get('bank_name') as string || null,
+        bank_account_type: formData.get('bank_account_type') as string || null,
+        bank_account_holder: formData.get('bank_account_holder') as string || null,
+        bank_account_rut: formData.get('bank_account_rut') as string || null,
+        bank_account_number: formData.get('bank_account_number') as string || null,
+        bank_email: formData.get('bank_email') as string || null,
+      })
+      .eq('id', profile!.id)
+
+    if (error) {
+      setBankError(error.message)
+    } else {
+      setBankSuccess(true)
+      setTimeout(() => setBankSuccess(false), 4000)
+      router.refresh()
+    }
+    setBankLoading(false)
   }
 
   if (profileLoading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -193,6 +229,106 @@ export default function ConfiguracionPage() {
             </form>
           </CardContent>
         </Card>
+        {/* BANK ACCOUNT CARD — only for PROPIETARIO */}
+        {profile?.role === 'PROPIETARIO' && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Landmark className="h-5 w-5" />
+                Datos Bancarios
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Esta información será visible para los postulantes aprobados en tus propiedades para que puedan realizar el pago.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleBankSubmit} className="space-y-4">
+                {bankError && (
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">{bankError}</div>
+                )}
+                {bankSuccess && (
+                  <div className="bg-green-50 text-green-700 text-sm p-3 rounded-md flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />Datos bancarios guardados correctamente
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_name">Banco</Label>
+                  <Input
+                    id="bank_name"
+                    name="bank_name"
+                    placeholder="Ej: BancoEstado, Santander, BCI..."
+                    defaultValue={profile?.bank_name || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_account_type">Tipo de cuenta</Label>
+                  <select
+                    id="bank_account_type"
+                    name="bank_account_type"
+                    defaultValue={profile?.bank_account_type || ''}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">Seleccionar tipo...</option>
+                    <option value="Cuenta Corriente">Cuenta Corriente</option>
+                    <option value="Cuenta de Ahorro">Cuenta de Ahorro</option>
+                    <option value="Cuenta Vista / RUT">Cuenta Vista / RUT</option>
+                    <option value="Cuenta Empresas">Cuenta Empresas</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_account_holder">Nombre destinatario</Label>
+                  <Input
+                    id="bank_account_holder"
+                    name="bank_account_holder"
+                    placeholder="Nombre completo del titular"
+                    defaultValue={profile?.bank_account_holder || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_account_rut">RUT destinatario</Label>
+                  <Input
+                    id="bank_account_rut"
+                    name="bank_account_rut"
+                    placeholder="12.345.678-9"
+                    defaultValue={profile?.bank_account_rut || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_account_number">Número de cuenta</Label>
+                  <Input
+                    id="bank_account_number"
+                    name="bank_account_number"
+                    placeholder="Número de cuenta bancaria"
+                    defaultValue={profile?.bank_account_number || ''}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bank_email">Correo electrónico</Label>
+                  <Input
+                    id="bank_email"
+                    name="bank_email"
+                    type="email"
+                    placeholder="correo@banco.com"
+                    defaultValue={profile?.bank_email || ''}
+                  />
+                </div>
+
+                <Button type="submit" disabled={bankLoading}>
+                  {bankLoading
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</>
+                    : <><Save className="mr-2 h-4 w-4" />Guardar Datos Bancarios</>
+                  }
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
