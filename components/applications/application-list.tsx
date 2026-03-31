@@ -55,8 +55,9 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     setApplications(initial)
   }, [initial])
 
-  async function handleDelete(id: string, title: string) {
-    if (!confirm(`¿Eliminar postulación a "${title}"? Esta acción no se puede deshacer.`)) return
+  async function handleDelete(id: string, title: string, applicantName?: string) {
+    const who = applicantName ? `de ${applicantName} ` : ''
+    if (!confirm(`¿Eliminar la postulación ${who}a "${title}"?\n\nEsta acción no se puede deshacer.`)) return
     setDeleting(id)
     const result = await deleteApplication(id)
     if (!result.error) {
@@ -245,6 +246,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {/* Applicant self-delete (only pending) */}
                   {isApplicant && app.status === 'pending' && (
                     <Button
                       variant="ghost"
@@ -254,6 +256,19 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       className="text-red-400 hover:text-red-600 hover:bg-red-50"
                     >
                       {deleting === app.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </Button>
+                  )}
+                  {/* Admin delete button */}
+                  {!isApplicant && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(app.id, app.property?.title || 'esta propiedad', (app.applicant as any)?.full_name) }}
+                      disabled={deleting === app.id}
+                      title="Eliminar postulación"
+                      className="text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      {deleting === app.id ? <Loader2 className="h-4 w-4 animate-spin text-red-400" /> : <Trash2 className="h-4 w-4" />}
                     </Button>
                   )}
                   <Button
