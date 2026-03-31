@@ -6,7 +6,21 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2 } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import Link from 'next/link'
+
+interface PropProperty {
+  id: string
+  title: string
+  address: string | null
+  city: string | null
+  sector: string | null
+  status: string
+  operation: string
+  price: number
+  currency: string
+  images?: { url: string }[]
+}
 
 interface Propietario {
   id: string
@@ -22,6 +36,22 @@ interface Propietario {
   property_type: string
   property_operation: string
   created_at: string
+  properties: PropProperty[]
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  available: 'bg-green-100 text-green-800',
+  unavailable: 'bg-gray-100 text-gray-800',
+  reserved: 'bg-yellow-100 text-yellow-800',
+  rented: 'bg-blue-100 text-blue-800',
+  sold: 'bg-purple-100 text-purple-800',
+}
+const STATUS_LABELS: Record<string, string> = {
+  available: 'Disponible',
+  unavailable: 'No Disponible',
+  reserved: 'Reservada',
+  rented: 'Arrendada',
+  sold: 'Vendida',
 }
 
 export function PropietariosDatabase({ currentUserRole, subscribers }: {
@@ -112,6 +142,11 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {p.properties.length > 0 && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          <Home className="h-3 w-3 mr-1" />{p.properties.length} prop.
+                        </Badge>
+                      )}
                       {p.property_city && (
                         <Badge variant="outline" className="text-xs"><MapPin className="h-3 w-3 mr-1" />{p.property_city}</Badge>
                       )}
@@ -143,6 +178,59 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
                         )}
                         <div><p className="text-xs text-muted-foreground">Registrado</p><p className="font-medium">{formatDate(p.created_at)}</p></div>
                       </div>
+
+                      {/* PROPERTIES LIST */}
+                      {p.properties.length > 0 && (
+                        <div className="pt-2 border-t">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1">
+                            <Home className="h-3 w-3" /> PROPIEDADES PUBLICADAS ({p.properties.length})
+                          </p>
+                          <div className="space-y-2">
+                            {p.properties.map(prop => (
+                              <div key={prop.id} className="flex items-center gap-3 bg-muted/50 rounded-lg p-2.5">
+                                {prop.images?.[0]?.url ? (
+                                  <img src={prop.images[0].url} alt="" className="w-14 h-14 rounded-md object-cover shrink-0" />
+                                ) : (
+                                  <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{prop.title}</p>
+                                  <p className="text-xs text-muted-foreground">{prop.city}{prop.sector ? `, ${prop.sector}` : ''}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs font-semibold text-navy">
+                                      {prop.currency === 'UF' ? `${prop.price} UF` : `$${prop.price?.toLocaleString('es-CL')}`}
+                                    </span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_COLORS[prop.status] || 'bg-gray-100 text-gray-800'}`}>
+                                      {STATUS_LABELS[prop.status] || prop.status}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground capitalize">{prop.operation}</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Link href={`/propiedades/${prop.id}`} target="_blank">
+                                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                                      <ExternalLink className="h-3 w-3 mr-1" />Ver
+                                    </Button>
+                                  </Link>
+                                  <Link href={`/dashboard/propiedades/${prop.id}`}>
+                                    <Button variant="outline" size="sm" className="h-7 text-xs">
+                                      Editar
+                                    </Button>
+                                  </Link>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {p.properties.length === 0 && (
+                        <div className="pt-2 border-t text-center py-3">
+                          <p className="text-xs text-muted-foreground">Este propietario aún no ha publicado propiedades</p>
+                        </div>
+                      )}
 
                       {/* SUPERADMINBOSS: assign to subscriber */}
                       {currentUserRole === 'SUPERADMINBOSS' && subscribers && (

@@ -55,6 +55,23 @@ export async function GET() {
       }
     }
 
+    // Get properties owned by these propietarios
+    const propietarioIds = profiles.map(p => p.id)
+    const { data: properties } = await admin
+      .from('properties')
+      .select('id, title, address, city, sector, status, operation, price, currency, owner_id, images:property_images(url)')
+      .in('owner_id', propietarioIds)
+      .order('created_at', { ascending: false })
+
+    const propertiesByOwner = new Map<string, any[]>()
+    if (properties) {
+      for (const prop of properties) {
+        const list = propertiesByOwner.get(prop.owner_id) || []
+        list.push(prop)
+        propertiesByOwner.set(prop.owner_id, list)
+      }
+    }
+
     const propietarios = profiles.map(p => {
       const meta = metaMap.get(p.id) || {}
       return {
@@ -71,6 +88,7 @@ export async function GET() {
         property_type: meta.property_type || '',
         property_operation: meta.property_operation || '',
         subscriber_name: '',
+        properties: propertiesByOwner.get(p.id) || [],
       }
     })
 
