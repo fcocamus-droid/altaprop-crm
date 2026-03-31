@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle } from 'lucide-react'
+import { finalizeProperty } from '@/lib/actions/properties'
 import Link from 'next/link'
 
 interface PropProperty {
@@ -85,6 +86,8 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [assigningAgent, setAssigningAgent] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState('all')
   const [filterAgent, setFilterAgent] = useState('all')
+  const [finalizingProp, setFinalizingProp] = useState<string | null>(null) // prop id showing confirm panel
+  const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -123,6 +126,21 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
       ))
     }
     setAssigningAgent(null)
+  }
+
+  async function handleFinalizeProperty(propietarioId: string, propertyId: string, newStatus: 'rented' | 'sold') {
+    setFinalizeLoading(propertyId)
+    const result = await finalizeProperty(propertyId, newStatus)
+    if (!result.error) {
+      // Update local state
+      setPropietarios(prev => prev.map(p =>
+        p.id === propietarioId
+          ? { ...p, properties: p.properties.map(prop => prop.id === propertyId ? { ...prop, status: newStatus } : prop) }
+          : p
+      ))
+      setFinalizingProp(null)
+    }
+    setFinalizeLoading(null)
   }
 
   async function loadOrgProperties() {
@@ -444,45 +462,120 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                           </p>
                           <div className="space-y-2">
                             {p.properties.map(prop => (
-                              <div key={prop.id} className="flex items-center gap-3 bg-muted/50 rounded-lg p-2.5">
-                                {prop.images?.[0]?.url ? (
-                                  <img src={prop.images[0].url} alt="" className="w-14 h-14 rounded-md object-cover shrink-0" />
-                                ) : (
-                                  <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{prop.title}</p>
-                                  <p className="text-xs text-muted-foreground">{prop.city}{prop.sector ? `, ${prop.sector}` : ''}</p>
-                                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                                    <span className="text-xs font-semibold text-navy">
-                                      {prop.currency === 'UF' ? `${prop.price} UF` : `$${prop.price?.toLocaleString('es-CL')}`}
-                                    </span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_COLORS[prop.status] || 'bg-gray-100 text-gray-800'}`}>
-                                      {STATUS_LABELS[prop.status] || prop.status}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground capitalize">{prop.operation}</span>
-                                    {prop.status === 'reserved' && prop.approved_applicant_name && (
-                                      <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
-                                        <UserCheck className="h-3 w-3" />
-                                        {prop.approved_applicant_name}
+                              <div key={prop.id} className="bg-muted/50 rounded-lg overflow-hidden">
+                                {/* Property row */}
+                                <div className="flex items-center gap-3 p-2.5">
+                                  {prop.images?.[0]?.url ? (
+                                    <img src={prop.images[0].url} alt="" className="w-14 h-14 rounded-md object-cover shrink-0" />
+                                  ) : (
+                                    <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center shrink-0">
+                                      <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{prop.title}</p>
+                                    <p className="text-xs text-muted-foreground">{prop.city}{prop.sector ? `, ${prop.sector}` : ''}</p>
+                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                      <span className="text-xs font-semibold text-navy">
+                                        {prop.currency === 'UF' ? `${prop.price} UF` : `$${prop.price?.toLocaleString('es-CL')}`}
                                       </span>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${STATUS_COLORS[prop.status] || 'bg-gray-100 text-gray-800'}`}>
+                                        {STATUS_LABELS[prop.status] || prop.status}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground capitalize">{prop.operation}</span>
+                                      {prop.status === 'reserved' && prop.approved_applicant_name && (
+                                        <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
+                                          <UserCheck className="h-3 w-3" />
+                                          {prop.approved_applicant_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <Link href={`/propiedades/${prop.id}`} target="_blank">
+                                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                                        <ExternalLink className="h-3 w-3 mr-1" />Ver
+                                      </Button>
+                                    </Link>
+                                    <Link href={`/dashboard/propiedades/${prop.id}`}>
+                                      <Button variant="outline" size="sm" className="h-7 text-xs">
+                                        Editar
+                                      </Button>
+                                    </Link>
+                                    {/* FINALIZE BUTTON */}
+                                    {prop.status === 'reserved' && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
+                                      <Button
+                                        size="sm"
+                                        className={`h-7 text-xs gap-1 ${finalizingProp === prop.id ? 'bg-navy/80 text-white' : 'bg-navy text-gold hover:bg-navy/90'}`}
+                                        onClick={() => setFinalizingProp(finalizingProp === prop.id ? null : prop.id)}
+                                      >
+                                        Finalizar
+                                      </Button>
                                     )}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <Link href={`/propiedades/${prop.id}`} target="_blank">
-                                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                                      <ExternalLink className="h-3 w-3 mr-1" />Ver
+
+                                {/* FINALIZE CONFIRMATION PANEL */}
+                                {finalizingProp === prop.id && (
+                                <div className="mt-2 rounded-xl border-2 border-navy/20 bg-navy/5 p-4 space-y-3">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <p className="font-semibold text-navy text-sm flex items-center gap-1.5">
+                                        <AlertCircle className="h-4 w-4" />
+                                        Confirmar cierre de propiedad
+                                      </p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        Se enviará email de confirmación al postulante y al propietario.
+                                      </p>
+                                    </div>
+                                    <button onClick={() => setFinalizingProp(null)} className="text-muted-foreground hover:text-foreground">
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+
+                                  {prop.approved_applicant_name && (
+                                    <div className="flex items-center gap-2 text-xs bg-white rounded-lg border px-3 py-2">
+                                      <UserCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                      <span className="text-muted-foreground">Postulante aprobado:</span>
+                                      <span className="font-semibold text-navy">{prop.approved_applicant_name}</span>
+                                    </div>
+                                  )}
+
+                                  <div className="flex gap-2">
+                                    {/* Arriendo button — primary if operation is arriendo */}
+                                    <Button
+                                      size="sm"
+                                      disabled={!!finalizeLoading}
+                                      onClick={() => handleFinalizeProperty(p.id, prop.id, 'rented')}
+                                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-xs"
+                                    >
+                                      {finalizeLoading === prop.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Key className="h-3.5 w-3.5" />
+                                      )}
+                                      Confirmar Arriendo
                                     </Button>
-                                  </Link>
-                                  <Link href={`/dashboard/propiedades/${prop.id}`}>
-                                    <Button variant="outline" size="sm" className="h-7 text-xs">
-                                      Editar
+                                    {/* Venta button — primary if operation is venta */}
+                                    <Button
+                                      size="sm"
+                                      disabled={!!finalizeLoading}
+                                      onClick={() => handleFinalizeProperty(p.id, prop.id, 'sold')}
+                                      className="flex-1 bg-purple-600 hover:bg-purple-700 text-white gap-1.5 text-xs"
+                                    >
+                                      {finalizeLoading === prop.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        <Trophy className="h-3.5 w-3.5" />
+                                      )}
+                                      Confirmar Venta
                                     </Button>
-                                  </Link>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground text-center">
+                                    El estado de la propiedad cambiará a <strong>Arrendada</strong> o <strong>Vendida</strong> según corresponda.
+                                  </p>
                                 </div>
+                              )}
                               </div>
                             ))}
                           </div>
