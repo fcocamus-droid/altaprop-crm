@@ -220,8 +220,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       <span>{formatDate(app.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      {!isApplicant && app.status !== 'rented' && app.status !== 'sold' ? (
-                        // Editable dropdown — only for active statuses
+                      {!isApplicant ? (
+                        // Editable dropdown — admin can set any status including rented/sold
                         <select
                           value={app.status}
                           onChange={async (e) => {
@@ -240,16 +240,18 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                             app.status === 'pending'   ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                             app.status === 'reviewing' ? 'bg-green-100 text-green-800 border-green-200' :
                             app.status === 'approved'  ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            app.status === 'rented'    ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                            app.status === 'sold'      ? 'bg-purple-100 text-purple-800 border-purple-200' :
                             app.status === 'rejected'  ? 'bg-red-100 text-red-800 border-red-200' :
                             'bg-gray-100 text-gray-800 border-gray-200'
                           }`}
                         >
-                          {APPLICATION_STATUSES.filter(s => !['rented','sold'].includes(s.value)).map(s => (
+                          {APPLICATION_STATUSES.map(s => (
                             <option key={s.value} value={s.value}>{s.label}</option>
                           ))}
                         </select>
                       ) : (
-                        // Read-only badge — for finalized or applicant view
+                        // Read-only badge — applicant view
                         <StatusBadge status={app.status} type="application" />
                       )}
                       <span className="text-xs text-muted-foreground">{docCounts[app.id] ?? app.documents?.length ?? 0} doc(s)</span>
