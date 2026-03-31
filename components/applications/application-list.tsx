@@ -223,72 +223,61 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {!isApplicant ? (
-                        // Locked badge for final states — admin set these, cannot revert from dropdown
-                        (app.status === 'rented' || app.status === 'sold') ? (
-                          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                            app.status === 'rented'
-                              ? 'bg-blue-100 text-blue-800 border-blue-300'
-                              : 'bg-violet-100 text-violet-800 border-violet-300'
-                          }`}>
-                            {app.status === 'rented' ? <Key className="h-3 w-3" /> : <Trophy className="h-3 w-3" />}
-                            {app.status === 'rented' ? 'Arrendada' : 'Vendida'}
-                          </span>
-                        ) : (
-                          // Editable dropdown — active statuses only
-                          <div className="relative flex items-center gap-1">
-                            <select
-                              value={app.status}
-                              disabled={savingStatus === app.id}
-                              onChange={async (e) => {
-                                e.stopPropagation()
-                                const newStatus = e.target.value
-                                setStatusError(null)
-                                // Approve → confirmation panel (side effects: reserve property, reject others)
-                                if (newStatus === 'approved') {
-                                  if (!isExpanded) setExpanded(app.id)
-                                  setPendingApproval(app.id)
-                                  return
-                                }
-                                // All other transitions — wait for DB before updating UI
-                                setSavingStatus(app.id)
-                                let result: { error?: string; success?: boolean }
-                                if (newStatus === 'rented' || newStatus === 'sold') {
-                                  const propertyId = app.property_id || app.property?.id || ''
-                                  result = await finalizeApplicationStatus(app.id, propertyId, newStatus as 'rented' | 'sold')
-                                } else {
-                                  result = await updateApplicationStatus(app.id, newStatus)
-                                }
-                                setSavingStatus(null)
-                                if (result.error) {
-                                  setStatusError(app.id)
-                                  setTimeout(() => setStatusError(null), 3000)
-                                } else {
-                                  // Only update UI AFTER DB confirms success
-                                  setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
-                                }
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer ${
-                                savingStatus === app.id ? 'opacity-50 cursor-wait' : ''
-                              } ${
-                                app.status === 'pending'   ? 'bg-amber-100 text-amber-800 border-amber-300' :
-                                app.status === 'reviewing' ? 'bg-sky-100 text-sky-800 border-sky-300' :
-                                app.status === 'approved'  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
-                                app.status === 'rejected'  ? 'bg-rose-100 text-rose-800 border-rose-300' :
-                                'bg-gray-100 text-gray-800 border-gray-200'
-                              }`}
-                            >
-                              <option value="pending">⏳ Pendiente</option>
-                              <option value="reviewing">📂 Docs. Listos</option>
-                              <option value="approved">✅ Aprobada</option>
-                              <option value="rejected">❌ Rechazada</option>
-                              <option value="rented">🔑 Arrendada</option>
-                              <option value="sold">🏆 Vendida</option>
-                            </select>
-                            {savingStatus === app.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                            {statusError === app.id && <span className="text-xs text-red-500 font-medium">Error al guardar</span>}
-                          </div>
-                        )
+                        // Admin — full editable dropdown for ALL statuses (can always correct mistakes)
+                        <div className="relative flex items-center gap-1">
+                          <select
+                            value={app.status}
+                            disabled={savingStatus === app.id}
+                            onChange={async (e) => {
+                              e.stopPropagation()
+                              const newStatus = e.target.value
+                              setStatusError(null)
+                              // Approve → confirmation panel (side effects: reserve property, reject others)
+                              if (newStatus === 'approved') {
+                                if (!isExpanded) setExpanded(app.id)
+                                setPendingApproval(app.id)
+                                return
+                              }
+                              // All transitions — wait for DB confirmation before updating UI
+                              setSavingStatus(app.id)
+                              let result: { error?: string; success?: boolean }
+                              if (newStatus === 'rented' || newStatus === 'sold') {
+                                const propertyId = app.property_id || app.property?.id || ''
+                                result = await finalizeApplicationStatus(app.id, propertyId, newStatus as 'rented' | 'sold')
+                              } else {
+                                result = await updateApplicationStatus(app.id, newStatus)
+                              }
+                              setSavingStatus(null)
+                              if (result.error) {
+                                setStatusError(app.id)
+                                setTimeout(() => setStatusError(null), 3000)
+                              } else {
+                                setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer ${
+                              savingStatus === app.id ? 'opacity-50 cursor-wait' : ''
+                            } ${
+                              app.status === 'pending'   ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                              app.status === 'reviewing' ? 'bg-sky-100 text-sky-800 border-sky-300' :
+                              app.status === 'approved'  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                              app.status === 'rejected'  ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                              app.status === 'rented'    ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                              app.status === 'sold'      ? 'bg-violet-100 text-violet-800 border-violet-300' :
+                              'bg-gray-100 text-gray-800 border-gray-200'
+                            }`}
+                          >
+                            <option value="pending">⏳ Pendiente</option>
+                            <option value="reviewing">📂 Docs. Listos</option>
+                            <option value="approved">✅ Aprobada</option>
+                            <option value="rejected">❌ Rechazada</option>
+                            <option value="rented">🔑 Arrendada</option>
+                            <option value="sold">🏆 Vendida</option>
+                          </select>
+                          {savingStatus === app.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
+                          {statusError === app.id && <span className="text-xs text-red-500 font-medium">Error al guardar</span>}
+                        </div>
                       ) : (
                         // Read-only badge — applicant view
                         <StatusBadge status={app.status} type="application" />
