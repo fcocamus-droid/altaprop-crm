@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X } from 'lucide-react'
 import Link from 'next/link'
 
 interface PropProperty {
@@ -63,6 +64,14 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteResult, setInviteResult] = useState<{ success?: boolean; url?: string; error?: string } | null>(null)
+  const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', rut: '', phone: '' })
+  const [addLoading, setAddLoading] = useState(false)
+  const [addError, setAddError] = useState('')
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -87,6 +96,44 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
     setAssigning(null)
   }
 
+  async function handleInvite() {
+    if (!inviteEmail) return
+    setInviteLoading(true)
+    setInviteResult(null)
+    const res = await fetch('/api/propietarios/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: inviteEmail }),
+    })
+    const data = await res.json()
+    setInviteResult(data)
+    setInviteLoading(false)
+    if (data.success) setInviteEmail('')
+  }
+
+  async function handleAddPropietario(e: React.FormEvent) {
+    e.preventDefault()
+    setAddLoading(true)
+    setAddError('')
+    const res = await fetch('/api/propietarios/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(addForm),
+    })
+    const data = await res.json()
+    if (data.error) {
+      setAddError(data.error)
+    } else {
+      setShowAddForm(false)
+      setAddForm({ full_name: '', email: '', password: '', rut: '', phone: '' })
+      // Reload
+      const r = await fetch('/api/propietarios')
+      const newData = await r.json()
+      if (Array.isArray(newData)) setPropietarios(newData)
+    }
+    setAddLoading(false)
+  }
+
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
@@ -106,6 +153,94 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
 
   return (
     <div className="space-y-4">
+      {/* ACTION BUTTONS */}
+      {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
+        <div className="flex gap-2 flex-wrap">
+          <Button size="sm" onClick={() => { setShowAddForm(!showAddForm); setShowInvite(false) }}
+            className={showAddForm ? 'bg-navy' : 'bg-navy hover:bg-navy/90'}>
+            {showAddForm ? <><X className="mr-1 h-3 w-3" />Cancelar</> : <><UserPlus className="mr-1 h-3 w-3" />Agregar Propietario</>}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => { setShowInvite(!showInvite); setShowAddForm(false) }}>
+            {showInvite ? <><X className="mr-1 h-3 w-3" />Cancelar</> : <><Send className="mr-1 h-3 w-3" />Enviar Invitación</>}
+          </Button>
+        </div>
+      )}
+
+      {/* ADD FORM */}
+      {showAddForm && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold mb-3">Nuevo Propietario</h3>
+            <form onSubmit={handleAddPropietario} className="space-y-3">
+              {addError && <p className="text-xs text-destructive bg-destructive/10 p-2 rounded">{addError}</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Nombre Completo *</Label>
+                  <Input value={addForm.full_name} onChange={e => setAddForm({ ...addForm, full_name: e.target.value })} placeholder="Juan Pérez" required className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">RUT</Label>
+                  <Input value={addForm.rut} onChange={e => setAddForm({ ...addForm, rut: e.target.value })} placeholder="12.345.678-9" className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Email *</Label>
+                  <Input type="email" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} placeholder="correo@email.com" required className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Teléfono</Label>
+                  <Input value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} placeholder="+56 9 1234 5678" className="h-8 text-sm" />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Contraseña *</Label>
+                  <Input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="Mínimo 6 caracteres" required minLength={6} className="h-8 text-sm" />
+                </div>
+              </div>
+              <Button type="submit" size="sm" disabled={addLoading} className="bg-navy hover:bg-navy/90">
+                {addLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                Crear Propietario
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* INVITE FORM */}
+      {showInvite && (
+        <Card>
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold mb-3">Enviar Invitación por Email</h3>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                placeholder="correo@propietario.cl"
+                className="h-9"
+              />
+              <Button onClick={handleInvite} disabled={inviteLoading || !inviteEmail} size="sm" className="shrink-0">
+                {inviteLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Send className="mr-1 h-3 w-3" />}
+                Enviar
+              </Button>
+            </div>
+            {inviteResult && inviteResult.success && inviteResult.url && (
+              <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs text-green-700 flex items-center gap-1 mb-2"><CheckCircle className="h-3 w-3" /> Invitación enviada</p>
+                <div className="flex gap-2">
+                  <input readOnly value={inviteResult.url} className="flex-1 text-xs bg-white border rounded px-2 py-1 text-muted-foreground" />
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { navigator.clipboard.writeText(inviteResult.url!); }}>
+                    <Copy className="h-3 w-3 mr-1" />Copiar
+                  </Button>
+                </div>
+              </div>
+            )}
+            {inviteResult && inviteResult.error && (
+              <p className="mt-2 text-xs text-destructive">{inviteResult.error}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* SEARCH */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

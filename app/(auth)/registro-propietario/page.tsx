@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,9 @@ export default function RegistroPropietarioPage() {
 }
 
 function RegistroForm() {
+  const searchParams = useSearchParams()
+  const subscriberParam = searchParams.get('subscriber')
+
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -95,6 +99,7 @@ function RegistroForm() {
           full_name: form.full_name,
           rut: form.rut,
           phone: form.phone,
+          subscriber_id: subscriberParam || null,
           property_address: form.property_address,
           property_city: form.property_city,
           property_sector: form.property_sector,
