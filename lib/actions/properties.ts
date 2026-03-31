@@ -304,17 +304,31 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
         .from('applications')
         .select('applicant_id, applicant:profiles!applications_applicant_id_fkey(id, full_name)')
         .eq('property_id', propertyId)
-        .eq('status', 'approved')
+        .eq('status', newStatus)
         .maybeSingle()
 
       const applicantName = (approvedApp?.applicant as any)?.full_name || 'Postulante'
 
-      // 2a. Email to applicant
+      // Fetch owner bank details to include in applicant email
+      let bankInfo: BankInfo | null = null
+      if (property.owner_id) {
+        const { data: ownerBank } = await admin
+          .from('profiles')
+          .select('bank_name, bank_account_type, bank_account_holder, bank_account_rut, bank_account_number, bank_email')
+          .eq('id', property.owner_id)
+          .single()
+        if (ownerBank && (ownerBank.bank_name || ownerBank.bank_account_holder || ownerBank.bank_account_number)) {
+          bankInfo = ownerBank as BankInfo
+        }
+      }
+
+      // 2a. Email to applicant (with bank details)
       if (approvedApp?.applicant_id) {
         const { data: authApplicant } = await admin.auth.admin.getUserById(approvedApp.applicant_id)
         const email = authApplicant?.user?.email
         if (email) {
           const isRent = newStatus === 'rented'
+          const { buildFinalizeEmail } = await import('@/lib/emails/finalize-email')
           await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -324,9 +338,7 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
               subject: isRent
                 ? `🔑 ¡Tu arriendo está confirmado! — ${property.title}`
                 : `🏆 ¡Tu compra está confirmada! — ${property.title}`,
-              html: isRent
-                ? buildRentalConfirmEmail(applicantName, property.title, `${siteUrl}/dashboard/postulaciones`)
-                : buildSaleConfirmEmail(applicantName, property.title, `${siteUrl}/dashboard/postulaciones`),
+              html: buildFinalizeEmail(applicantName, property.title, newStatus, `${siteUrl}/dashboard/postulaciones`, bankInfo),
             }),
           })
         }
@@ -367,8 +379,39 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
   return { success: true }
 }
 
+// ── Bank info type ────────────────────────────────────────────────────────────
+interface BankInfo {
+  bank_name?: string | null
+  bank_account_type?: string | null
+  bank_account_holder?: string | null
+  bank_account_rut?: string | null
+  bank_account_number?: string | null
+  bank_email?: string | null
+}
+
+function buildBankSection(bank: BankInfo, accentColor: string, bgColor: string, borderColor: string): string {
+  const rows = [
+    bank.bank_name         ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;width:160px;">Banco</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_name}</td></tr>` : '',
+    bank.bank_account_type ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;">Tipo de cuenta</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_account_type}</td></tr>` : '',
+    bank.bank_account_holder ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;">Nombre destinatario</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_account_holder}</td></tr>` : '',
+    bank.bank_account_rut  ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;">RUT destinatario</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_account_rut}</td></tr>` : '',
+    bank.bank_account_number ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;">Número de cuenta</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_account_number}</td></tr>` : '',
+    bank.bank_email        ? `<tr><td style="padding:6px 0;color:${accentColor};font-size:14px;">Correo electrónico</td><td style="padding:6px 0;color:#1a2332;font-size:14px;font-weight:600;">${bank.bank_email}</td></tr>` : '',
+  ].filter(Boolean).join('')
+
+  if (!rows) return ''
+
+  return `
+    <div style="background:${bgColor};border:1px solid ${borderColor};border-left:4px solid ${accentColor};border-radius:10px;padding:20px 24px;margin:0 0 28px;">
+      <p style="margin:0 0 6px;font-size:11px;color:${accentColor};font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">🏦 Datos para el Pago</p>
+      <p style="margin:0 0 14px;font-size:13px;color:#374151;">Realiza la transferencia a la siguiente cuenta bancaria del propietario:</p>
+      <table style="width:100%;border-collapse:collapse;">${rows}</table>
+      <p style="margin:14px 0 0;font-size:12px;color:#64748b;">También puedes encontrar estos datos en tu <a href="#" style="color:${accentColor};">panel de postulaciones</a> junto al botón para subir tu comprobante de pago.</p>
+    </div>`
+}
+
 // ── EMAIL: Rental confirmation → applicant ───────────────────────────────────
-function buildRentalConfirmEmail(name: string, propertyTitle: string, dashboardUrl: string): string {
+function buildRentalConfirmEmail(name: string, propertyTitle: string, dashboardUrl: string, bank?: BankInfo | null): string {
   return `
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -417,11 +460,13 @@ function buildRentalConfirmEmail(name: string, propertyTitle: string, dashboardU
       </table>
     </div>
 
+    ${bank ? buildBankSection(bank, '#1d4ed8', '#eff6ff', '#bfdbfe') : ''}
+
     <!-- NEXT STEPS -->
     <h3 style="color:#1a2332;font-size:16px;font-weight:700;margin:0 0 16px;">Próximos pasos</h3>
     <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
       <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">1</div>
-      <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">Un ejecutivo de <strong>Altaprop</strong> se pondrá en contacto contigo para coordinar la firma del contrato y la entrega de llaves.</p>
+      <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">${bank ? 'Realiza la transferencia con los datos bancarios indicados arriba y sube tu comprobante de pago en tu panel.' : 'Un ejecutivo de <strong>Altaprop</strong> se pondrá en contacto contigo para coordinar la firma del contrato y la entrega de llaves.'}</p>
     </div>
     <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
       <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">2</div>
@@ -450,7 +495,7 @@ function buildRentalConfirmEmail(name: string, propertyTitle: string, dashboardU
 }
 
 // ── EMAIL: Sale confirmation → applicant ─────────────────────────────────────
-function buildSaleConfirmEmail(name: string, propertyTitle: string, dashboardUrl: string): string {
+function buildSaleConfirmEmail(name: string, propertyTitle: string, dashboardUrl: string, bank?: BankInfo | null): string {
   return `
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -494,6 +539,8 @@ function buildSaleConfirmEmail(name: string, propertyTitle: string, dashboardUrl
         </tr>
       </table>
     </div>
+
+    ${bank ? buildBankSection(bank, '#7c3aed', '#faf5ff', '#ddd6fe') : ''}
 
     <div style="text-align:center;margin:0 0 28px;">
       <a href="${dashboardUrl}" style="background:#1a2332;color:#c9a84c;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Ver mi Panel →</a>

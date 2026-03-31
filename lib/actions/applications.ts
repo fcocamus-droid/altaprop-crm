@@ -188,6 +188,67 @@ export async function finalizeApplicationStatus(
 
   if (propErr) return { error: propErr.message }
 
+  // 3. Send confirmation email to applicant with bank details — non-blocking
+  try {
+    const resendKey = process.env.RESEND_API_KEY
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
+
+    if (resendKey) {
+      // Fetch property title + owner_id
+      const { data: property } = await admin
+        .from('properties')
+        .select('id, title, owner_id')
+        .eq('id', propertyId)
+        .single()
+
+      // Fetch applicant profile + auth email
+      const { data: application } = await admin
+        .from('applications')
+        .select('applicant_id, applicant:profiles!applications_applicant_id_fkey(id, full_name)')
+        .eq('id', applicationId)
+        .single()
+
+      const applicantName = (application?.applicant as any)?.full_name || 'Postulante'
+
+      // Fetch owner bank details
+      let bankInfo: Record<string, string | null> | null = null
+      if (property?.owner_id) {
+        const { data: ownerBank } = await admin
+          .from('profiles')
+          .select('bank_name, bank_account_type, bank_account_holder, bank_account_rut, bank_account_number, bank_email')
+          .eq('id', property.owner_id)
+          .single()
+        if (ownerBank && (ownerBank.bank_name || ownerBank.bank_account_holder || ownerBank.bank_account_number)) {
+          bankInfo = ownerBank
+        }
+      }
+
+      // Send email to applicant
+      if (application?.applicant_id) {
+        const { data: authApplicant } = await admin.auth.admin.getUserById(application.applicant_id)
+        const email = authApplicant?.user?.email
+        if (email && property) {
+          const isRent = newStatus === 'rented'
+          const { buildFinalizeEmail } = await import('@/lib/emails/finalize-email')
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'Altaprop <noreply@altaprop-app.cl>',
+              to: email,
+              subject: isRent
+                ? `🔑 ¡Tu arriendo está confirmado! — ${property.title}`
+                : `🏆 ¡Tu compra está confirmada! — ${property.title}`,
+              html: buildFinalizeEmail(applicantName, property.title, newStatus, `${siteUrl}/dashboard/postulaciones`, bankInfo),
+            }),
+          })
+        }
+      }
+    }
+  } catch {
+    // Email failure never blocks the DB update
+  }
+
   revalidatePath('/dashboard/postulaciones')
   revalidatePath('/dashboard/propiedades')
   return { success: true }
