@@ -9,8 +9,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PROPERTY_TYPES, OPERATION_TYPES, CURRENCIES } from '@/lib/constants'
 import { createProperty, updateProperty } from '@/lib/actions/properties'
+import { createClient } from '@/lib/supabase/client'
 import { Loader2, Upload, X } from 'lucide-react'
 import type { Property } from '@/types'
+
+const MAX_IMAGES = 20
 
 interface PropertyFormProps {
   property?: Property
@@ -18,29 +21,25 @@ interface PropertyFormProps {
 
 export function PropertyForm({ property }: PropertyFormProps) {
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const router = useRouter()
   const isEditing = !!property
 
-  async function compressImage(file: File, maxWidth = 1600, quality = 0.8): Promise<File> {
+  async function compressImage(file: File): Promise<File> {
     if (!file.type.startsWith('image/')) return file
     return new Promise((resolve) => {
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
         let { width, height } = img
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width
-          width = maxWidth
-        }
+        const max = 1200
+        if (width > max) { height = (height * max) / width; width = max }
         canvas.width = width
         canvas.height = height
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file)
-        }, 'image/jpeg', quality)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(blob => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file), 'image/jpeg', 0.7)
       }
       img.onerror = () => resolve(file)
       img.src = URL.createObjectURL(file)
@@ -54,10 +53,37 @@ export function PropertyForm({ property }: PropertyFormProps) {
 
     const formData = new FormData(e.currentTarget)
 
-    // Compress images before upload (max 1600px, 80% quality)
-    const compressed = await Promise.all(selectedImages.map(img => compressImage(img)))
-    compressed.forEach(img => formData.append('images', img))
+    if (selectedImages.length > 0) {
+      setProgress('Comprimiendo imágenes...')
 
+      // Compress all images
+      const compressed = await Promise.all(selectedImages.map(img => compressImage(img)))
+
+      // Upload directly to Supabase Storage from client (much faster)
+      setProgress(`Subiendo ${compressed.length} imagen(es)...`)
+      const supabase = createClient()
+      const tempId = isEditing ? property!.id : crypto.randomUUID()
+
+      const uploadResults = await Promise.all(
+        compressed.map(async (file, i) => {
+          const ext = file.name.split('.').pop() || 'jpg'
+          const filePath = `${tempId}/${Date.now()}-${i}.${ext}`
+          const { error } = await supabase.storage.from('property-images').upload(filePath, file)
+          if (!error) {
+            const { data } = supabase.storage.from('property-images').getPublicUrl(filePath)
+            return data.publicUrl
+          }
+          return null
+        })
+      )
+
+      const imageUrls = uploadResults.filter(Boolean) as string[]
+      // Pass URLs instead of files
+      formData.set('image_urls', JSON.stringify(imageUrls))
+      formData.set('temp_property_id', tempId)
+    }
+
+    setProgress('Guardando propiedad...')
     const result = isEditing
       ? await updateProperty(property!.id, formData)
       : await createProperty(formData)
@@ -65,6 +91,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+      setProgress('')
     } else if (isEditing) {
       router.push('/dashboard/propiedades')
     }
@@ -72,7 +99,15 @@ export function PropertyForm({ property }: PropertyFormProps) {
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
-    setSelectedImages(prev => [...prev, ...files])
+    setSelectedImages(prev => {
+      const combined = [...prev, ...files]
+      if (combined.length > MAX_IMAGES) {
+        setError(`Máximo ${MAX_IMAGES} imágenes permitidas`)
+        return combined.slice(0, MAX_IMAGES)
+      }
+      setError('')
+      return combined
+    })
     e.target.value = ''
   }
 
@@ -170,7 +205,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Imagenes</CardTitle>
+            <CardTitle>Imagenes {selectedImages.length > 0 && <span className="text-sm font-normal text-muted-foreground">({selectedImages.length}/{MAX_IMAGES})</span>}</CardTitle>
           </CardHeader>
           <CardContent>
             {property?.images && property.images.length > 0 && (
@@ -184,7 +219,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
             )}
             <div className="border-2 border-dashed rounded-lg p-6 text-center">
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground mb-2">Arrastra imagenes o haz click para seleccionar</p>
+              <p className="text-sm text-muted-foreground mb-2">Arrastra imagenes o haz click (máx. {MAX_IMAGES})</p>
               <input type="file" accept="image/*" multiple onChange={handleImageChange} className="hidden" id="image-upload" />
               <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById('image-upload')?.click()}>
                 Seleccionar Imagenes
@@ -209,11 +244,11 @@ export function PropertyForm({ property }: PropertyFormProps) {
       <div className="flex justify-end gap-3 mt-6">
         <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>Cancelar</Button>
         <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {loading
-            ? (selectedImages.length > 0 ? `Subiendo ${selectedImages.length} imagen(es)...` : 'Guardando...')
-            : (isEditing ? 'Guardar Cambios' : 'Publicar Propiedad')
-          }
+          {loading ? (
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{progress}</>
+          ) : (
+            isEditing ? 'Guardar Cambios' : 'Publicar Propiedad'
+          )}
         </Button>
       </div>
     </form>

@@ -34,10 +34,14 @@ export async function createProperty(formData: FormData) {
     }
   }
 
+  // Use temp ID if images were uploaded from client
+  const tempId = formData.get('temp_property_id') as string
+
   const { data, error } = await supabase
     .from('properties')
     .insert({
       ...parsed.data,
+      ...(tempId ? { id: tempId } : {}),
       owner_id: profile.id,
       subscriber_id: profile.subscriber_id || profile.id,
     })
@@ -48,9 +52,19 @@ export async function createProperty(formData: FormData) {
     return { error: error.message }
   }
 
-  // Handle image uploads in parallel
+  // Handle image URLs (uploaded from client directly to Storage)
+  const imageUrlsJson = formData.get('image_urls') as string
+  if (imageUrlsJson) {
+    const imageUrls = JSON.parse(imageUrlsJson) as string[]
+    if (imageUrls.length > 0) {
+      const records = imageUrls.map((url, i) => ({ property_id: data.id, url, order: i }))
+      await supabase.from('property_images').insert(records)
+    }
+  }
+
+  // Fallback: handle file uploads (for cases without client upload)
   const images = formData.getAll('images') as File[]
-  if (images.length > 0 && images[0].size > 0) {
+  if (!imageUrlsJson && images.length > 0 && images[0].size > 0) {
     const uploadPromises = images.map(async (file, i) => {
       const ext = file.name.split('.').pop()
       const filePath = `${data.id}/${Date.now()}-${i}.${ext}`
@@ -93,9 +107,19 @@ export async function updateProperty(id: string, formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // Handle new image uploads in parallel
+  // Handle image URLs (uploaded from client)
+  const imageUrlsJson = formData.get('image_urls') as string
+  if (imageUrlsJson) {
+    const imageUrls = JSON.parse(imageUrlsJson) as string[]
+    if (imageUrls.length > 0) {
+      const records = imageUrls.map((url, i) => ({ property_id: id, url, order: i }))
+      await supabase.from('property_images').insert(records)
+    }
+  }
+
+  // Fallback: handle file uploads
   const images = formData.getAll('images') as File[]
-  if (images.length > 0 && images[0].size > 0) {
+  if (!imageUrlsJson && images.length > 0 && images[0].size > 0) {
     const uploadPromises = images.map(async (file, i) => {
       const ext = file.name.split('.').pop()
       const filePath = `${id}/${Date.now()}-${i}.${ext}`
