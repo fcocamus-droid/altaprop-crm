@@ -11,8 +11,11 @@ function getAdminClient() {
 }
 
 export async function getApplicationsByApplicant(applicantId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS on properties table.
+  // When a property moves to reserved/rented/sold, the regular client blocks
+  // the postulante from reading it — losing the property title in the join.
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('applications')
     .select('*, property:properties(id, title, address, city, type, operation, price, currency), documents:application_documents(*)')
     .eq('applicant_id', applicantId)
