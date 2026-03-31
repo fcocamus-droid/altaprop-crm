@@ -53,8 +53,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
   const [docCounts, setDocCounts] = useState<Record<string, number>>({})
   const [pendingApproval, setPendingApproval] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
-  const [pendingFinalize, setPendingFinalize] = useState<{ appId: string; status: 'rented' | 'sold' } | null>(null)
-  const [finalizingId, setFinalizingId] = useState<string | null>(null)
 
   // Sync when parent passes updated props (e.g. after server refresh)
   useEffect(() => {
@@ -107,18 +105,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
       setPendingApproval(null)
     }
     setApprovingId(null)
-  }
-
-  async function handleFinalize(appId: string, newStatus: 'rented' | 'sold') {
-    setFinalizingId(appId)
-    const app = applications.find(a => a.id === appId)
-    const propertyId = app?.property_id || app?.property?.id || ''
-    const result = await finalizeApplicationStatus(appId, propertyId, newStatus)
-    if (!result.error) {
-      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a))
-      setPendingFinalize(null)
-    }
-    setFinalizingId(null)
   }
 
   // Counts per stage
@@ -235,24 +221,26 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {!isApplicant ? (
-                        // Editable dropdown — all 6 statuses
+                        // Editable dropdown — all 6 statuses, direct update
                         <select
                           value={app.status}
                           onChange={async (e) => {
                             e.stopPropagation()
                             const newStatus = e.target.value
-                            // Approve → confirmation panel
+                            // Approve → confirmation panel (side effects: reserve property, reject others)
                             if (newStatus === 'approved') {
                               if (!isExpanded) setExpanded(app.id)
                               setPendingApproval(app.id)
                               return
                             }
-                            // Finalize (rented/sold) → confirmation panel
+                            // Rented/sold → sync both application + property directly
                             if (newStatus === 'rented' || newStatus === 'sold') {
-                              if (!isExpanded) setExpanded(app.id)
-                              setPendingFinalize({ appId: app.id, status: newStatus })
+                              const propertyId = app.property_id || app.property?.id || ''
+                              setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
+                              await finalizeApplicationStatus(app.id, propertyId, newStatus as 'rented' | 'sold')
                               return
                             }
+                            // All other statuses → direct update
                             setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
                             await updateApplicationStatus(app.id, newStatus)
                           }}
@@ -261,18 +249,18 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                             app.status === 'pending'   ? 'bg-amber-100 text-amber-800 border-amber-300' :
                             app.status === 'reviewing' ? 'bg-sky-100 text-sky-800 border-sky-300' :
                             app.status === 'approved'  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            app.status === 'rejected'  ? 'bg-rose-100 text-rose-800 border-rose-300' :
                             app.status === 'rented'    ? 'bg-blue-100 text-blue-800 border-blue-300' :
                             app.status === 'sold'      ? 'bg-violet-100 text-violet-800 border-violet-300' :
-                            app.status === 'rejected'  ? 'bg-rose-100 text-rose-800 border-rose-300' :
                             'bg-gray-100 text-gray-800 border-gray-200'
                           }`}
                         >
                           <option value="pending">⏳ Pendiente</option>
                           <option value="reviewing">📂 Docs. Listos</option>
                           <option value="approved">✅ Aprobada</option>
+                          <option value="rejected">❌ Rechazada</option>
                           <option value="rented">🔑 Arrendada</option>
                           <option value="sold">🏆 Vendida</option>
-                          <option value="rejected">❌ Rechazada</option>
                         </select>
                       ) : (
                         // Read-only badge — applicant view
@@ -391,53 +379,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                       )}
                     </div>
                   )}
-
-                  {/* FINALIZE PANEL — rented / sold confirmation */}
-                  {!isApplicant && pendingFinalize?.appId === app.id && (() => {
-                    const isRented = pendingFinalize.status === 'rented'
-                    return (
-                      <div className={`pt-3 border-t rounded-xl border-2 p-4 space-y-3 ${isRented ? 'border-blue-200 bg-blue-50' : 'border-violet-200 bg-violet-50'}`}>
-                        <div className="flex items-center gap-2">
-                          {isRented
-                            ? <Key className={`h-5 w-5 text-blue-600 shrink-0`} />
-                            : <Trophy className={`h-5 w-5 text-violet-600 shrink-0`} />}
-                          <p className={`font-semibold ${isRented ? 'text-blue-900' : 'text-violet-900'}`}>
-                            Confirmar {isRented ? 'Arriendo' : 'Venta'}
-                          </p>
-                        </div>
-                        <p className={`text-sm ${isRented ? 'text-blue-800' : 'text-violet-800'}`}>
-                          Estás marcando la postulación de <strong>{app.applicant?.full_name || 'este postulante'}</strong> como <strong>{isRented ? 'Arrendada' : 'Vendida'}</strong>.
-                        </p>
-                        <div className="space-y-1.5 text-sm">
-                          <div className={`flex items-center gap-2 ${isRented ? 'text-blue-700' : 'text-violet-700'}`}>
-                            {isRented ? <Key className="h-3.5 w-3.5 shrink-0" /> : <Trophy className="h-3.5 w-3.5 shrink-0" />}
-                            <span>La postulación pasará a <strong>{isRented ? 'Arrendada' : 'Vendida'}</strong></span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Home className="h-3.5 w-3.5 shrink-0" />
-                            <span>La propiedad también cambiará a <strong>{isRented ? 'Arrendada' : 'Vendida'}</strong></span>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            disabled={finalizingId === app.id}
-                            className={isRented ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white'}
-                            onClick={() => handleFinalize(app.id, pendingFinalize.status)}
-                          >
-                            {finalizingId === app.id
-                              ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />Procesando...</>
-                              : isRented ? <><Key className="mr-1 h-3.5 w-3.5" />Confirmar Arriendo</>
-                                         : <><Trophy className="mr-1 h-3.5 w-3.5" />Confirmar Venta</>}
-                          </Button>
-                          <Button size="sm" variant="outline" disabled={finalizingId === app.id}
-                            onClick={() => setPendingFinalize(null)}>
-                            Cancelar
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })()}
 
                   {/* APPROVED BADGE */}
                   {!isApplicant && app.status === 'approved' && (
