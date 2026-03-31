@@ -37,6 +37,8 @@ interface Propietario {
   property_type: string
   property_operation: string
   created_at: string
+  agent_id: string | null
+  agent_name: string
   properties: PropProperty[]
 }
 
@@ -55,9 +57,10 @@ const STATUS_LABELS: Record<string, string> = {
   sold: 'Vendida',
 }
 
-export function PropietariosDatabase({ currentUserRole, subscribers }: {
+export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   currentUserRole: string
   subscribers?: { id: string; full_name: string }[]
+  agents?: { id: string; full_name: string }[]
 }) {
   const [propietarios, setPropietarios] = useState<Propietario[]>([])
   const [loading, setLoading] = useState(true)
@@ -72,6 +75,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
   const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', rut: '', phone: '' })
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
+  const [assigningAgent, setAssigningAgent] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -94,6 +98,22 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
       ))
     }
     setAssigning(null)
+  }
+
+  async function handleAssignAgent(propietarioId: string, agentId: string) {
+    setAssigningAgent(propietarioId)
+    const res = await fetch('/api/propietarios/assign-agent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propietarioId, agentId: agentId || null }),
+    })
+    if (res.ok) {
+      const agent = agents?.find(a => a.id === agentId)
+      setPropietarios(prev => prev.map(p =>
+        p.id === propietarioId ? { ...p, agent_id: agentId || null, agent_name: agent?.full_name || '' } : p
+      ))
+    }
+    setAssigningAgent(null)
   }
 
   async function handleInvite() {
@@ -285,8 +305,13 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
                       {p.property_city && (
                         <Badge variant="outline" className="text-xs"><MapPin className="h-3 w-3 mr-1" />{p.property_city}</Badge>
                       )}
+                      {p.agent_name && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                          <UserCheck className="h-3 w-3 mr-1" />{p.agent_name}
+                        </Badge>
+                      )}
                       {p.subscriber_id ? (
-                        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs"><UserCheck className="h-3 w-3 mr-1" />Asignado</Badge>
+                        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Asignado</Badge>
                       ) : (
                         <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">Sin asignar</Badge>
                       )}
@@ -364,6 +389,33 @@ export function PropietariosDatabase({ currentUserRole, subscribers }: {
                       {p.properties.length === 0 && (
                         <div className="pt-2 border-t text-center py-3">
                           <p className="text-xs text-muted-foreground">Este propietario aún no ha publicado propiedades</p>
+                        </div>
+                      )}
+
+                      {/* SUPERADMIN: assign to agent */}
+                      {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') && agents && agents.length > 0 && (
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-muted-foreground shrink-0">Agente:</span>
+                          <select
+                            value={p.agent_id || ''}
+                            onChange={(e) => handleAssignAgent(p.id, e.target.value)}
+                            disabled={assigningAgent === p.id}
+                            className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="">Sin asignar</option>
+                            {agents.map(a => (
+                              <option key={a.id} value={a.id}>{a.full_name}</option>
+                            ))}
+                          </select>
+                          {assigningAgent === p.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </div>
+                      )}
+
+                      {/* Show agent name for non-admins */}
+                      {currentUserRole === 'AGENTE' && p.agent_name && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
+                          <UserCheck className="h-4 w-4" /> Mi propietario
                         </div>
                       )}
 

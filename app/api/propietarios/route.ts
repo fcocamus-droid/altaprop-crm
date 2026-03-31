@@ -21,23 +21,18 @@ export async function GET() {
     // Filter by role
     let query = admin
       .from('profiles')
-      .select('id, full_name, phone, rut, subscriber_id, created_at')
+      .select('id, full_name, phone, rut, subscriber_id, agent_id, created_at')
       .eq('role', 'PROPIETARIO')
       .order('created_at', { ascending: false })
 
     if (profile.role === 'SUPERADMIN') {
-      // SUPERADMIN sees only propietarios assigned to their subscriber
       const subscriberId = profile.subscriber_id || profile.id
       query = query.eq('subscriber_id', subscriberId)
     } else if (profile.role === 'AGENTE') {
-      // AGENTE sees propietarios from their subscriber
-      if (profile.subscriber_id) {
-        query = query.eq('subscriber_id', profile.subscriber_id)
-      } else {
-        return NextResponse.json([])
-      }
+      // AGENTE only sees propietarios assigned to them
+      query = query.eq('agent_id', profile.id)
     }
-    // SUPERADMINBOSS sees ALL (no filter)
+    // SUPERADMINBOSS sees ALL
 
     const { data: profiles, error } = await query
 
@@ -72,6 +67,14 @@ export async function GET() {
       }
     }
 
+    // Get agent names
+    const agentIds = profiles.map(p => p.agent_id).filter(Boolean)
+    const agentMap = new Map<string, string>()
+    if (agentIds.length > 0) {
+      const { data: agentData } = await admin.from('profiles').select('id, full_name').in('id', agentIds)
+      if (agentData) agentData.forEach(a => agentMap.set(a.id, a.full_name || 'Sin nombre'))
+    }
+
     const propietarios = profiles.map(p => {
       const meta = metaMap.get(p.id) || {}
       return {
@@ -80,6 +83,8 @@ export async function GET() {
         phone: p.phone,
         rut: p.rut,
         subscriber_id: p.subscriber_id,
+        agent_id: p.agent_id,
+        agent_name: p.agent_id ? agentMap.get(p.agent_id) || '' : '',
         created_at: p.created_at,
         email: emailMap.get(p.id) || '',
         property_address: meta.property_address || '',

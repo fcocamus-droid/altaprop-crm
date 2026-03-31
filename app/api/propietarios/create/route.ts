@@ -33,9 +33,14 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Assign subscriber_id
-  if (subscriberId) {
-    await admin.from('profiles').update({ subscriber_id: subscriberId }).eq('id', newUser.user.id)
+  // Assign subscriber_id and agent_id
+  const updateData: any = {}
+  if (subscriberId) updateData.subscriber_id = subscriberId
+  // If AGENTE creates, auto-assign to themselves
+  if (profile.role === 'AGENTE') updateData.agent_id = profile.id
+
+  if (Object.keys(updateData).length > 0) {
+    await admin.from('profiles').update(updateData).eq('id', newUser.user.id)
   }
 
   return NextResponse.json({ success: true, userId: newUser.user.id })
