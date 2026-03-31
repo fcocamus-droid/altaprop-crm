@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon } from 'lucide-react'
 import Link from 'next/link'
 
 interface PropProperty {
@@ -20,6 +20,8 @@ interface PropProperty {
   operation: string
   price: number
   currency: string
+  owner_id?: string
+  owner_name?: string
   images?: { url: string }[]
 }
 
@@ -67,6 +69,10 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
+  const [orgProperties, setOrgProperties] = useState<PropProperty[]>([])
+  const [orgPropsLoaded, setOrgPropsLoaded] = useState(false)
+  const [assigningProperty, setAssigningProperty] = useState<string | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Record<string, string>>({})
   const [showAddForm, setShowAddForm] = useState(false)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -116,6 +122,41 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
       ))
     }
     setAssigningAgent(null)
+  }
+
+  async function loadOrgProperties() {
+    if (orgPropsLoaded) return
+    const res = await fetch('/api/propietarios/org-properties')
+    const data = await res.json()
+    if (Array.isArray(data)) setOrgProperties(data)
+    setOrgPropsLoaded(true)
+  }
+
+  async function handleAssignProperty(propietarioId: string) {
+    const propertyId = selectedProperty[propietarioId]
+    if (!propertyId) return
+    setAssigningProperty(propietarioId)
+    const res = await fetch('/api/propietarios/assign-property', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propietarioId, propertyId }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      const prop = orgProperties.find(p => p.id === propertyId)
+      if (prop) {
+        // Add property to propietario's list in local state
+        setPropietarios(prev => prev.map(p =>
+          p.id === propietarioId
+            ? { ...p, properties: [...p.properties, { ...prop, owner_id: propietarioId }] }
+            : p
+        ))
+        // Remove from org pool (it now belongs to this propietario)
+        setOrgProperties(prev => prev.map(p => p.id === propertyId ? { ...p, owner_id: propietarioId } : p))
+      }
+      setSelectedProperty(prev => ({ ...prev, [propietarioId]: '' }))
+    }
+    setAssigningProperty(null)
   }
 
   async function handleInvite() {
@@ -335,7 +376,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
             const isExpanded = expanded === p.id
             return (
               <Card key={p.id} className={`transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-gold/30' : 'hover:shadow-md'}`}
-                onClick={() => setExpanded(isExpanded ? null : p.id)}>
+                onClick={() => { setExpanded(isExpanded ? null : p.id); if (!isExpanded) loadOrgProperties() }}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -446,6 +487,49 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                           <p className="text-xs text-muted-foreground">Este propietario aún no ha publicado propiedades</p>
                         </div>
                       )}
+
+                      {/* ASSIGN EXISTING PROPERTY */}
+                      {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (() => {
+                        const available = orgProperties.filter(op => op.owner_id !== p.id)
+                        return (
+                          <div className="pt-2 border-t space-y-2">
+                            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                              <LinkIcon className="h-3 w-3" /> ASIGNAR PROPIEDAD EXISTENTE
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={selectedProperty[p.id] || ''}
+                                onChange={e => setSelectedProperty(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                disabled={!orgPropsLoaded || assigningProperty === p.id}
+                              >
+                                <option value="">
+                                  {!orgPropsLoaded ? 'Cargando propiedades...' : available.length === 0 ? 'No hay propiedades disponibles' : 'Seleccionar propiedad...'}
+                                </option>
+                                {available.map(op => (
+                                  <option key={op.id} value={op.id}>
+                                    {op.title}{op.city ? ` — ${op.city}` : ''}{op.owner_name ? ` (de ${op.owner_name})` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                size="sm"
+                                className="shrink-0 bg-navy hover:bg-navy/90 h-9"
+                                disabled={!selectedProperty[p.id] || assigningProperty === p.id}
+                                onClick={() => handleAssignProperty(p.id)}
+                              >
+                                {assigningProperty === p.id
+                                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                                  : <><LinkIcon className="h-3 w-3 mr-1" />Asignar</>
+                                }
+                              </Button>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Asigna una propiedad ingresada por el equipo a este propietario.
+                            </p>
+                          </div>
+                        )
+                      })()}
 
                       {/* SUPERADMIN: assign to agent */}
                       {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') && agents && agents.length > 0 && (
