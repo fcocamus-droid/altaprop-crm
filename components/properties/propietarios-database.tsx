@@ -76,6 +76,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
   const [assigningAgent, setAssigningAgent] = useState<string | null>(null)
+  const [statusTab, setStatusTab] = useState('all')
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -158,21 +159,58 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
     return <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
 
+  const countFree = propietarios.filter(p => !p.subscriber_id).length
+  const countAssigned = propietarios.filter(p => p.subscriber_id && !p.agent_id).length
+  const countWithAgent = propietarios.filter(p => p.agent_id).length
+
+  const stages = [
+    { key: 'all', label: 'Todos', count: propietarios.length, color: 'text-navy', bgActive: 'bg-navy text-white border-navy' },
+    ...(currentUserRole === 'SUPERADMINBOSS' ? [{ key: 'free', label: 'Publica Gratis', count: countFree, color: 'text-yellow-600', bgActive: 'bg-yellow-100 text-yellow-800 border-yellow-300' }] : []),
+    { key: 'assigned', label: 'Sin Agente', count: countAssigned, color: 'text-amber-600', bgActive: 'bg-amber-100 text-amber-800 border-amber-300' },
+    { key: 'with_agent', label: 'Con Agente', count: countWithAgent, color: 'text-green-600', bgActive: 'bg-green-100 text-green-800 border-green-300' },
+  ]
+
   const filtered = propietarios.filter(p => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      (p.full_name || '').toLowerCase().includes(q) ||
-      (p.email || '').toLowerCase().includes(q) ||
-      (p.rut || '').toLowerCase().includes(q) ||
-      (p.phone || '').toLowerCase().includes(q) ||
-      (p.property_address || '').toLowerCase().includes(q) ||
-      (p.property_city || '').toLowerCase().includes(q)
-    )
+    // Status filter
+    if (statusTab === 'free' && p.subscriber_id) return false
+    if (statusTab === 'assigned' && (!p.subscriber_id || p.agent_id)) return false
+    if (statusTab === 'with_agent' && !p.agent_id) return false
+
+    // Search filter
+    if (search) {
+      const q = search.toLowerCase()
+      return (
+        (p.full_name || '').toLowerCase().includes(q) ||
+        (p.email || '').toLowerCase().includes(q) ||
+        (p.rut || '').toLowerCase().includes(q) ||
+        (p.phone || '').toLowerCase().includes(q) ||
+        (p.property_address || '').toLowerCase().includes(q) ||
+        (p.property_city || '').toLowerCase().includes(q)
+      )
+    }
+    return true
   })
 
   return (
     <div className="space-y-4">
+      {/* STAGE TABS */}
+      <div className="flex gap-2 flex-wrap">
+        {stages.map(stage => (
+          <button
+            key={stage.key}
+            onClick={() => setStatusTab(stage.key)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+              statusTab === stage.key
+                ? stage.bgActive
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            {stage.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${statusTab === stage.key ? 'bg-white/50' : 'bg-muted'}`}>{stage.count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ACTION BUTTONS */}
       {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
         <div className="flex gap-2 flex-wrap">
