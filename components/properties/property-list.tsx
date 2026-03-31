@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { deleteProperty, updatePropertyStatus, updatePropertyAgent } from '@/lib/actions/properties'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -39,6 +39,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
   const [search, setSearch] = useState('')
   const [filterOp, setFilterOp] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [statusTab, setStatusTab] = useState('available')
   const [deleting, setDeleting] = useState<string | null>(null)
   const [calOpen, setCalOpen] = useState<string | null>(null)
   const [calMonth, setCalMonth] = useState(new Date().getMonth())
@@ -117,19 +118,49 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
     router.refresh()
   }
 
+  const stages = [
+    { key: 'available', label: 'Disponibles', icon: CheckCircle, color: 'text-green-600', bgActive: 'bg-green-100 text-green-800 border-green-300' },
+    { key: 'unavailable', label: 'No Disponibles', icon: Ban, color: 'text-gray-500', bgActive: 'bg-gray-100 text-gray-800 border-gray-300' },
+    { key: 'reserved', label: 'Reservadas', icon: Clock, color: 'text-yellow-600', bgActive: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+    { key: 'rented', label: 'Arrendadas', icon: Home, color: 'text-blue-600', bgActive: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { key: 'sold', label: 'Vendidas', icon: XCircle, color: 'text-purple-600', bgActive: 'bg-purple-100 text-purple-800 border-purple-300' },
+  ]
+
   const filtered = properties.filter(p => {
+    if (p.status !== statusTab) return false
     if (search) {
       const q = search.toLowerCase()
       if (!p.title.toLowerCase().includes(q) && !p.city?.toLowerCase().includes(q) && !p.sector?.toLowerCase().includes(q)) return false
     }
     if (filterOp !== 'all' && p.operation !== filterOp) return false
-    if (filterStatus !== 'all' && p.status !== filterStatus) return false
     return true
   })
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
+      {/* Stage Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {stages.map(stage => {
+          const count = properties.filter(p => p.status === stage.key).length
+          return (
+            <button
+              key={stage.key}
+              onClick={() => setStatusTab(stage.key)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+                statusTab === stage.key
+                  ? stage.bgActive
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <stage.icon className={`h-3.5 w-3.5 ${statusTab === stage.key ? '' : stage.color}`} />
+              {stage.label}
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${statusTab === stage.key ? 'bg-white/50' : 'bg-muted'}`}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Search */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="flex-1 relative">
           <input
@@ -147,25 +178,20 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
           <option value="arriendo">Arriendo</option>
           <option value="venta">Venta</option>
         </select>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-          className="h-9 px-3 text-sm border rounded-lg bg-background">
-          <option value="all">Estado</option>
-          <option value="available">Disponible</option>
-          <option value="unavailable">No Disponible</option>
-          <option value="reserved">Reservada</option>
-          <option value="rented">Arrendada</option>
-          <option value="sold">Vendida</option>
-        </select>
-        {(search || filterOp !== 'all' || filterStatus !== 'all') && (
-          <button onClick={() => { setSearch(''); setFilterOp('all'); setFilterStatus('all') }}
+        {(search || filterOp !== 'all') && (
+          <button onClick={() => { setSearch(''); setFilterOp('all') }}
             className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground border rounded-lg">
             Limpiar
           </button>
         )}
       </div>
 
-      {filtered.length === 0 && properties.length > 0 && (
-        <p className="text-sm text-muted-foreground text-center py-6">No se encontraron propiedades con esos filtros</p>
+      {filtered.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <Home className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p className="font-medium">Sin propiedades {stages.find(s => s.key === statusTab)?.label.toLowerCase()}</p>
+          <p className="text-sm">Las propiedades con este estado aparecerán aquí</p>
+        </div>
       )}
 
       {filtered.map((property) => (
