@@ -13,11 +13,17 @@ import { menuItems } from '@/lib/navigation'
 interface SidebarProps {
   role: UserRole
   userName: string | null
+  subscriberId?: string | null
 }
 
-export function Sidebar({ role, userName }: SidebarProps) {
+export function Sidebar({ role, userName, subscriberId }: SidebarProps) {
   const pathname = usePathname()
-  const filteredItems = menuItems.filter(item => item.roles.includes(role))
+  // PROPIETARIO without subscriber (from "Publica Gratis") sees limited menu
+  const isUnassignedPropietario = role === 'PROPIETARIO' && !subscriberId
+  const hiddenForUnassigned = ['/dashboard/postulaciones', '/dashboard/visitas']
+  const filteredItems = menuItems
+    .filter(item => item.roles.includes(role))
+    .filter(item => !(isUnassignedPropietario && hiddenForUnassigned.includes(item.href)))
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-navy-dark border-r">
