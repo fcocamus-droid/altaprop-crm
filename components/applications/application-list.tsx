@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
@@ -9,7 +9,7 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, AlertTriangle, XCircle, Home } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown } from 'lucide-react'
 import Link from 'next/link'
 
 interface ApplicationItem {
@@ -22,15 +22,38 @@ interface ApplicationItem {
   documents?: any[]
 }
 
+type StageTab = 'all' | 'pending' | 'reviewing' | 'approved' | 'rejected'
+
+const STAGE_TABS: { value: StageTab; label: string; icon: React.ReactNode; activeClass: string }[] = [
+  { value: 'all',       label: 'Todas',       icon: <FileText className="h-3.5 w-3.5" />,     activeClass: 'border-navy text-navy' },
+  { value: 'pending',   label: 'Pendientes',  icon: <Clock className="h-3.5 w-3.5" />,        activeClass: 'border-yellow-500 text-yellow-700' },
+  { value: 'reviewing', label: 'Docs. Listos',icon: <FolderOpen className="h-3.5 w-3.5" />,   activeClass: 'border-green-500 text-green-700' },
+  { value: 'approved',  label: 'Aprobadas',   icon: <CheckCircle2 className="h-3.5 w-3.5" />, activeClass: 'border-emerald-600 text-emerald-700' },
+  { value: 'rejected',  label: 'Rechazadas',  icon: <ThumbsDown className="h-3.5 w-3.5" />,   activeClass: 'border-red-500 text-red-600' },
+]
+
+const BADGE_CLASS: Record<string, string> = {
+  all:       'bg-navy text-white',
+  pending:   'bg-yellow-100 text-yellow-800',
+  reviewing: 'bg-green-100 text-green-800',
+  approved:  'bg-emerald-100 text-emerald-800',
+  rejected:  'bg-red-100 text-red-800',
+}
+
 export function ApplicationList({ applications: initial, isApplicant }: { applications: ApplicationItem[]; isApplicant: boolean }) {
   const [applications, setApplications] = useState(initial)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [stageTab, setStageTab] = useState<StageTab>('all')
   const [docCounts, setDocCounts] = useState<Record<string, number>>({})
   const [pendingApproval, setPendingApproval] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
+
+  // Sync when parent passes updated props (e.g. after server refresh)
+  useEffect(() => {
+    setApplications(initial)
+  }, [initial])
 
   async function handleDelete(id: string, title: string) {
     if (!confirm(`¿Eliminar postulación a "${title}"? Esta acción no se puede deshacer.`)) return
@@ -50,7 +73,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
   async function handleDocsComplete(id: string) {
     const app = applications.find(a => a.id === id)
     if (!app) return
-    if (app.status === 'reviewing' || app.status === 'approved') return // already done
+    if (app.status === 'reviewing' || app.status === 'approved') return
     const result = await updateApplicationStatus(id, 'reviewing')
     if (!result.error) {
       setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
@@ -61,7 +84,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     setApprovingId(appId)
     const result = await approveApplication(appId)
     if (!result.error) {
-      // Update this app to approved, reject others for same property
       const targetPropertyId = applications.find(a => a.id === appId)?.property_id ||
                                applications.find(a => a.id === appId)?.property?.id
       setApplications(prev => prev.map(a => {
@@ -77,8 +99,17 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     setApprovingId(null)
   }
 
+  // Counts per stage
+  const counts: Record<StageTab, number> = {
+    all:       applications.length,
+    pending:   applications.filter(a => a.status === 'pending').length,
+    reviewing: applications.filter(a => a.status === 'reviewing').length,
+    approved:  applications.filter(a => a.status === 'approved').length,
+    rejected:  applications.filter(a => a.status === 'rejected').length,
+  }
+
   const filtered = applications.filter(app => {
-    if (filterStatus !== 'all' && app.status !== filterStatus) return false
+    if (stageTab !== 'all' && app.status !== stageTab) return false
     if (search) {
       const q = search.toLowerCase()
       const title = (app.property?.title || '').toLowerCase()
@@ -90,44 +121,57 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
 
   return (
     <div className="space-y-4">
-      {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por propiedad o postulante..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {[{ value: 'all', label: 'Todas', color: '' }, ...APPLICATION_STATUSES].map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setFilterStatus(s.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap ${
-                filterStatus === s.value
-                  ? s.value === 'all'
-                    ? 'bg-navy text-white border-navy'
-                    : `${s.color} border-current ring-1 ring-offset-1`
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+      {/* STAGE TABS */}
+      <div className="flex gap-0 border-b overflow-x-auto">
+        {STAGE_TABS.map(tab => (
+          <button
+            key={tab.value}
+            onClick={() => setStageTab(tab.value)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              stageTab === tab.value
+                ? tab.activeClass
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ml-0.5 ${
+              stageTab === tab.value ? BADGE_CLASS[tab.value] : 'bg-muted text-muted-foreground'
+            }`}>
+              {counts[tab.value]}
+            </span>
+          </button>
+        ))}
       </div>
+
+      {/* SEARCH */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por propiedad o postulante..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* EMPTY STATES */}
+      {filtered.length === 0 && applications.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+          <p className="font-medium">No hay postulaciones aún</p>
+        </div>
+      )}
 
       {filtered.length === 0 && applications.length > 0 && (
         <div className="text-center py-8 text-muted-foreground">
           <Search className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p className="font-medium">No se encontraron postulaciones</p>
-          <p className="text-sm">Prueba con otro término o filtro</p>
+          <p className="font-medium">Sin resultados en esta categoría</p>
+          <p className="text-sm">Prueba buscando o cambia la pestaña</p>
         </div>
       )}
 
+      {/* APPLICATION CARDS */}
       {filtered.map((app) => {
         const isExpanded = expanded === app.id
         return (
@@ -142,7 +186,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-navy text-white' : 'bg-navy/10 text-navy'}`}>
                     <FileText className="h-5 w-5" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     {app.property?.id ? (
                       <Link
                         href={`/propiedades/${app.property.id}`}
@@ -170,7 +214,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                             e.stopPropagation()
                             const newStatus = e.target.value
                             if (newStatus === 'approved') {
-                              // Intercept: show confirmation panel instead
                               if (!isExpanded) setExpanded(app.id)
                               setPendingApproval(app.id)
                               return
@@ -180,10 +223,10 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                           }}
                           onClick={(e) => e.stopPropagation()}
                           className={`text-xs font-medium px-2.5 py-1 rounded-full border cursor-pointer ${
-                            app.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                            app.status === 'pending'   ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                             app.status === 'reviewing' ? 'bg-green-100 text-green-800 border-green-200' :
-                            app.status === 'approved' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                            app.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+                            app.status === 'approved'  ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                            app.status === 'rejected'  ? 'bg-red-100 text-red-800 border-red-200' :
                             'bg-gray-100 text-gray-800 border-gray-200'
                           }`}
                         >
@@ -232,7 +275,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     onStatusChange={(status) => setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status } : a))}
                   />
 
-                  {/* APPROVE BUTTON — only for admins when docs are ready or pending */}
+                  {/* APPROVE BUTTON */}
                   {!isApplicant && app.status !== 'approved' && app.status !== 'rejected' && (
                     <div className="pt-3 border-t">
                       {pendingApproval !== app.id ? (
@@ -245,7 +288,6 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                           Aprobar Postulante y Reservar Propiedad
                         </Button>
                       ) : (
-                        /* CONFIRMATION PANEL */
                         <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 space-y-3">
                           <div className="flex items-center gap-2">
                             <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
