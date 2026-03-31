@@ -58,7 +58,7 @@ export async function GET() {
       .in('owner_id', propietarioIds)
       .order('created_at', { ascending: false })
 
-    // Get approved applicants for reserved properties
+    // Get winning applicant for each property (approved, rented or sold)
     const propertyIds = (properties || []).map((p: any) => p.id)
     const approvedApplicantMap = new Map<string, string>() // propertyId -> applicant full_name
     if (propertyIds.length > 0) {
@@ -66,7 +66,7 @@ export async function GET() {
         .from('applications')
         .select('property_id, applicant:profiles!applications_applicant_id_fkey(full_name)')
         .in('property_id', propertyIds)
-        .eq('status', 'approved')
+        .in('status', ['approved', 'rented', 'sold'])
       if (approvedApps) {
         for (const a of approvedApps) {
           const name = (a.applicant as any)?.full_name || ''
