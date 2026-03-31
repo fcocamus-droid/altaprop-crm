@@ -153,6 +153,51 @@ export async function updateApplicationStatus(id: string, status: string) {
   return { success: true }
 }
 
+export async function approveApplication(applicationId: string) {
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
+  if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  // Get the application with property info
+  const { data: app } = await admin
+    .from('applications')
+    .select('id, property_id, applicant_id')
+    .eq('id', applicationId)
+    .single()
+
+  if (!app) return { error: 'Postulación no encontrada' }
+
+  // 1. Approve this application
+  const { error: e1 } = await admin
+    .from('applications')
+    .update({ status: 'approved' })
+    .eq('id', applicationId)
+  if (e1) return { error: e1.message }
+
+  // 2. Reject all other pending/reviewing applications for the same property
+  await admin
+    .from('applications')
+    .update({ status: 'rejected' })
+    .eq('property_id', app.property_id)
+    .neq('id', applicationId)
+    .in('status', ['pending', 'reviewing'])
+
+  // 3. Set property status to reserved
+  await admin
+    .from('properties')
+    .update({ status: 'reserved' })
+    .eq('id', app.property_id)
+
+  revalidatePath('/dashboard/postulaciones')
+  revalidatePath('/dashboard/propiedades')
+  return { success: true, propertyId: app.property_id }
+}
+
 export async function deleteApplication(id: string) {
   const supabase = createClient()
 

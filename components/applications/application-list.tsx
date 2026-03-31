@@ -4,16 +4,17 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteApplication, updateApplicationStatus } from '@/lib/actions/applications'
+import { deleteApplication, updateApplicationStatus, approveApplication } from '@/lib/actions/applications'
 import { ApplicationDocuments } from '@/components/applications/application-documents'
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, AlertTriangle, XCircle, Home } from 'lucide-react'
 import Link from 'next/link'
 
 interface ApplicationItem {
   id: string
+  property_id?: string
   created_at: string
   status: string
   property?: { id: string; title: string } | null
@@ -28,6 +29,8 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [docCounts, setDocCounts] = useState<Record<string, number>>({})
+  const [pendingApproval, setPendingApproval] = useState<string | null>(null)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
 
   async function handleDelete(id: string, title: string) {
     if (!confirm(`¿Eliminar postulación a "${title}"? Esta acción no se puede deshacer.`)) return
@@ -52,6 +55,26 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
     if (!result.error) {
       setApplications(prev => prev.map(a => a.id === id ? { ...a, status: 'reviewing' } : a))
     }
+  }
+
+  async function handleApprove(appId: string) {
+    setApprovingId(appId)
+    const result = await approveApplication(appId)
+    if (!result.error) {
+      // Update this app to approved, reject others for same property
+      const targetPropertyId = applications.find(a => a.id === appId)?.property_id ||
+                               applications.find(a => a.id === appId)?.property?.id
+      setApplications(prev => prev.map(a => {
+        if (a.id === appId) return { ...a, status: 'approved' }
+        const aPropertyId = a.property_id || a.property?.id
+        if (aPropertyId === targetPropertyId && (a.status === 'pending' || a.status === 'reviewing')) {
+          return { ...a, status: 'rejected' }
+        }
+        return a
+      }))
+      setPendingApproval(null)
+    }
+    setApprovingId(null)
   }
 
   const filtered = applications.filter(app => {
@@ -146,6 +169,12 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                           onChange={async (e) => {
                             e.stopPropagation()
                             const newStatus = e.target.value
+                            if (newStatus === 'approved') {
+                              // Intercept: show confirmation panel instead
+                              if (!isExpanded) setExpanded(app.id)
+                              setPendingApproval(app.id)
+                              return
+                            }
                             setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status: newStatus } : a))
                             await updateApplicationStatus(app.id, newStatus)
                           }}
@@ -194,7 +223,7 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
 
               {/* Expanded documents section */}
               {isExpanded && (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-4 pt-4 border-t space-y-4">
                   <ApplicationDocuments
                     applicationId={app.id}
                     readOnly={!isApplicant}
@@ -202,6 +231,79 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     onDocCountChange={(count) => setDocCounts(prev => ({ ...prev, [app.id]: count }))}
                     onStatusChange={(status) => setApplications(prev => prev.map(a => a.id === app.id ? { ...a, status } : a))}
                   />
+
+                  {/* APPROVE BUTTON — only for admins when docs are ready or pending */}
+                  {!isApplicant && app.status !== 'approved' && app.status !== 'rejected' && (
+                    <div className="pt-3 border-t">
+                      {pendingApproval !== app.id ? (
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                          onClick={() => setPendingApproval(app.id)}
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          Aprobar Postulante y Reservar Propiedad
+                        </Button>
+                      ) : (
+                        /* CONFIRMATION PANEL */
+                        <div className="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                            <p className="font-semibold text-emerald-900">Confirmar Aprobación</p>
+                          </div>
+                          <p className="text-sm text-emerald-800">
+                            Estás aprobando a <strong>{app.applicant?.full_name || 'este postulante'}</strong> para la propiedad <strong>{app.property?.title || 'seleccionada'}</strong>.
+                          </p>
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex items-center gap-2 text-emerald-700">
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              <span>La postulación pasará a <strong>Aprobada</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2 text-amber-700">
+                              <Home className="h-3.5 w-3.5 shrink-0" />
+                              <span>La propiedad cambiará de <strong>Disponible → Reservada</strong></span>
+                            </div>
+                            <div className="flex items-center gap-2 text-red-600">
+                              <XCircle className="h-3.5 w-3.5 shrink-0" />
+                              <span>Las demás postulaciones pendientes serán <strong>Rechazadas</strong></span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                              disabled={approvingId === app.id}
+                              onClick={() => handleApprove(app.id)}
+                            >
+                              {approvingId === app.id
+                                ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />Aprobando...</>
+                                : <><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Confirmar Aprobación</>
+                              }
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={approvingId === app.id}
+                              onClick={() => setPendingApproval(null)}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* APPROVED BADGE */}
+                  {!isApplicant && app.status === 'approved' && (
+                    <div className="pt-3 border-t flex items-center gap-2 text-emerald-700 bg-emerald-50 rounded-lg p-3">
+                      <CheckCircle2 className="h-5 w-5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">Postulante Aprobado</p>
+                        <p className="text-xs text-emerald-600">La propiedad fue reservada para {app.applicant?.full_name || 'este postulante'}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
