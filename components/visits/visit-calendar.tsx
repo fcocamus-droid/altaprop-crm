@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 interface VisitCalendarProps {
   propertyId: string
@@ -31,6 +32,42 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({ name: '', rut: '', phone: '', email: '', notes: '' })
+  const [fieldErrors, setFieldErrors] = useState<{ rut?: string; phone?: string }>({})
+  const [touched, setTouched] = useState<{ rut?: boolean; phone?: boolean }>({})
+
+  function handleRutChange(value: string) {
+    const formatted = formatRut(value)
+    setFormData(prev => ({ ...prev, rut: formatted }))
+    if (touched.rut && formatted) {
+      setFieldErrors(prev => ({ ...prev, rut: validateRut(formatted) ? undefined : 'RUT inválido' }))
+    } else {
+      setFieldErrors(prev => ({ ...prev, rut: undefined }))
+    }
+  }
+
+  function handlePhoneChange(value: string) {
+    const formatted = formatPhone(value)
+    setFormData(prev => ({ ...prev, phone: formatted }))
+    if (touched.phone && formatted) {
+      setFieldErrors(prev => ({ ...prev, phone: validatePhone(formatted) ? undefined : 'Formato: +56 9 1234 5678' }))
+    } else {
+      setFieldErrors(prev => ({ ...prev, phone: undefined }))
+    }
+  }
+
+  function handleBlurRut() {
+    setTouched(prev => ({ ...prev, rut: true }))
+    if (formData.rut) {
+      setFieldErrors(prev => ({ ...prev, rut: validateRut(formData.rut) ? undefined : 'RUT inválido' }))
+    }
+  }
+
+  function handleBlurPhone() {
+    setTouched(prev => ({ ...prev, phone: true }))
+    if (formData.phone) {
+      setFieldErrors(prev => ({ ...prev, phone: validatePhone(formData.phone) ? undefined : 'Formato: +56 9 1234 5678' }))
+    }
+  }
 
   // Generate calendar days
   const firstDay = new Date(currentYear, currentMonth, 1).getDay()
@@ -74,6 +111,16 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedDate || !selectedTime) return
+
+    // Validate before submit
+    const rutErr = formData.rut && !validateRut(formData.rut) ? 'RUT inválido' : undefined
+    const phoneErr = formData.phone && !validatePhone(formData.phone) ? 'Formato: +56 9 1234 5678' : undefined
+    if (rutErr || phoneErr) {
+      setFieldErrors({ rut: rutErr, phone: phoneErr })
+      setTouched({ rut: true, phone: true })
+      return
+    }
+
     setSubmitting(true)
     setError('')
 
@@ -131,11 +178,47 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
           </div>
           <div>
             <Label className="text-sm">RUT</Label>
-            <Input value={formData.rut} onChange={e => setFormData({...formData, rut: e.target.value})} placeholder="12.345.678-9" />
+            <Input
+              value={formData.rut}
+              onChange={e => handleRutChange(e.target.value)}
+              onBlur={handleBlurRut}
+              placeholder="12.345.678-9"
+              maxLength={12}
+              className={fieldErrors.rut ? 'border-red-400 focus-visible:ring-red-300' : touched.rut && formData.rut && !fieldErrors.rut ? 'border-green-400 focus-visible:ring-green-300' : ''}
+            />
+            {fieldErrors.rut && (
+              <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />{fieldErrors.rut}
+              </p>
+            )}
+            {touched.rut && formData.rut && !fieldErrors.rut && (
+              <p className="flex items-center gap-1 text-xs text-green-600 mt-1">
+                <CheckCircle className="h-3 w-3 shrink-0" />RUT válido
+              </p>
+            )}
           </div>
           <div>
-            <Label className="text-sm">Telefono *</Label>
-            <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required placeholder="+56 9 1234 5678" />
+            <Label className="text-sm">Teléfono *</Label>
+            <Input
+              value={formData.phone}
+              onChange={e => handlePhoneChange(e.target.value)}
+              onBlur={handleBlurPhone}
+              required
+              placeholder="+56 9 1234 5678"
+              type="tel"
+              maxLength={15}
+              className={fieldErrors.phone ? 'border-red-400 focus-visible:ring-red-300' : touched.phone && formData.phone && !fieldErrors.phone ? 'border-green-400 focus-visible:ring-green-300' : ''}
+            />
+            {fieldErrors.phone && (
+              <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />{fieldErrors.phone}
+              </p>
+            )}
+            {touched.phone && formData.phone && !fieldErrors.phone && (
+              <p className="flex items-center gap-1 text-xs text-green-600 mt-1">
+                <CheckCircle className="h-3 w-3 shrink-0" />Teléfono válido
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-sm">Email</Label>
