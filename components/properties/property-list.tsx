@@ -268,8 +268,8 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                         ))}
                       </select>
                     ) : (
-                      <span className="text-xs text-muted-foreground">
-                        {property.agent?.full_name || 'Sin asignar'}
+                      <span className={`text-xs font-medium ${property.agent?.full_name ? 'text-navy' : 'text-muted-foreground'}`}>
+                        {property.agent?.full_name || 'Sin agente asignado'}
                       </span>
                     )}
                   </div>

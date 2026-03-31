@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { Property, PropertyFilters } from '@/types'
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  return createAdminClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
+}
 
 export async function getProperties(filters: PropertyFilters = {}) {
   const supabase = createClient()
@@ -36,10 +45,11 @@ export async function getPropertyById(id: string) {
 }
 
 export async function getPropertiesByOwner(ownerId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS — propietario needs to see agent profile data
+  const admin = getAdminClient()
+  const { data, error } = await admin
     .from('properties')
-    .select('*, images:property_images(*)')
+    .select('*, images:property_images(*), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: false })
 
