@@ -93,14 +93,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
                 <Calendar className="h-4 w-4" />Publicado {formatDate(property.created_at)}
               </div>
 
-              {property.owner && (
-                <div className="border-t pt-4 mb-4">
-                  <p className="text-sm font-medium flex items-center gap-2"><User className="h-4 w-4" />{(property.owner as any).full_name}</p>
-                  {(property.owner as any).phone && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Phone className="h-4 w-4" />{(property.owner as any).phone}</p>
-                  )}
-                </div>
-              )}
+              {/* Owner info hidden from public view */}
 
               {canApply ? (
                 <ApplyButton propertyId={property.id} propertyTitle={property.title} />
