@@ -58,11 +58,28 @@ export async function GET() {
       .in('owner_id', propietarioIds)
       .order('created_at', { ascending: false })
 
+    // Get approved applicants for reserved properties
+    const propertyIds = (properties || []).map((p: any) => p.id)
+    const approvedApplicantMap = new Map<string, string>() // propertyId -> applicant full_name
+    if (propertyIds.length > 0) {
+      const { data: approvedApps } = await admin
+        .from('applications')
+        .select('property_id, applicant:profiles!applications_applicant_id_fkey(full_name)')
+        .in('property_id', propertyIds)
+        .eq('status', 'approved')
+      if (approvedApps) {
+        for (const a of approvedApps) {
+          const name = (a.applicant as any)?.full_name || ''
+          if (name) approvedApplicantMap.set(a.property_id, name)
+        }
+      }
+    }
+
     const propertiesByOwner = new Map<string, any[]>()
     if (properties) {
       for (const prop of properties) {
         const list = propertiesByOwner.get(prop.owner_id) || []
-        list.push(prop)
+        list.push({ ...prop, approved_applicant_name: approvedApplicantMap.get(prop.id) || null })
         propertiesByOwner.set(prop.owner_id, list)
       }
     }

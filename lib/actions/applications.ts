@@ -166,7 +166,7 @@ export async function approveApplication(applicationId: string) {
   // Get the application with property + applicant info
   const { data: app } = await admin
     .from('applications')
-    .select('id, property_id, applicant_id, property:properties(id, title), applicant:profiles!applications_applicant_id_fkey(id, full_name)')
+    .select('id, property_id, applicant_id, property:properties(id, title, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name)')
     .eq('id', applicationId)
     .single()
 
@@ -193,31 +193,51 @@ export async function approveApplication(applicationId: string) {
     .update({ status: 'reserved' })
     .eq('id', app.property_id)
 
-  // 4. Send approval email to applicant
+  // 4. Send emails (applicant + property owner)
   try {
     const resendKey = process.env.RESEND_API_KEY
-    if (resendKey && app.applicant_id) {
-      // Get applicant email from auth
-      const { data: authUser } = await admin.auth.admin.getUserById(app.applicant_id)
-      const applicantEmail = authUser?.user?.email
-      const applicantName = (app.applicant as any)?.full_name || 'Postulante'
-      const propertyTitle = (app.property as any)?.title || 'la propiedad'
-      const dashboardUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'}/dashboard/postulaciones`
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
+    const propertyTitle = (app.property as any)?.title || 'la propiedad'
+    const applicantName = (app.applicant as any)?.full_name || 'Postulante'
+    const ownerId = (app.property as any)?.owner_id
 
-      if (applicantEmail) {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'Altaprop <noreply@altaprop-app.cl>',
-            to: applicantEmail,
-            subject: `🎉 ¡Tu postulación fue aprobada! — ${propertyTitle}`,
-            html: buildApprovalEmail(applicantName, propertyTitle, dashboardUrl),
-          }),
-        })
+    if (resendKey) {
+      // 4a. Email to applicant
+      if (app.applicant_id) {
+        const { data: authApplicant } = await admin.auth.admin.getUserById(app.applicant_id)
+        const applicantEmail = authApplicant?.user?.email
+        if (applicantEmail) {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'Altaprop <noreply@altaprop-app.cl>',
+              to: applicantEmail,
+              subject: `🎉 ¡Tu postulación fue aprobada! — ${propertyTitle}`,
+              html: buildApprovalEmail(applicantName, propertyTitle, `${siteUrl}/dashboard/postulaciones`),
+            }),
+          })
+        }
+      }
+
+      // 4b. Email to property owner
+      if (ownerId) {
+        const { data: authOwner } = await admin.auth.admin.getUserById(ownerId)
+        const ownerEmail = authOwner?.user?.email
+        const { data: ownerProfile } = await admin.from('profiles').select('full_name').eq('id', ownerId).single()
+        const ownerName = ownerProfile?.full_name || 'Propietario'
+        if (ownerEmail) {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'Altaprop <noreply@altaprop-app.cl>',
+              to: ownerEmail,
+              subject: `🏠 ¡Arrendatario aprobado para tu propiedad! — ${propertyTitle}`,
+              html: buildOwnerApprovalEmail(ownerName, applicantName, propertyTitle, `${siteUrl}/dashboard/propiedades/${app.property_id}`),
+            }),
+          })
+        }
       }
     }
   } catch {
@@ -314,6 +334,117 @@ function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: s
 
       <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
         ¡Felicitaciones y bienvenido/a a tu nuevo hogar! 🏠<br>
+        <strong style="color:#1a2332;">El equipo de Altaprop</strong>
+      </p>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
+      <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;">
+        Este correo fue enviado automáticamente por <strong style="color:#64748b;">Altaprop CRM Inmobiliario</strong>
+      </p>
+      <p style="color:#cbd5e1;font-size:11px;margin:0;">
+        <a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a>
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>
+  `
+}
+
+function buildOwnerApprovalEmail(ownerName: string, applicantName: string, propertyTitle: string, propertyUrl: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+    <!-- HEADER -->
+    <div style="background:#1a2332;padding:28px 40px;text-align:center;">
+      <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
+      <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
+    </div>
+
+    <!-- SUCCESS BANNER -->
+    <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-bottom:3px solid #c9a84c;padding:32px 40px;text-align:center;">
+      <div style="font-size:52px;margin-bottom:12px;">🏠</div>
+      <h2 style="color:#78350f;margin:0;font-size:24px;font-weight:700;">¡Arrendatario Aprobado!</h2>
+      <p style="color:#92400e;margin:8px 0 0;font-size:15px;">Tu propiedad tiene un nuevo arrendatario</p>
+    </div>
+
+    <!-- BODY -->
+    <div style="padding:36px 40px;">
+      <p style="color:#1a2332;font-size:16px;margin:0 0 8px;">Estimado/a <strong>${ownerName}</strong>,</p>
+      <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 24px;">
+        Tenemos excelentes noticias para ti. Uno de los postulantes a tu propiedad
+        <strong style="color:#1a2332;">"${propertyTitle}"</strong>
+        ha sido <strong style="color:#c9a84c;">aprobado exitosamente</strong> por nuestro equipo tras revisar su documentación.
+      </p>
+
+      <!-- DETAIL CARD -->
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #c9a84c;border-radius:10px;padding:20px 24px;margin:0 0 28px;">
+        <p style="margin:0 0 14px;font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Resumen del proceso</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:5px 0;color:#78350f;font-size:14px;width:140px;">Propiedad</td>
+            <td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">${propertyTitle}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#78350f;font-size:14px;">Arrendatario</td>
+            <td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">👤 ${applicantName}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#78350f;font-size:14px;">Estado</td>
+            <td style="padding:5px 0;">
+              <span style="background:#d1fae5;color:#065f46;font-size:13px;font-weight:700;padding:3px 12px;border-radius:20px;">✅ Aprobado</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#78350f;font-size:14px;">Propiedad</td>
+            <td style="padding:5px 0;">
+              <span style="background:#fef3c7;color:#92400e;font-size:13px;font-weight:700;padding:3px 12px;border-radius:20px;">🔒 Reservada</span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- NEXT STEPS -->
+      <h3 style="color:#1a2332;font-size:16px;font-weight:700;margin:0 0 16px;">¿Qué sigue ahora?</h3>
+
+      <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
+        <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">1</div>
+        <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">
+          Un ejecutivo de <strong>Altaprop</strong> coordinará contigo y con el arrendatario los próximos pasos del proceso de firma y entrega de llaves.
+        </p>
+      </div>
+
+      <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
+        <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">2</div>
+        <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">
+          Tu propiedad ha sido marcada como <strong>Reservada</strong>. Las demás postulaciones han sido cerradas automáticamente.
+        </p>
+      </div>
+
+      <div style="margin-bottom:32px;display:flex;align-items:flex-start;">
+        <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">3</div>
+        <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">
+          Puedes revisar el estado de tu propiedad y del proceso en cualquier momento desde tu panel de propietario.
+        </p>
+      </div>
+
+      <!-- CTA BUTTON -->
+      <div style="text-align:center;margin:0 0 28px;">
+        <a href="${propertyUrl}"
+           style="background:#c9a84c;color:#1a2332;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;letter-spacing:0.3px;">
+          Ver mi Propiedad →
+        </a>
+      </div>
+
+      <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
+        ¡Gracias por confiar en <strong style="color:#1a2332;">Altaprop</strong> para gestionar tu propiedad!<br>
         <strong style="color:#1a2332;">El equipo de Altaprop</strong>
       </p>
     </div>

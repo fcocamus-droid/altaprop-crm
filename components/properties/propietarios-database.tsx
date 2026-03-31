@@ -22,6 +22,7 @@ interface PropProperty {
   currency: string
   owner_id?: string
   owner_name?: string
+  approved_applicant_name?: string | null
   images?: { url: string }[]
 }
 
@@ -454,7 +455,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{prop.title}</p>
                                   <p className="text-xs text-muted-foreground">{prop.city}{prop.sector ? `, ${prop.sector}` : ''}</p>
-                                  <div className="flex items-center gap-2 mt-0.5">
+                                  <div className="flex flex-wrap items-center gap-2 mt-0.5">
                                     <span className="text-xs font-semibold text-navy">
                                       {prop.currency === 'UF' ? `${prop.price} UF` : `$${prop.price?.toLocaleString('es-CL')}`}
                                     </span>
@@ -462,6 +463,12 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                                       {STATUS_LABELS[prop.status] || prop.status}
                                     </span>
                                     <span className="text-[10px] text-muted-foreground capitalize">{prop.operation}</span>
+                                    {prop.status === 'reserved' && prop.approved_applicant_name && (
+                                      <span className="flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
+                                        <UserCheck className="h-3 w-3" />
+                                        {prop.approved_applicant_name}
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
