@@ -1,7 +1,7 @@
 import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getPropertyStats, getPropertyStatsByAgent } from '@/lib/queries/properties'
-import { getApplicationStats, getApplicationStatsByAgent } from '@/lib/queries/applications'
+import { getApplicationStats, getApplicationStatsByAgent, getApplicationStatsByApplicant } from '@/lib/queries/applications'
 import { isPropertyManager, ROLE_LABELS } from '@/lib/constants'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageHeader } from '@/components/shared/page-header'
@@ -30,7 +30,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         : isOwnerOrAgent ? getPropertyStats(ownerId, subscriberId) : Promise.resolve(propertyStats),
       profile.role === 'AGENTE'
         ? getApplicationStatsByAgent(profile.id)
-        : getApplicationStats(ownerId, subscriberId),
+        : profile.role === 'POSTULANTE'
+          ? getApplicationStatsByApplicant(profile.id)   // direct query, no property join
+          : getApplicationStats(ownerId, subscriberId),
     ])
     propertyStats = pStats
     appStats = aStats

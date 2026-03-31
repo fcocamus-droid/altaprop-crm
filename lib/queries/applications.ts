@@ -111,6 +111,26 @@ export async function getApplicationStatsByAgent(agentId: string) {
   }
 }
 
+// Stats for POSTULANTE — queries by applicant_id only, no property join
+// (avoids RLS blocking reserved/rented properties from the inner join)
+export async function getApplicationStatsByApplicant(applicantId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('applications')
+    .select('status')
+    .eq('applicant_id', applicantId)
+
+  if (error) return { total: 0, pending: 0, reviewing: 0, approved: 0, rejected: 0 }
+  const items = data || []
+  return {
+    total: items.length,
+    pending: items.filter(a => a.status === 'pending').length,
+    reviewing: items.filter(a => a.status === 'reviewing').length,
+    approved: items.filter(a => a.status === 'approved').length,
+    rejected: items.filter(a => a.status === 'rejected').length,
+  }
+}
+
 export async function getApplicationStats(ownerId?: string, subscriberId?: string) {
   const supabase = createClient()
   let query = supabase.from('applications').select('status, property:properties!inner(owner_id, subscriber_id)')
