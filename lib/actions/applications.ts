@@ -153,6 +153,46 @@ export async function updateApplicationStatus(id: string, status: string) {
   return { success: true }
 }
 
+/**
+ * finalizeApplicationStatus — sets application to 'rented' or 'sold'
+ * and syncs the related property to the same final status.
+ * Called when admin manually finalizes from the application list.
+ */
+export async function finalizeApplicationStatus(
+  applicationId: string,
+  propertyId: string,
+  newStatus: 'rented' | 'sold'
+) {
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE', 'PROPIETARIO']
+  if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  // 1. Update application status
+  const { error: appErr } = await admin
+    .from('applications')
+    .update({ status: newStatus })
+    .eq('id', applicationId)
+
+  if (appErr) return { error: appErr.message }
+
+  // 2. Sync property to the same final status
+  const { error: propErr } = await admin
+    .from('properties')
+    .update({ status: newStatus })
+    .eq('id', propertyId)
+
+  if (propErr) return { error: propErr.message }
+
+  revalidatePath('/dashboard/postulaciones')
+  revalidatePath('/dashboard/propiedades')
+  return { success: true }
+}
+
 export async function approveApplication(applicationId: string) {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
