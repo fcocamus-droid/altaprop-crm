@@ -138,3 +138,89 @@ export function buildFinalizeEmail(
 </div>
 </body></html>`
 }
+
+/**
+ * Confirmation email sent to the property OWNER when a property is rented or sold.
+ */
+export function buildOwnerFinalizeEmail(
+  ownerName: string,
+  applicantName: string,
+  propertyTitle: string,
+  propertyUrl: string,
+  status: 'rented' | 'sold'
+): string {
+  const isRent = status === 'rented'
+
+  const accentColor  = isRent ? '#1d4ed8' : '#7c3aed'
+  const bgGradient   = isRent ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'linear-gradient(135deg,#faf5ff,#ede9fe)'
+  const borderColor  = isRent ? '#3b82f6' : '#7c3aed'
+  const titleColor   = isRent ? '#1e3a8a' : '#4c1d95'
+  const subtitleColor= isRent ? '#1d4ed8' : '#5b21b6'
+  const cardBg       = isRent ? '#eff6ff' : '#faf5ff'
+  const cardBorder   = isRent ? '#bfdbfe' : '#ddd6fe'
+  const badgeBg      = isRent ? '#dbeafe' : '#ede9fe'
+  const badgeColor   = isRent ? '#1e3a8a' : '#4c1d95'
+  const emoji        = isRent ? '🔑' : '🏆'
+  const title        = isRent ? '¡Propiedad Arrendada!' : '¡Propiedad Vendida!'
+  const subtitle     = isRent ? 'Tu propiedad ya tiene arrendatario confirmado' : 'El proceso de venta fue completado exitosamente'
+  const roleLabel    = isRent ? 'Arrendatario' : 'Comprador/a'
+  const badgeLabel   = isRent ? '🔑 Arrendada' : '🏆 Vendida'
+  const bodyText     = isRent
+    ? `Tu propiedad <strong style="color:#1a2332;">"${propertyTitle}"</strong> ha sido <strong style="color:${accentColor};">arrendada exitosamente</strong>. El proceso de cierre ha sido completado por nuestro equipo.`
+    : `Tu propiedad <strong style="color:#1a2332;">"${propertyTitle}"</strong> ha sido <strong style="color:${accentColor};">vendida exitosamente</strong>. El proceso de cierre ha sido completado por nuestro equipo.`
+
+  return `
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+  <div style="background:#1a2332;padding:28px 40px;text-align:center;">
+    <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
+    <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
+  </div>
+
+  <div style="background:${bgGradient};border-bottom:3px solid ${borderColor};padding:32px 40px;text-align:center;">
+    <div style="font-size:52px;margin-bottom:12px;">${emoji}</div>
+    <h2 style="color:${titleColor};margin:0;font-size:26px;font-weight:700;">${title}</h2>
+    <p style="color:${subtitleColor};margin:8px 0 0;font-size:15px;">${subtitle}</p>
+  </div>
+
+  <div style="padding:36px 40px;">
+    <p style="color:#1a2332;font-size:16px;margin:0 0 8px;">Estimado/a <strong>${ownerName}</strong>,</p>
+    <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 24px;">
+      ¡Felicitaciones! ${bodyText}
+    </p>
+
+    <div style="background:${cardBg};border:1px solid ${cardBorder};border-left:4px solid ${accentColor};border-radius:10px;padding:20px 24px;margin:0 0 28px;">
+      <p style="margin:0 0 14px;font-size:11px;color:${accentColor};font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">Resumen del cierre</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr>
+          <td style="padding:5px 0;color:${accentColor};font-size:14px;width:140px;">Propiedad</td>
+          <td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">${propertyTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:${accentColor};font-size:14px;">${roleLabel}</td>
+          <td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">👤 ${applicantName}</td>
+        </tr>
+        <tr>
+          <td style="padding:5px 0;color:${accentColor};font-size:14px;">Estado</td>
+          <td style="padding:5px 0;"><span style="background:${badgeBg};color:${badgeColor};font-size:13px;font-weight:700;padding:3px 12px;border-radius:20px;">${badgeLabel}</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;margin:0 0 28px;">
+      <a href="${propertyUrl}" style="background:#c9a84c;color:#1a2332;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Ver mi Propiedad →</a>
+    </div>
+    <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
+      ¡Gracias por confiar en <strong style="color:#1a2332;">Altaprop</strong>!<br>
+      <strong style="color:#1a2332;">El equipo de Altaprop</strong>
+    </p>
+  </div>
+
+  <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
+    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a></p>
+  </div>
+</div>
+</body></html>`
+}

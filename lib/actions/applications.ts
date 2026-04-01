@@ -223,13 +223,14 @@ export async function finalizeApplicationStatus(
         }
       }
 
+      const { buildFinalizeEmail, buildOwnerFinalizeEmail } = await import('@/lib/emails/finalize-email')
+      const isRent = newStatus === 'rented'
+
       // Send email to applicant
       if (application?.applicant_id) {
         const { data: authApplicant } = await admin.auth.admin.getUserById(application.applicant_id)
         const email = authApplicant?.user?.email
         if (email && property) {
-          const isRent = newStatus === 'rented'
-          const { buildFinalizeEmail } = await import('@/lib/emails/finalize-email')
           await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -240,6 +241,28 @@ export async function finalizeApplicationStatus(
                 ? `🔑 ¡Tu arriendo está confirmado! — ${property.title}`
                 : `🏆 ¡Tu compra está confirmada! — ${property.title}`,
               html: buildFinalizeEmail(applicantName, property.title, newStatus, `${siteUrl}/dashboard/postulaciones`, bankInfo),
+            }),
+          })
+        }
+      }
+
+      // Send email to property owner
+      if (property?.owner_id) {
+        const { data: authOwner } = await admin.auth.admin.getUserById(property.owner_id)
+        const ownerEmail = authOwner?.user?.email
+        const { data: ownerProfile } = await admin.from('profiles').select('full_name').eq('id', property.owner_id).single()
+        const ownerName = ownerProfile?.full_name || 'Propietario'
+        if (ownerEmail && property) {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'Altaprop <noreply@altaprop-app.cl>',
+              to: ownerEmail,
+              subject: isRent
+                ? `🔑 ¡Propiedad arrendada! — ${property.title}`
+                : `🏆 ¡Propiedad vendida! — ${property.title}`,
+              html: buildOwnerFinalizeEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`, newStatus),
             }),
           })
         }

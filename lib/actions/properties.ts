@@ -322,13 +322,14 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
         }
       }
 
+      const { buildFinalizeEmail, buildOwnerFinalizeEmail } = await import('@/lib/emails/finalize-email')
+      const isRent = newStatus === 'rented'
+
       // 2a. Email to applicant (with bank details)
       if (approvedApp?.applicant_id) {
         const { data: authApplicant } = await admin.auth.admin.getUserById(approvedApp.applicant_id)
         const email = authApplicant?.user?.email
         if (email) {
-          const isRent = newStatus === 'rented'
-          const { buildFinalizeEmail } = await import('@/lib/emails/finalize-email')
           await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -351,7 +352,6 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
         const { data: ownerProfile } = await admin.from('profiles').select('full_name').eq('id', property.owner_id).single()
         const ownerName = ownerProfile?.full_name || 'Propietario'
         if (ownerEmail) {
-          const isRent = newStatus === 'rented'
           await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -361,9 +361,7 @@ export async function finalizeProperty(propertyId: string, newStatus: 'rented' |
               subject: isRent
                 ? `🔑 ¡Propiedad arrendada! — ${property.title}`
                 : `🏆 ¡Propiedad vendida! — ${property.title}`,
-              html: isRent
-                ? buildOwnerRentalConfirmEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`)
-                : buildOwnerSaleConfirmEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`),
+              html: buildOwnerFinalizeEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`, newStatus),
             }),
           })
         }
