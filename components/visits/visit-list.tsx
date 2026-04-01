@@ -86,11 +86,23 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
     if (!calDate || !calTime) return
     setLoading(visitId)
     const scheduledAt = `${calDate}T${calTime}:00`
-    const supabase = (await import('@/lib/supabase/client')).createClient()
-    await supabase.from('visits').update({ scheduled_at: scheduledAt, status: 'confirmed' }).eq('id', visitId)
-    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, status: 'confirmed', scheduled_at: scheduledAt } : v))
-    setCalendarOpen(null)
-    setSuccess('Visita confirmada')
+    try {
+      const res = await fetch(`/api/visits/${visitId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_at: scheduledAt }),
+      })
+      const data = await res.json()
+      if (data.error) {
+        setError(data.error)
+      } else {
+        setVisits(prev => prev.map(v => v.id === visitId ? { ...v, status: 'confirmed', scheduled_at: scheduledAt } : v))
+        setCalendarOpen(null)
+        setSuccess(data.visitNumber ? `Visita confirmada — Orden N° ${data.visitNumber} enviada por email` : 'Visita confirmada')
+      }
+    } catch {
+      setError('Error al confirmar la visita')
+    }
     setLoading(null)
   }
 
