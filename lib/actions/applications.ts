@@ -610,3 +610,55 @@ export async function deleteApplication(id: string) {
   revalidatePath('/dashboard/postulaciones')
   return { success: true }
 }
+
+// ── Rental contract ────────────────────────────────────────────────────────────
+export async function saveRentalContract(
+  applicationId: string,
+  contractUrl: string,
+  contractName: string,
+) {
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
+  if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('applications')
+    .update({ rental_contract_url: contractUrl, rental_contract_name: contractName })
+    .eq('id', applicationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/postulaciones')
+  return { success: true }
+}
+
+export async function deleteRentalContract(applicationId: string, contractUrl: string) {
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
+  if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  // Remove from storage
+  try {
+    const pathPart = contractUrl.split('/property-images/')[1]
+    if (pathPart) {
+      const supabase = createClient()
+      await supabase.storage.from('property-images').remove([pathPart])
+    }
+  } catch {}
+
+  const { error } = await admin
+    .from('applications')
+    .update({ rental_contract_url: null, rental_contract_name: null })
+    .eq('id', applicationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/postulaciones')
+  return { success: true }
+}

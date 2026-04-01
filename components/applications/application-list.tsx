@@ -9,10 +9,11 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark, Download } from 'lucide-react'
 import Link from 'next/link'
 import { PaymentPanel } from '@/components/applications/payment-panel'
 import { InventoryPanel } from '@/components/applications/inventory-panel'
+import { RentalContract } from '@/components/applications/rental-contract'
 
 interface ApplicationItem {
   id: string
@@ -22,6 +23,8 @@ interface ApplicationItem {
   property?: { id: string; title: string } | null
   applicant?: { full_name: string; phone: string } | null
   documents?: any[]
+  rental_contract_url?: string | null
+  rental_contract_name?: string | null
 }
 
 type StageTab = 'all' | 'pending' | 'reviewing' | 'approved' | 'rejected' | 'rented' | 'sold'
@@ -57,6 +60,16 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [savingStatus, setSavingStatus] = useState<string | null>(null)  // app id being saved
   const [statusError, setStatusError] = useState<string | null>(null)    // app id that failed
+  // Rental contract state (url/name per application id)
+  const [contracts, setContracts] = useState<Record<string, { url: string | null; name: string | null }>>(() => {
+    const map: Record<string, { url: string | null; name: string | null }> = {}
+    initial.forEach(a => {
+      if (a.rental_contract_url) {
+        map[a.id] = { url: a.rental_contract_url, name: a.rental_contract_name || null }
+      }
+    })
+    return map
+  })
 
   // Sync when parent passes updated props (e.g. after server refresh)
   useEffect(() => {
@@ -285,6 +298,20 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                         <StatusBadge status={app.status} type="application" />
                       )}
                       <span className="text-xs text-muted-foreground">{docCounts[app.id] ?? app.documents?.length ?? 0} doc(s)</span>
+                      {/* Contract download pill — visible in compact bar when contract exists */}
+                      {contracts[app.id]?.url && (
+                        <a
+                          href={contracts[app.id].url!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-full transition-colors"
+                          title={contracts[app.id].name || 'Contrato de arriendo'}
+                        >
+                          <Download className="h-3 w-3" />
+                          Contrato
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -434,6 +461,19 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                       </div>
                     </div>
                   )}
+
+                  {/* RENTAL CONTRACT — upload for admin/agent, download for all */}
+                  <div className="pt-3 border-t">
+                    <RentalContract
+                      applicationId={app.id}
+                      initialUrl={contracts[app.id]?.url}
+                      initialName={contracts[app.id]?.name}
+                      canManage={!isApplicant}
+                      onContractChange={(url, name) =>
+                        setContracts(prev => ({ ...prev, [app.id]: { url, name } }))
+                      }
+                    />
+                  </div>
 
                   {/* PAYMENT PANEL — visible to all roles when approved/rented/sold */}
                   {['approved', 'rented', 'sold'].includes(app.status) && (
