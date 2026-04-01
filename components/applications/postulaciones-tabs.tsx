@@ -8,9 +8,10 @@ import { FileText, Users } from 'lucide-react'
 interface Props {
   applications: any[]
   showApplicantsTab: boolean
+  userRole?: string
 }
 
-export function PostulacionesTabs({ applications, showApplicantsTab }: Props) {
+export function PostulacionesTabs({ applications, showApplicantsTab, userRole }: Props) {
   const [mainTab, setMainTab] = useState<'postulaciones' | 'postulantes'>('postulaciones')
   const [postulantesCount, setPostulantesCount] = useState<number | null>(null)
 
@@ -62,7 +63,7 @@ export function PostulacionesTabs({ applications, showApplicantsTab }: Props) {
       )}
 
       {mainTab === 'postulaciones' && (
-        <ApplicationList applications={applications} isApplicant={false} />
+        <ApplicationList applications={applications} isApplicant={false} userRole={userRole} />
       )}
 
       {mainTab === 'postulantes' && (

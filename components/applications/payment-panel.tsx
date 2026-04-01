@@ -46,7 +46,7 @@ function CopyButton({ value }: { value: string }) {
   )
 }
 
-export function PaymentPanel({ applicationId }: { applicationId: string }) {
+export function PaymentPanel({ applicationId, canUpload = true }: { applicationId: string; canUpload?: boolean }) {
   const [info, setInfo] = useState<PaymentInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -233,8 +233,8 @@ export function PaymentPanel({ applicationId }: { applicationId: string }) {
         )}
       </div>
 
-      {/* Receipt upload section */}
-      <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 space-y-3">
+      {/* Receipt upload section — only shown to postulante */}
+      {canUpload && <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <FileCheck className="h-4 w-4 text-muted-foreground shrink-0" />
           <p className="text-sm font-semibold">Comprobante de Pago</p>
@@ -296,7 +296,7 @@ export function PaymentPanel({ applicationId }: { applicationId: string }) {
           }
         </Button>
         <p className="text-xs text-muted-foreground">PDF, JPG o PNG. Máx 10MB</p>
-      </div>
+      </div>}
     </div>
   )
 }

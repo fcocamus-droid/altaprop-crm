@@ -12,6 +12,7 @@ import { APPLICATION_STATUSES } from '@/lib/constants'
 import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark } from 'lucide-react'
 import Link from 'next/link'
 import { PaymentPanel } from '@/components/applications/payment-panel'
+import { InventoryPanel } from '@/components/applications/inventory-panel'
 
 interface ApplicationItem {
   id: string
@@ -45,7 +46,7 @@ const BADGE_CLASS: Record<string, string> = {
   rejected:  'bg-red-100 text-red-800',
 }
 
-export function ApplicationList({ applications: initial, isApplicant }: { applications: ApplicationItem[]; isApplicant: boolean }) {
+export function ApplicationList({ applications: initial, isApplicant, userRole }: { applications: ApplicationItem[]; isApplicant: boolean; userRole?: string }) {
   const [applications, setApplications] = useState(initial)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -434,14 +435,25 @@ export function ApplicationList({ applications: initial, isApplicant }: { applic
                     </div>
                   )}
 
-                  {/* PAYMENT PANEL — only for postulante when status is approved, rented or sold */}
-                  {isApplicant && ['approved', 'rented', 'sold'].includes(app.status) && (
+                  {/* PAYMENT PANEL — visible to all roles when approved/rented/sold */}
+                  {['approved', 'rented', 'sold'].includes(app.status) && (
                     <div className="pt-3 border-t space-y-2">
                       <div className="flex items-center gap-2 mb-1">
                         <Landmark className="h-4 w-4 text-navy shrink-0" />
-                        <p className="text-sm font-semibold text-navy">Realizar Pago</p>
+                        <p className="text-sm font-semibold text-navy">{isApplicant ? 'Realizar Pago' : 'Datos Bancarios del Propietario'}</p>
                       </div>
-                      <PaymentPanel applicationId={app.id} />
+                      <PaymentPanel applicationId={app.id} canUpload={isApplicant} />
+                    </div>
+                  )}
+
+                  {/* INVENTORY PANEL — visible to all roles when rented or sold */}
+                  {['rented', 'sold'].includes(app.status) && (
+                    <div className="pt-3 border-t">
+                      <InventoryPanel
+                        applicationId={app.id}
+                        userRole={userRole}
+                        isApplicant={isApplicant}
+                      />
                     </div>
                   )}
                 </div>

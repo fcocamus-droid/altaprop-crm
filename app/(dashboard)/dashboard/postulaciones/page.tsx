@@ -53,12 +53,13 @@ export default async function PostulacionesPage() {
             <Button asChild><Link href="/propiedades">Explorar Propiedades</Link></Button>
           </EmptyState>
         ) : (
-          <ApplicationList applications={applications} isApplicant={true} />
+          <ApplicationList applications={applications} isApplicant={true} userRole={profile.role} />
         )
       ) : (
         <PostulacionesTabs
           applications={applications}
           showApplicantsTab={canManage}
+          userRole={profile.role}
         />
       )}
     </div>
