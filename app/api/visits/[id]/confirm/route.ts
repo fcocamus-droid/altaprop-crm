@@ -29,7 +29,7 @@ export async function POST(
     .from('visits')
     .update({ scheduled_at, status: 'confirmed' })
     .eq('id', visitId)
-    .select('*, property:properties(id, title, address, city, operation), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
+    .select('*, property:properties(id, title, address, city, operation, agent_id)')
     .single()
 
   if (updateErr || !visit) {
@@ -42,14 +42,31 @@ export async function POST(
   // 3. Parse visitor info from notes
   const visitor = parseVisitorFromNotes(visit.notes)
   const property = (visit as any).property
-  const agentProfile = (visit as any).visitor // visitor_id stores the agent profile
 
-  // 4. Get agent auth email
+  // 4. Get the agent assigned to the property (property.agent_id)
+  //    Fall back to the logged-in manager if no agent is assigned
+  const propertyAgentId: string | null = property?.agent_id || null
+
+  let agentProfile: { full_name: string; phone: string } | null = null
   let agentEmail = ''
-  try {
-    const { data: authAgent } = await admin.auth.admin.getUserById(visit.visitor_id)
-    agentEmail = authAgent?.user?.email || ''
-  } catch {}
+
+  if (propertyAgentId) {
+    const { data: agentData } = await admin
+      .from('profiles')
+      .select('full_name, phone')
+      .eq('id', propertyAgentId)
+      .single()
+    agentProfile = agentData || null
+
+    try {
+      const { data: authAgent } = await admin.auth.admin.getUserById(propertyAgentId)
+      agentEmail = authAgent?.user?.email || ''
+    } catch {}
+  } else {
+    // Fallback: use the manager who is confirming the visit
+    agentProfile = { full_name: profile.full_name || 'Agente Altaprop', phone: (profile as any).phone || '' }
+    agentEmail = '' // profile auth email not needed as fallback
+  }
 
   // 5. Format visit date
   const visitDate = new Date(scheduled_at).toLocaleDateString('es-CL', {
