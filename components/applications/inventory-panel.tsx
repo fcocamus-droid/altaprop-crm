@@ -267,7 +267,7 @@ function ItemRow({
             />
           ) : (
             item.observation
-              ? <p className="text-sm text-gray-600 italic">"{item.observation}"</p>
+              ? <p className="text-sm text-gray-600 italic">&ldquo;{item.observation}&rdquo;</p>
               : <p className="text-sm text-muted-foreground">—</p>
           )}
         </div>
