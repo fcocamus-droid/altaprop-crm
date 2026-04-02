@@ -87,8 +87,10 @@ export async function POST(req: NextRequest) {
       zip_code: '7500000',
     }
 
+    // Try multiple approaches to set the address
+    // 1. Try PUT /users/{id}
     const patchRes = await fetch(`${ML_API}/users/${userId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -97,6 +99,20 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ address: addressPayload }),
     })
 
+    // 2. If PUT also fails, try /users/me/shipping_address or billing endpoint
+    let altRes = null
+    if (!patchRes.ok) {
+      const altFetch = await fetch(`${ML_API}/users/${userId}/addresses`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(addressPayload),
+      })
+      altRes = { status: altFetch.status, body: await altFetch.json().catch(() => ({})) }
+    }
+
     const patchStatus = patchRes.status
     const patchData = await patchRes.json().catch(() => ({}))
 
@@ -104,6 +120,7 @@ export async function POST(req: NextRequest) {
       userId,
       patchStatus,
       patchData,
+      altRes,
       currentProfile: {
         address: meData.address,
         status: meData.status,
