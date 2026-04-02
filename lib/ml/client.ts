@@ -66,6 +66,78 @@ function getCategoryId(operation: string, type: string): string {
   return ML_CATEGORY_MAP[key] || 'MLC157520'
 }
 
+// ─── Chilean commune → ML city ID map ────────────────────────────────────────
+// IDs obtained from GET https://api.mercadolibre.com/states/{state_id}
+
+const ML_CITY_MAP: Record<string, { cityId: string; stateId: string }> = {
+  // RM – Región Metropolitana
+  'providencia':          { cityId: 'TUxDQ1BST2NhYjU3', stateId: 'CL-RM' },
+  'las condes':           { cityId: 'TUxDQ0xBUzU2MTEz', stateId: 'CL-RM' },
+  'santiago':             { cityId: 'TUxDQ1NBTjk4M2M',  stateId: 'CL-RM' },
+  'vitacura':             { cityId: 'TUxDQ1ZJVDM2MjFj', stateId: 'CL-RM' },
+  'ñuñoa':                { cityId: 'TUxDQ9FV0WU0MmM2', stateId: 'CL-RM' },
+  'nunoa':                { cityId: 'TUxDQ9FV0WU0MmM2', stateId: 'CL-RM' },
+  'la florida':           { cityId: 'TUxDQ0xBIGM5NzMz', stateId: 'CL-RM' },
+  'la reina':             { cityId: 'TUxDQ0xBIDZlMWI5', stateId: 'CL-RM' },
+  'maipu':                { cityId: 'TUxDQ01BSWI5Y2M2', stateId: 'CL-RM' },
+  'maipú':                { cityId: 'TUxDQ01BSWI5Y2M2', stateId: 'CL-RM' },
+  'pudahuel':             { cityId: 'TUxDQ1BVRDg4OWIx', stateId: 'CL-RM' },
+  'san miguel':           { cityId: 'TUxDQ1NBTjcwNDU0', stateId: 'CL-RM' },
+  'colina':               { cityId: 'TUxDQ0NPTGNkMWZj', stateId: 'CL-RM' },
+  'quilicura':            { cityId: 'TUxDQ1FVSTY5YTdl', stateId: 'CL-RM' },
+  'puente alto':          { cityId: 'TUxDQ1BVRTZmOGZl', stateId: 'CL-RM' },
+  'lo barnechea':         { cityId: 'TUxDQ0xPIGUzZDM3', stateId: 'CL-RM' },
+  'huechuraba':           { cityId: 'TUxDQ0hVRTdmZjlm', stateId: 'CL-RM' },
+  'recoleta':             { cityId: 'TUxDQ1JFQzY4YjIw', stateId: 'CL-RM' },
+  'independencia':        { cityId: 'TUxDQ0lORDIxMmU0', stateId: 'CL-RM' },
+  'macul':                { cityId: 'TUxDQ01BQzY4NTYx', stateId: 'CL-RM' },
+  'peñalolen':            { cityId: 'TUxDQ1BF0TRkNzFj', stateId: 'CL-RM' },
+  'peñalolén':            { cityId: 'TUxDQ1BF0TRkNzFj', stateId: 'CL-RM' },
+  'la granja':            { cityId: 'TUxDQ0xBIGZjNGI',  stateId: 'CL-RM' },
+  'el bosque':            { cityId: 'TUxDQ0VMIDU0OTE',  stateId: 'CL-RM' },
+  'san bernardo':         { cityId: 'TUxDQ1NBTmIyZDBh', stateId: 'CL-RM' },
+  'cerrillos':            { cityId: 'TUxDQ0NFUjFjYjRk', stateId: 'CL-RM' },
+  'lo prado':             { cityId: 'TUxDQ0xPIGFkMzA4', stateId: 'CL-RM' },
+  'lo espejo':            { cityId: 'TUxDQ0xPIDcwY2Ew', stateId: 'CL-RM' },
+  'renca':                { cityId: 'TUxDQ1JFTjI5MWQ0', stateId: 'CL-RM' },
+  'cerro navia':          { cityId: 'TUxDQ0NFUmQxZWJk', stateId: 'CL-RM' },
+  'conchali':             { cityId: 'TUxDQ0NPTjFkMmI2', stateId: 'CL-RM' },
+  'conchalí':             { cityId: 'TUxDQ0NPTjFkMmI2', stateId: 'CL-RM' },
+  'pedro aguirre cerda':  { cityId: 'TUxDQ1BFRGVjZDNm', stateId: 'CL-RM' },
+  'penaflor':             { cityId: 'TUxDQ1BF0TkzM2Fh', stateId: 'CL-RM' },
+  'peñaflor':             { cityId: 'TUxDQ1BF0TkzM2Fh', stateId: 'CL-RM' },
+  'la pintana':           { cityId: 'TUxDQ0xBIDIxOWE1', stateId: 'CL-RM' },
+  'la cisterna':          { cityId: 'TUxDQ0xBIGFhMjBk', stateId: 'CL-RM' },
+  'san ramon':            { cityId: 'TUxDQ1NBTjk1ZmNj', stateId: 'CL-RM' },
+  'san ramón':            { cityId: 'TUxDQ1NBTjk1ZmNj', stateId: 'CL-RM' },
+  'san joaquin':          { cityId: 'TUxDQ1NBTjk2NjA0', stateId: 'CL-RM' },
+  'san joaquín':          { cityId: 'TUxDQ1NBTjk2NjA0', stateId: 'CL-RM' },
+  'estacion central':     { cityId: 'TUxDQ0VTVDY1ODUw', stateId: 'CL-RM' },
+  'estación central':     { cityId: 'TUxDQ0VTVDY1ODUw', stateId: 'CL-RM' },
+  'buin':                 { cityId: 'TUxDQ0JVSTc4MWEw', stateId: 'CL-RM' },
+  'lampa':                { cityId: 'TUxDQ0xBTTk2M2Rj', stateId: 'CL-RM' },
+  'melipilla':            { cityId: 'TUxDQ01FTGI4Yzli', stateId: 'CL-RM' },
+  'talagante':            { cityId: 'TUxDQ1RBTDgxMDU1', stateId: 'CL-RM' },
+}
+
+function resolveMLLocation(
+  city: string | null,
+  sector: string | null
+): { cityId: string; stateId: string } | null {
+  // Try sector first (commune), then city — normalize to lowercase
+  const candidates = [sector, city].filter(Boolean).map(s => s!.toLowerCase().trim())
+  for (const name of candidates) {
+    if (ML_CITY_MAP[name]) return ML_CITY_MAP[name]
+    // Try without accents as extra fallback
+    const noAccents = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    if (ML_CITY_MAP[noAccents]) return ML_CITY_MAP[noAccents]
+  }
+  return null
+}
+
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
 /**
@@ -132,28 +204,56 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     .filter(img => img.url)
     .map(img => ({ source: img.url }))
 
-  const attributes: Array<{ id: string; value_name?: string; value_struct?: { number: number; unit: string } }> = [
+  // Derive sensible defaults for required project-level attributes
+  const addressDisplay = [property.address, property.sector].filter(Boolean).join(', ')
+  const developmentName = (addressDisplay || property.title).slice(0, 80)
+  const propertyCode = property.id.slice(0, 36)
+  const modelName = property.title.slice(0, 60)
+  const unitName = property.id.slice(-6)
+
+  const attributes: Array<{
+    id: string
+    value_name?: string
+    value_id?: string
+    value_struct?: { number: number; unit: string }
+  }> = [
     // Portal Inmobiliario cross-posting
     { id: 'CMG_SITE', value_name: 'POI' },
+
+    // Required project-level attributes (MLC classified real estate)
+    { id: 'PROPERTY_CODE',    value_name: propertyCode },
+    { id: 'MODEL_NAME',       value_name: modelName },
+    { id: 'DEVELOPMENT_NAME', value_name: developmentName },
+    { id: 'UNIT_NAME',        value_name: unitName },
+    // POSSESSION_STATUS: "Entrega inmediata" (id 242413)
+    { id: 'POSSESSION_STATUS', value_id: '242413', value_name: 'Entrega inmediata' },
+    // FACING: default Norte (id 242327) — actual orientation unknown without extra data
+    { id: 'FACING', value_id: '242327', value_name: 'N' },
   ]
 
+  // Numeric attributes — use value_name (string) for value_type:"number"
   if (property.bedrooms != null) {
-    attributes.push({ id: 'BEDROOMS', value_struct: { number: property.bedrooms, unit: 'unit' } })
+    attributes.push({ id: 'BEDROOMS', value_name: String(property.bedrooms) })
   }
   if (property.bathrooms != null) {
-    attributes.push({ id: 'FULL_BATHROOMS', value_struct: { number: property.bathrooms, unit: 'unit' } })
+    attributes.push({ id: 'FULL_BATHROOMS', value_name: String(property.bathrooms) })
   }
-  if (property.parking != null && property.parking > 0) {
-    attributes.push({ id: 'PARKING_LOTS', value_struct: { number: property.parking, unit: 'unit' } })
-  }
+  // PARKING_LOTS is required; hint says "Si no tiene estacionamientos, indica 0"
+  attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
+
+  // Area attributes — use value_struct for value_type:"number_unit"
   if (property.total_area != null) {
-    attributes.push({ id: 'TOTAL_AREA', value_struct: { number: property.total_area, unit: 'm²' } })
+    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: property.total_area, unit: 'm²' } })
+    // LAND_AREA required; for apartments use total_area as approximation
+    attributes.push({ id: 'LAND_AREA',   value_struct: { number: property.total_area, unit: 'm²' } })
   }
   if (property.covered_area != null) {
     attributes.push({ id: 'COVERED_AREA', value_struct: { number: property.covered_area, unit: 'm²' } })
   }
 
+  // ─── Location ──────────────────────────────────────────────────────────────
   const locationParts = [property.address, property.sector, property.city].filter(Boolean)
+  const mlLocation = resolveMLLocation(property.city, property.sector)
 
   const payload: Record<string, unknown> = {
     title: property.title,
@@ -163,12 +263,23 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     available_quantity: 1,
     buying_mode: 'classified',
     listing_type_id: listingTypeId,
-    condition: 'not_specified',
+    // MLC157521 and all classified real-estate categories only accept 'new'
+    condition: 'new',
     attributes,
   }
 
   if (locationParts.length > 0) {
-    payload.location = { address_line: locationParts.join(', ') }
+    if (mlLocation) {
+      payload.location = {
+        address_line: locationParts.join(', '),
+        city:    { id: mlLocation.cityId },
+        state:   { id: mlLocation.stateId },
+        country: { id: 'CL' },
+      }
+    } else {
+      // Fallback: address_line only (may still fail geo validation for unknown communes)
+      payload.location = { address_line: locationParts.join(', ') }
+    }
   }
 
   if (pictures.length > 0) {
