@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useUser } from '@/hooks/use-user'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
 import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 export default function ConfiguracionPage() {
   const { profile, loading: profileLoading } = useUser()
@@ -24,6 +25,20 @@ export default function ConfiguracionPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+
+  // Profile field state for controlled inputs
+  const [rutValue, setRutValue] = useState('')
+  const [rutError, setRutError] = useState('')
+  const [phoneValue, setPhoneValue] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+
+  // Initialize controlled fields from profile
+  useEffect(() => {
+    if (profile) {
+      setRutValue(profile.rut ? formatRut(profile.rut) : '')
+      setPhoneValue(profile.phone ? formatPhone(profile.phone) : '')
+    }
+  }, [profile])
 
   // Bank account state
   const [bankLoading, setBankLoading] = useState(false)
@@ -54,6 +69,20 @@ export default function ConfiguracionPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    setRutError('')
+    setPhoneError('')
+
+    // Validate RUT if provided
+    if (rutValue && !validateRut(rutValue)) {
+      setRutError('RUT inválido')
+      return
+    }
+    // Validate phone if provided
+    if (phoneValue && !validatePhone(phoneValue)) {
+      setPhoneError('Teléfono inválido. Formato: +56 9 XXXX XXXX')
+      return
+    }
+
     setLoading(true)
     setError('')
     setSuccess(false)
@@ -65,8 +94,8 @@ export default function ConfiguracionPage() {
       .from('profiles')
       .update({
         full_name: formData.get('full_name') as string,
-        rut: formData.get('rut') as string || null,
-        phone: formData.get('phone') as string,
+        rut: rutValue || null,
+        phone: phoneValue || null,
       })
       .eq('id', profile!.id)
 
@@ -172,11 +201,25 @@ export default function ConfiguracionPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rut">RUT</Label>
-                <Input id="rut" name="rut" placeholder="12.345.678-9" defaultValue={profile?.rut || ''} />
+                <Input
+                  id="rut"
+                  placeholder="12.345.678-9"
+                  value={rutValue}
+                  onChange={e => { setRutError(''); setRutValue(formatRut(e.target.value)) }}
+                  className={rutError ? 'border-red-500' : ''}
+                />
+                {rutError && <p className="text-xs text-red-500">{rutError}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Telefono</Label>
-                <Input id="phone" name="phone" defaultValue={profile?.phone || ''} />
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input
+                  id="phone"
+                  placeholder="+56 9 1234 5678"
+                  value={phoneValue}
+                  onChange={e => { setPhoneError(''); setPhoneValue(formatPhone(e.target.value)) }}
+                  className={phoneError ? 'border-red-500' : ''}
+                />
+                {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
               </div>
               <Button type="submit" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { createUser, updateUserRole, deleteUser } from '@/lib/actions/users'
 import { PasswordInput } from '@/components/ui/password-input'
+import { formatPhone } from '@/lib/validations/chilean-formats'
 import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
 import { getMaxAgents, getPlanName } from '@/lib/plan-features'
 
@@ -158,8 +159,8 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
                   <Input
                     id="phone"
                     value={newUser.phone}
-                    onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                    placeholder="+56912345678"
+                    onChange={(e) => setNewUser({ ...newUser, phone: formatPhone(e.target.value) })}
+                    placeholder="+56 9 1234 5678"
                   />
                 </div>
                 <div className="space-y-2">

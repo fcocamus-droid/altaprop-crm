@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
 import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink } from 'lucide-react'
 import { finalizeProperty } from '@/lib/actions/properties'
+import { PasswordInput } from '@/components/ui/password-input'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 import Link from 'next/link'
 
 interface PropProperty {
@@ -83,6 +85,8 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [addForm, setAddForm] = useState({ full_name: '', email: '', password: '', rut: '', phone: '' })
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
+  const [rutError, setRutError] = useState('')
+  const [phoneError, setPhoneError] = useState('')
   const [assigningAgent, setAssigningAgent] = useState<string | null>(null)
   const [statusTab, setStatusTab] = useState('all')
   const [filterAgent, setFilterAgent] = useState('all')
@@ -197,6 +201,18 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
 
   async function handleAddPropietario(e: React.FormEvent) {
     e.preventDefault()
+    setRutError('')
+    setPhoneError('')
+    // Validate RUT if provided
+    if (addForm.rut && !validateRut(addForm.rut)) {
+      setRutError('RUT inválido')
+      return
+    }
+    // Validate phone if provided
+    if (addForm.phone && !validatePhone(addForm.phone)) {
+      setPhoneError('Teléfono inválido. Formato: +56 9 XXXX XXXX')
+      return
+    }
     setAddLoading(true)
     setAddError('')
     const res = await fetch('/api/propietarios/create', {
@@ -307,7 +323,13 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">RUT</Label>
-                  <Input value={addForm.rut} onChange={e => setAddForm({ ...addForm, rut: e.target.value })} placeholder="12.345.678-9" className="h-8 text-sm" />
+                  <Input
+                    value={addForm.rut}
+                    onChange={e => { setRutError(''); setAddForm({ ...addForm, rut: formatRut(e.target.value) }) }}
+                    placeholder="12.345.678-9"
+                    className={`h-8 text-sm ${rutError ? 'border-red-500' : ''}`}
+                  />
+                  {rutError && <p className="text-xs text-red-500">{rutError}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Email *</Label>
@@ -315,11 +337,17 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Teléfono</Label>
-                  <Input value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} placeholder="+56 9 1234 5678" className="h-8 text-sm" />
+                  <Input
+                    value={addForm.phone}
+                    onChange={e => { setPhoneError(''); setAddForm({ ...addForm, phone: formatPhone(e.target.value) }) }}
+                    placeholder="+56 9 1234 5678"
+                    className={`h-8 text-sm ${phoneError ? 'border-red-500' : ''}`}
+                  />
+                  {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs">Contraseña *</Label>
-                  <Input type="password" value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="Mínimo 6 caracteres" required minLength={6} className="h-8 text-sm" />
+                  <PasswordInput value={addForm.password} onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="Mínimo 6 caracteres" required minLength={6} className="h-8 text-sm" />
                 </div>
               </div>
               <Button type="submit" size="sm" disabled={addLoading} className="bg-navy hover:bg-navy/90">
