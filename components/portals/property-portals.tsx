@@ -1,0 +1,281 @@
+'use client'
+
+import { useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
+
+interface PropertyPortalsProps {
+  propertyId: string
+  mlItemId?: string | null
+  mlStatus?: string | null
+  mlListingType?: string | null
+  isOwner?: boolean
+  subscriberConnected: boolean
+}
+
+const LISTING_TYPES = [
+  { value: 'silver', label: 'Silver', description: 'Básico · Gratis' },
+  { value: 'gold', label: 'Oro', description: 'Destacado · Con costo' },
+  { value: 'gold_premium', label: 'Premium', description: 'Máxima visibilidad · Con costo' },
+]
+
+export function PropertyPortals({
+  propertyId,
+  mlItemId,
+  mlStatus,
+  mlListingType,
+  isOwner = false,
+  subscriberConnected,
+}: PropertyPortalsProps) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedListingType, setSelectedListingType] = useState(mlListingType || 'silver')
+  const [currentStatus, setCurrentStatus] = useState(mlStatus)
+  const [currentItemId, setCurrentItemId] = useState(mlItemId)
+
+  const mlPermalink = currentItemId
+    ? `https://inmueble.mercadolibre.cl/${currentItemId}`
+    : null
+
+  async function handlePublish() {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/ml/publish/${propertyId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listing_type: selectedListingType }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Error al publicar')
+      } else {
+        setCurrentItemId(data.ml_item_id)
+        setCurrentStatus('active')
+      }
+    } catch {
+      setError('Error de conexión')
+    }
+    setLoading(false)
+  }
+
+  async function handleAction(action: 'pause' | 'reactivate') {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/ml/publish/${propertyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Error al actualizar')
+      } else {
+        setCurrentStatus(data.ml_status)
+      }
+    } catch {
+      setError('Error de conexión')
+    }
+    setLoading(false)
+  }
+
+  async function handleDelete() {
+    if (!confirm('¿Eliminar la publicación de MercadoLibre / Portal Inmobiliario? Esta acción no se puede deshacer.')) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/ml/publish/${propertyId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Error al eliminar')
+      } else {
+        setCurrentStatus(null)
+        setCurrentItemId(null)
+      }
+    } catch {
+      setError('Error de conexión')
+    }
+    setLoading(false)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <span>Portales de Publicación</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Portal logos row */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 rounded-lg border p-2 bg-[#FFE600]/10">
+            <div className="h-6 w-6 rounded bg-[#FFE600] flex items-center justify-center">
+              <MLLogoSmall />
+            </div>
+            <span className="text-xs font-medium">MercadoLibre</span>
+          </div>
+          <span className="text-xs text-muted-foreground">+</span>
+          <div className="flex items-center gap-2 rounded-lg border p-2 bg-blue-50">
+            <div className="h-6 w-6 rounded bg-blue-600 flex items-center justify-center">
+              <span className="text-white text-[9px] font-bold">PI</span>
+            </div>
+            <span className="text-xs font-medium">Portal Inmobiliario</span>
+          </div>
+          <p className="text-xs text-muted-foreground ml-1">
+            Se publican juntos automáticamente
+          </p>
+        </div>
+
+        {/* Warning: subscriber not connected */}
+        {!subscriberConnected && (
+          <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-yellow-800">
+              El suscriptor debe conectar su cuenta de MercadoLibre primero desde{' '}
+              <strong>Configuración &rsaquo; Portales de Publicación</strong>.
+            </p>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+            <p className="text-xs text-destructive">{error}</p>
+          </div>
+        )}
+
+        {/* Status-based content */}
+        {subscriberConnected && (
+          <>
+            {/* ACTIVE listing */}
+            {currentStatus === 'active' && currentItemId && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-green-100 text-green-700 border-green-200">
+                    Publicado activo
+                  </Badge>
+                  {mlPermalink && (
+                    <a
+                      href={mlPermalink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      Ver publicación <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAction('pause')}
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                    Pausar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={loading}
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  >
+                    Eliminar publicación
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* PAUSED listing */}
+            {currentStatus === 'paused' && currentItemId && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">
+                    Pausado
+                  </Badge>
+                  {mlPermalink && (
+                    <a
+                      href={mlPermalink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      Ver publicación <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleAction('reactivate')}
+                    disabled={loading}
+                  >
+                    {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                    Reactivar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={loading}
+                    className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  >
+                    Eliminar publicación
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* NOT published yet (or closed) */}
+            {(!currentStatus || currentStatus === 'closed') && (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de publicación</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {LISTING_TYPES.map(lt => (
+                      <button
+                        key={lt.value}
+                        type="button"
+                        onClick={() => setSelectedListingType(lt.value)}
+                        className={`rounded-lg border p-2 text-left transition-colors ${
+                          selectedListingType === lt.value
+                            ? 'border-navy bg-navy/5 ring-1 ring-navy'
+                            : 'border-border hover:border-navy/50'
+                        }`}
+                      >
+                        <p className="text-xs font-semibold">{lt.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{lt.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handlePublish}
+                  disabled={loading}
+                  className="w-full sm:w-auto"
+                >
+                  {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                  Publicar en portales
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function MLLogoSmall() {
+  return (
+    <svg viewBox="0 0 16 10" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-auto">
+      <path d="M2 2l2.5 5L7 2l2.5 5L12 2" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

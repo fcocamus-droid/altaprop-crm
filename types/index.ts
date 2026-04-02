@@ -24,6 +24,12 @@ export interface Profile {
   bank_account_rut?: string | null
   bank_account_number?: string | null
   bank_email?: string | null
+  // MercadoLibre / Portal Inmobiliario integration
+  ml_user_id?: string | null
+  ml_access_token?: string | null
+  ml_refresh_token?: string | null
+  ml_token_expires_at?: string | null
+  ml_connected_at?: string | null
 }
 
 export interface PaymentReceipt {
@@ -66,6 +72,14 @@ export interface Property {
   owner?: Profile
   agent?: Profile
   images?: PropertyImage[]
+  // MercadoLibre / Portal Inmobiliario
+  ml_item_id?: string | null
+  ml_status?: string | null
+  ml_listing_type?: string | null
+  ml_published_at?: string | null
+  ml_poi_visible?: boolean | null
+  // Extra area fields
+  covered_area?: number | null
 }
 
 export interface PropertyImage {

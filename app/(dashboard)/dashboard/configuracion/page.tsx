@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark, Globe } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
+import { MLConnectButton } from '@/components/portals/ml-connect-button'
 
 export default function ConfiguracionPage() {
   const { profile, loading: profileLoading } = useUser()
@@ -25,6 +26,9 @@ export default function ConfiguracionPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const mlConnected = searchParams.get('ml_connected') === 'true'
+  const mlError = searchParams.get('ml_error')
 
   // Profile field state for controlled inputs
   const [rutValue, setRutValue] = useState('')
@@ -272,6 +276,37 @@ export default function ConfiguracionPage() {
             </form>
           </CardContent>
         </Card>
+        {/* ML CONNECTED NOTIFICATION */}
+        {mlConnected && (
+          <div className="mt-4 bg-green-50 text-green-700 text-sm p-3 rounded-md flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            ¡Cuenta de MercadoLibre / Portal Inmobiliario conectada correctamente!
+          </div>
+        )}
+        {mlError && (
+          <div className="mt-4 bg-destructive/10 text-destructive text-sm p-3 rounded-md">
+            Error al conectar MercadoLibre: {mlError}. Intenta de nuevo.
+          </div>
+        )}
+
+        {/* PORTALES DE PUBLICACIÓN CARD — for subscribers/agents/admins */}
+        {profile && ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE'].includes(profile.role) && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Portales de Publicación
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Conecta tu cuenta de MercadoLibre para publicar propiedades en MercadoLibre y Portal Inmobiliario simultáneamente.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <MLConnectButton profile={profile as any} />
+            </CardContent>
+          </Card>
+        )}
+
         {/* BANK ACCOUNT CARD — only for PROPIETARIO */}
         {profile?.role === 'PROPIETARIO' && (
           <Card className="mt-6">
