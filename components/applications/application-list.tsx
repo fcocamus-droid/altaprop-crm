@@ -9,22 +9,26 @@ import { ApplicationDocuments } from '@/components/applications/application-docu
 import { formatDate } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { APPLICATION_STATUSES } from '@/lib/constants'
-import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark, Download } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, Trash2, Loader2, Search, ExternalLink, CheckCircle2, XCircle, Home, Clock, FolderOpen, ThumbsDown, User, Key, Trophy, Landmark, Download, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 import { PaymentPanel } from '@/components/applications/payment-panel'
 import { InventoryPanel } from '@/components/applications/inventory-panel'
 import { RentalContract } from '@/components/applications/rental-contract'
+import { CommissionPayment } from '@/components/applications/commission-payment'
 
 interface ApplicationItem {
   id: string
   property_id?: string
   created_at: string
   status: string
-  property?: { id: string; title: string } | null
+  property?: { id: string; title: string; price?: number | null; currency?: string | null; operation?: string | null } | null
   applicant?: { full_name: string; phone: string } | null
   documents?: any[]
   rental_contract_url?: string | null
   rental_contract_name?: string | null
+  commission_amount?: number | null
+  commission_paid_applicant?: boolean
+  commission_paid_owner?: boolean
 }
 
 type StageTab = 'all' | 'pending' | 'reviewing' | 'approved' | 'rejected' | 'rented' | 'sold'
@@ -236,7 +240,7 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>{formatDate(app.created_at)}</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {!isApplicant ? (
                         // Admin — full editable dropdown for ALL statuses (can always correct mistakes)
                         <div className="relative flex items-center gap-1">
@@ -311,6 +315,23 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                           <Download className="h-3 w-3" />
                           Contrato
                         </a>
+                      )}
+                      {/* Commission payment pill — visible when rented or sold */}
+                      {['rented', 'sold'].includes(app.status) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (!isExpanded) setExpanded(app.id) }}
+                          className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                            app.commission_paid_applicant && app.commission_paid_owner
+                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                              : 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100'
+                          }`}
+                          title="Pago de comisión"
+                        >
+                          {app.commission_paid_applicant && app.commission_paid_owner
+                            ? <><CheckCircle2 className="h-3 w-3" /> Comisión</>
+                            : <><CreditCard className="h-3 w-3" /> Comisión</>
+                          }
+                        </button>
                       )}
                     </div>
                   </div>
@@ -492,6 +513,22 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                       <InventoryPanel
                         applicationId={app.id}
                         userRole={userRole}
+                        isApplicant={isApplicant}
+                      />
+                    </div>
+                  )}
+
+                  {/* COMMISSION PAYMENT — visible when rented or sold */}
+                  {['rented', 'sold'].includes(app.status) && (
+                    <div className="pt-3 border-t">
+                      <CommissionPayment
+                        applicationId={app.id}
+                        status={app.status as 'rented' | 'sold'}
+                        propertyPrice={app.property?.price ?? null}
+                        propertyCurrency={app.property?.currency ?? null}
+                        commissionAmount={app.commission_amount ?? null}
+                        paidApplicant={app.commission_paid_applicant ?? false}
+                        paidOwner={app.commission_paid_owner ?? false}
                         isApplicant={isApplicant}
                       />
                     </div>

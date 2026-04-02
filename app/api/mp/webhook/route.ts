@@ -16,22 +16,40 @@ export async function POST(request: NextRequest) {
     const payment = await paymentRes.json()
 
     if (payment.status === 'approved' && payment.external_reference) {
-      const [userId, planId] = payment.external_reference.split('|')
-      const plan = PLANS.find(p => p.id === planId)
+      const ref: string = payment.external_reference
+      const admin = createAdminClient()
 
-      if (userId && plan) {
-        const admin = createAdminClient()
-        const now = new Date()
-        const subscriptionEndsAt = new Date(now)
-        subscriptionEndsAt.setMonth(subscriptionEndsAt.getMonth() + 1)
-
-        await admin.from('profiles').update({
-          plan: plan.id,
-          subscription_status: 'active',
-          max_agents: plan.agents,
-          subscription_ends_at: subscriptionEndsAt.toISOString(),
-          mp_subscription_id: String(paymentId),
-        }).eq('id', userId)
+      if (ref.startsWith('commission:')) {
+        // Commission payment: "commission:{applicationId}:{payerType}"
+        const parts = ref.split(':')
+        const applicationId = parts[1]
+        const payerType = parts[2]
+        if (applicationId && payerType) {
+          const field =
+            payerType === 'applicant'
+              ? 'commission_paid_applicant'
+              : 'commission_paid_owner'
+          await admin
+            .from('applications')
+            .update({ [field]: true })
+            .eq('id', applicationId)
+        }
+      } else {
+        // Subscription payment: "{userId}|{planId}"
+        const [userId, planId] = ref.split('|')
+        const plan = PLANS.find(p => p.id === planId)
+        if (userId && plan) {
+          const now = new Date()
+          const subscriptionEndsAt = new Date(now)
+          subscriptionEndsAt.setMonth(subscriptionEndsAt.getMonth() + 1)
+          await admin.from('profiles').update({
+            plan: plan.id,
+            subscription_status: 'active',
+            max_agents: plan.agents,
+            subscription_ends_at: subscriptionEndsAt.toISOString(),
+            mp_subscription_id: String(paymentId),
+          }).eq('id', userId)
+        }
       }
     }
   }

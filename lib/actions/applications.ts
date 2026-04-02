@@ -611,7 +611,8 @@ export async function deleteApplication(id: string) {
   return { success: true }
 }
 
-// ── Rental contract ────────────────────────────────────────────────────────────
+// ─── Rental contract ──────────────────────────────────────────────────────
+
 export async function saveRentalContract(
   applicationId: string,
   contractUrl: string,
@@ -644,7 +645,6 @@ export async function deleteRentalContract(applicationId: string, contractUrl: s
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const admin = createAdminClient()
 
-  // Remove from storage
   try {
     const pathPart = contractUrl.split('/property-images/')[1]
     if (pathPart) {
@@ -656,6 +656,30 @@ export async function deleteRentalContract(applicationId: string, contractUrl: s
   const { error } = await admin
     .from('applications')
     .update({ rental_contract_url: null, rental_contract_name: null })
+    .eq('id', applicationId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/postulaciones')
+  return { success: true }
+}
+
+// ─── Commission payment ────────────────────────────────────────────────────
+
+export async function saveCommissionAmount(
+  applicationId: string,
+  amount: number
+): Promise<{ error?: string; success?: boolean }> {
+  const profile = await getUserProfile()
+  if (!profile) return { error: 'No autorizado' }
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
+  if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
+
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('applications')
+    .update({ commission_amount: amount })
     .eq('id', applicationId)
 
   if (error) return { error: error.message }
