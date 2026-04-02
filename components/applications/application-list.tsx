@@ -15,6 +15,7 @@ import { PaymentPanel } from '@/components/applications/payment-panel'
 import { InventoryPanel } from '@/components/applications/inventory-panel'
 import { RentalContract } from '@/components/applications/rental-contract'
 import { CommissionPayment } from '@/components/applications/commission-payment'
+import { OtherServicesPayment } from '@/components/applications/other-services-payment'
 
 interface ApplicationItem {
   id: string
@@ -530,6 +531,17 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                         paidApplicant={app.commission_paid_applicant ?? false}
                         paidOwner={app.commission_paid_owner ?? false}
                         isApplicant={isApplicant}
+                      />
+                    </div>
+                  )}
+
+                  {/* OTHER SERVICES PAYMENT — visible when rented or sold */}
+                  {['rented', 'sold'].includes(app.status) && (
+                    <div className="pt-3 border-t">
+                      <OtherServicesPayment
+                        applicationId={app.id}
+                        isApplicant={isApplicant}
+                        currency={app.property?.currency ?? null}
                       />
                     </div>
                   )}

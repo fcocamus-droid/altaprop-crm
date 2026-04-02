@@ -34,6 +34,15 @@ export async function POST(request: NextRequest) {
             .update({ [field]: true })
             .eq('id', applicationId)
         }
+      } else if (ref.startsWith('other_service:')) {
+        // Other service payment: "other_service:{paymentId}"
+        const paymentId = ref.split(':')[1]
+        if (paymentId) {
+          await admin
+            .from('other_service_payments')
+            .update({ paid: true })
+            .eq('id', paymentId)
+        }
       } else {
         // Subscription payment: "{userId}|{planId}"
         const [userId, planId] = ref.split('|')
