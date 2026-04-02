@@ -541,6 +541,7 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                       <OtherServicesPayment
                         applicationId={app.id}
                         isApplicant={isApplicant}
+                        userRole={userRole}
                         currency={app.property?.currency ?? null}
                       />
                     </div>

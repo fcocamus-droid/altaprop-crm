@@ -6,6 +6,9 @@ import { preferenceClient } from '@/lib/mercadopago'
 export const dynamic = 'force-dynamic'
 
 // GET: list other service payments for an application
+// - POSTULANTE  → only their own charges (payer_type = 'applicant')
+// - PROPIETARIO → only the owner charges  (payer_type = 'owner')
+// - Admin/AGENTE → all charges
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -14,12 +17,21 @@ export async function GET(
   if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const admin = createAdminClient()
-  const { data, error } = await admin
+  let query = admin
     .from('other_service_payments')
     .select('*')
     .eq('application_id', params.id)
     .order('created_at', { ascending: true })
 
+  // Restrict visible charges based on the caller's role
+  if (profile.role === 'POSTULANTE') {
+    query = query.eq('payer_type', 'applicant')
+  } else if (profile.role === 'PROPIETARIO') {
+    query = query.eq('payer_type', 'owner')
+  }
+  // Admin / AGENTE / SUPERADMIN see everything — no filter applied
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ payments: data ?? [] })
 }
@@ -31,7 +43,8 @@ export async function POST(
 ) {
   const profile = await getUserProfile()
   if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  if (profile.role === 'POSTULANTE') {
+  // Only admins and agents can create charges
+  if (['POSTULANTE', 'PROPIETARIO'].includes(profile.role)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 

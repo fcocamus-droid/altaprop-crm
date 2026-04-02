@@ -33,14 +33,20 @@ interface OtherServicePayment {
 interface OtherServicesPaymentProps {
   applicationId: string
   isApplicant: boolean
+  userRole?: string
   currency?: string | null
 }
 
 export function OtherServicesPayment({
   applicationId,
   isApplicant,
+  userRole,
   currency: defaultCurrency,
 }: OtherServicesPaymentProps) {
+  // isOwner: property owner role — can only see/pay their own charges
+  const isOwner = userRole === 'PROPIETARIO'
+  // canManage: admins and agents can create/delete charges and see all
+  const canManage = !isApplicant && !isOwner
   const [payments, setPayments] = useState<OtherServicePayment[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -229,9 +235,14 @@ export function OtherServicesPayment({
   const payerLabel = (type: 'applicant' | 'owner') =>
     type === 'applicant' ? 'Postulante' : 'Propietario'
 
-  // For applicants: only show their own pending/paid rows
+  // Filter visible payments by role:
+  // - POSTULANTE: only their own charges (applicant) — API already filtered, but guard here too
+  // - PROPIETARIO: only owner charges — API already filtered, but guard here too
+  // - Admin/AGENTE: all charges
   const visiblePayments = isApplicant
     ? payments.filter(p => p.payer_type === 'applicant')
+    : isOwner
+    ? payments.filter(p => p.payer_type === 'owner')
     : payments
 
   const hasPending = visiblePayments.some(p => !p.paid)
@@ -276,7 +287,7 @@ export function OtherServicesPayment({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {!isApplicant && !showForm && (
+          {canManage && !showForm && (
             <Button
               size="sm"
               variant="outline"
@@ -302,8 +313,8 @@ export function OtherServicesPayment({
 
       {expanded && (
         <>
-          {/* New charge form (admin only) */}
-          {showForm && !isApplicant && (
+          {/* New charge form (admin/agent only) */}
+          {showForm && canManage && (
             <div className="bg-white rounded-lg border border-blue-200 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-blue-900">Nuevo cobro</p>
@@ -437,7 +448,7 @@ export function OtherServicesPayment({
             </div>
           ) : visiblePayments.length === 0 ? (
             <p className="text-xs text-blue-600 italic">
-              {isApplicant
+              {(isApplicant || isOwner)
                 ? 'No hay cobros pendientes para ti.'
                 : 'No hay cobros adicionales registrados.'}
             </p>
@@ -464,7 +475,8 @@ export function OtherServicesPayment({
                       >
                         {formatCurrency(payment.amount, payment.currency)}
                       </p>
-                      {!isApplicant && (
+                      {/* Show "Cobro a:" label only for admins who see all charges */}
+                      {canManage && (
                         <p className="text-xs text-gray-500">
                           Cobro a: {payerLabel(payment.payer_type)}
                         </p>
@@ -508,8 +520,8 @@ export function OtherServicesPayment({
                         </Button>
                       )}
 
-                      {/* Delete (admin, unpaid only) */}
-                      {!isApplicant && !payment.paid && (
+                      {/* Delete (admin/agent only, unpaid charges) */}
+                      {canManage && !payment.paid && (
                         <button
                           onClick={() => handleDelete(payment.id)}
                           disabled={deletingId === payment.id}
