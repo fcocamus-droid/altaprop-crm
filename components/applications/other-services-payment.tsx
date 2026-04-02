@@ -189,23 +189,15 @@ export function OtherServicesPayment({
   async function handlePay(paymentId: string) {
     setLoadingPayId(paymentId)
     try {
-      // Re-create preference for existing payment record
-      const payment = payments.find(p => p.id === paymentId)
-      if (!payment) return
-
-      const res = await fetch(`/api/applications/${applicationId}/other-services`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: payment.description,
-          amount: payment.amount,
-          payerType: payment.payer_type,
-          fileUrl: payment.file_url,
-          fileName: payment.file_name,
-          currency: payment.currency,
-          existingId: paymentId,
-        }),
-      })
+      // Use the checkout endpoint to generate an MP preference URL for this existing record
+      const res = await fetch(
+        `/api/applications/${applicationId}/other-services/checkout`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentId }),
+        }
+      )
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
