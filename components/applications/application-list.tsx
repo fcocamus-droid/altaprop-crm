@@ -531,6 +531,7 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                         paidApplicant={app.commission_paid_applicant ?? false}
                         paidOwner={app.commission_paid_owner ?? false}
                         isApplicant={isApplicant}
+                        userRole={userRole}
                       />
                     </div>
                   )}

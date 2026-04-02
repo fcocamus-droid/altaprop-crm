@@ -15,6 +15,7 @@ interface CommissionPaymentProps {
   paidApplicant: boolean
   paidOwner: boolean
   isApplicant: boolean
+  userRole?: string
 }
 
 export function CommissionPayment({
@@ -26,8 +27,11 @@ export function CommissionPayment({
   paidApplicant,
   paidOwner,
   isApplicant,
+  userRole,
 }: CommissionPaymentProps) {
   const isSold = status === 'sold'
+  const isOwner = userRole === 'PROPIETARIO'
+  const canManage = !isApplicant && !isOwner
   const currency = propertyCurrency || 'CLP'
 
   // For rented: auto-calculated half price. For sold: use stored amount or let admin enter
@@ -109,33 +113,36 @@ export function CommissionPayment({
   }
 
   const bothPaid = localPaidApplicant && localPaidOwner
+  // For single-role views, "paid" means their own payment is done
+  const myPaid = isApplicant ? localPaidApplicant : isOwner ? localPaidOwner : bothPaid
+  const showPaid = isApplicant || isOwner ? myPaid : bothPaid
 
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 ${
-        bothPaid
+        showPaid
           ? 'border-emerald-200 bg-emerald-50'
           : 'border-orange-200 bg-orange-50'
       }`}
     >
       {/* Header */}
       <div className="flex items-center gap-2">
-        {bothPaid ? (
+        {showPaid ? (
           <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
         ) : (
           <CreditCard className="h-4 w-4 text-orange-600 shrink-0" />
         )}
         <p
           className={`text-sm font-semibold ${
-            bothPaid ? 'text-emerald-900' : 'text-orange-900'
+            showPaid ? 'text-emerald-900' : 'text-orange-900'
           }`}
         >
-          {bothPaid ? 'Comisión Pagada ✓' : 'Pago de Comisión'}
+          {showPaid ? 'Comisión Pagada ✓' : 'Pago de Comisión'}
         </p>
       </div>
 
       {/* Amount section */}
-      {isSold && !isApplicant ? (
+      {isSold && canManage ? (
         // Admin: editable amount for sold
         <div className="space-y-2">
           {editingAmount || !savedAmount ? (
@@ -208,7 +215,7 @@ export function CommissionPayment({
 
       {/* Payment buttons */}
       {isApplicant ? (
-        // Applicant: only their own payment
+        // Postulante: only their own payment
         localPaidApplicant ? (
           <div className="flex items-center gap-2 bg-white border border-emerald-200 rounded-lg px-3 py-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -235,8 +242,36 @@ export function CommissionPayment({
             )}
           </Button>
         )
+      ) : isOwner ? (
+        // Propietario: only their own payment
+        localPaidOwner ? (
+          <div className="flex items-center gap-2 bg-white border border-emerald-200 rounded-lg px-3 py-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="text-sm font-semibold text-emerald-700">
+              Tu comisión fue pagada
+            </span>
+          </div>
+        ) : (
+          <Button
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2"
+            size="sm"
+            disabled={!effectiveAmount || loadingPayer !== null}
+            onClick={() => handlePay('owner')}
+          >
+            {loadingPayer === 'owner' ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Procesando...
+              </>
+            ) : (
+              <>
+                <CreditCard className="h-3.5 w-3.5" /> Pagar Comisión con
+                MercadoPago
+              </>
+            )}
+          </Button>
+        )
       ) : (
-        // Admin: shows both payer rows
+        // Admin/Agente: shows both payer rows
         !bothPaid && (
           <div className="space-y-2">
             {/* Applicant row */}
