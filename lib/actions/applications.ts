@@ -138,6 +138,7 @@ export async function deleteApplicationDocument(docId: string) {
 export async function updateApplicationStatus(id: string, status: string) {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
+  if (!['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE'].includes(profile.role)) return { error: 'No autorizado' }
 
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const admin = createAdminClient()
@@ -166,7 +167,7 @@ export async function finalizeApplicationStatus(
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
 
-  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE', 'PROPIETARIO']
+  const allowedRoles = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
   if (!allowedRoles.includes(profile.role)) return { error: 'No autorizado' }
 
   const { createAdminClient } = await import('@/lib/supabase/admin')

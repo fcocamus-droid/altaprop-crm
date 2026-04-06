@@ -243,8 +243,8 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                       <span>{formatDate(app.created_at)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {!isApplicant ? (
-                        // Admin — full editable dropdown for ALL statuses (can always correct mistakes)
+                      {!isApplicant && userRole !== 'PROPIETARIO' ? (
+                        // Admin/Agente — full editable dropdown for ALL statuses (can always correct mistakes)
                         <div className="relative flex items-center gap-1">
                           <select
                             value={app.status}
@@ -300,7 +300,7 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                           {statusError === app.id && <span className="text-xs text-red-500 font-medium">Error al guardar</span>}
                         </div>
                       ) : (
-                        // Read-only badge — applicant view
+                        // Read-only badge — applicant and propietario view
                         <StatusBadge status={app.status} type="application" />
                       )}
                       <span className="text-xs text-muted-foreground">{docCounts[app.id] ?? app.documents?.length ?? 0} doc(s)</span>
