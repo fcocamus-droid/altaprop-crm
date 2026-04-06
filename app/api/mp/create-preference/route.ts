@@ -18,7 +18,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Plan no encontrado' }, { status: 400 })
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.altaprop-app.cl'
+  // Always use the canonical production domain for MercadoPago back_urls.
+  // NEXT_PUBLIC_SITE_URL may be set to the Vercel preview URL — hardcoding ensures
+  // MP always redirects back to the correct custom domain in production.
+  const siteUrl =
+    process.env.NODE_ENV === 'development'
+      ? (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
+      : 'https://www.altaprop-app.cl'
 
   // Price calculation
   // Monthly: plan.price * IVA  (e.g. $19 → $22.61)

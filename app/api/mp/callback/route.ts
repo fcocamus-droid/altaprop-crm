@@ -7,7 +7,12 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status')
   const planId = searchParams.get('plan')
   const userId = searchParams.get('user')
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.altaprop-app.cl'
+  // Always redirect to the canonical production domain.
+  // Prevents landing on the Vercel preview URL after payment.
+  const siteUrl =
+    process.env.NODE_ENV === 'development'
+      ? (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
+      : 'https://www.altaprop-app.cl'
 
   if (status === 'success' && planId && userId) {
     const plan = PLANS.find(p => p.id === planId)
