@@ -62,6 +62,7 @@ export function OtherServicesPayment({
   const [submitting, setSubmitting] = useState(false)
   const [loadingPayId, setLoadingPayId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [payError, setPayError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const currency = defaultCurrency || 'CLP'
@@ -188,6 +189,7 @@ export function OtherServicesPayment({
 
   async function handlePay(paymentId: string) {
     setLoadingPayId(paymentId)
+    setPayError(null)
     try {
       // Use the checkout endpoint to generate an MP preference URL for this existing record
       const res = await fetch(
@@ -202,8 +204,10 @@ export function OtherServicesPayment({
       if (data.url) {
         window.location.href = data.url
       } else {
-        console.error(data.error)
+        setPayError(data.error || 'No se pudo iniciar el pago. Intenta nuevamente.')
       }
+    } catch {
+      setPayError('Error de conexión al intentar pagar.')
     } finally {
       setLoadingPayId(null)
     }
@@ -430,6 +434,14 @@ export function OtherServicesPayment({
                   </>
                 )}
               </Button>
+            </div>
+          )}
+
+          {/* Pay error */}
+          {payError && (
+            <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 border border-red-200">
+              <span>{payError}</span>
+              <button onClick={() => setPayError(null)} className="ml-auto text-red-400 hover:text-red-600">×</button>
             </div>
           )}
 
