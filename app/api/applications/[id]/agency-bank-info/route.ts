@@ -45,14 +45,11 @@ export async function GET(
     return NextResponse.json({ error: 'Propiedad sin suscriptor' }, { status: 404 })
   }
 
-  // Get SUPERADMIN or SUPERADMINBOSS bank data for this subscriber
+  // properties.subscriber_id = profiles.id of the admin/organization
   const { data: adminProfile } = await admin
     .from('profiles')
     .select('full_name, bank_name, bank_account_type, bank_account_holder, bank_account_rut, bank_account_number, bank_email')
-    .eq('subscriber_id', property.subscriber_id)
-    .in('role', ['SUPERADMIN', 'SUPERADMINBOSS'])
-    .not('bank_name', 'is', null)
-    .limit(1)
+    .eq('id', property.subscriber_id)
     .single()
 
   const hasBank = adminProfile && (adminProfile.bank_name || adminProfile.bank_account_holder || adminProfile.bank_account_number)
