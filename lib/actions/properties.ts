@@ -44,6 +44,8 @@ export async function createProperty(formData: FormData) {
       ...(tempId ? { id: tempId } : {}),
       owner_id: profile.id,
       subscriber_id: profile.subscriber_id || profile.id,
+      // Auto-assign to the agent who created the property
+      ...(profile.role === ROLES.AGENTE ? { agent_id: profile.id } : {}),
     })
     .select('id')
     .single()
@@ -243,6 +245,8 @@ export async function importProperty(propertyData: {
       subscriber_id: profile.subscriber_id || profile.id,
       status: 'available',
       featured: false,
+      // Auto-assign to the agent who imported the property
+      ...(profile.role === ROLES.AGENTE ? { agent_id: profile.id } : {}),
     })
     .select('id')
     .single()
