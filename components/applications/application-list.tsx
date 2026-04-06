@@ -505,7 +505,7 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                         <Landmark className="h-4 w-4 text-navy shrink-0" />
                         <p className="text-sm font-semibold text-navy">{isApplicant ? 'Realizar Pago' : 'Datos Bancarios del Propietario'}</p>
                       </div>
-                      <PaymentPanel applicationId={app.id} canUpload={isApplicant} />
+                      <PaymentPanel applicationId={app.id} canUpload={isApplicant} userRole={userRole} />
                     </div>
                   )}
 

@@ -46,7 +46,19 @@ function CopyButton({ value }: { value: string }) {
   )
 }
 
-export function PaymentPanel({ applicationId, canUpload = true }: { applicationId: string; canUpload?: boolean }) {
+const ADMIN_ROLES = ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE']
+
+export function PaymentPanel({
+  applicationId,
+  canUpload = true,
+  userRole,
+}: {
+  applicationId: string
+  canUpload?: boolean
+  userRole?: string
+}) {
+  // Admins and propietario can view receipts in read-only mode
+  const canViewReceipts = canUpload || userRole === 'PROPIETARIO' || ADMIN_ROLES.includes(userRole || '')
   const [info, setInfo] = useState<PaymentInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -233,70 +245,77 @@ export function PaymentPanel({ applicationId, canUpload = true }: { applicationI
         )}
       </div>
 
-      {/* Receipt upload section — only shown to postulante */}
-      {canUpload && <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <FileCheck className="h-4 w-4 text-muted-foreground shrink-0" />
-          <p className="text-sm font-semibold">Comprobante de Pago</p>
-        </div>
+      {/* Receipt section — visible to postulante (upload) and admins/propietario (read-only) */}
+      {canViewReceipts && (
+        <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <FileCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-sm font-semibold">Comprobante de Pago</p>
+          </div>
 
-        {/* Existing receipts */}
-        {info.receipts.length > 0 && (
-          <div className="space-y-2">
-            {info.receipts.map(r => (
-              <a
-                key={r.id}
-                href={r.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-navy hover:underline bg-white rounded-lg px-3 py-2 border border-navy/10"
+          {/* Existing receipts */}
+          {info.receipts.length > 0 ? (
+            <div className="space-y-2">
+              {info.receipts.map(r => (
+                <a
+                  key={r.id}
+                  href={r.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-navy hover:underline bg-white rounded-lg px-3 py-2 border border-navy/10"
+                >
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <span className="truncate">{r.file_name || 'Comprobante'}</span>
+                  <span className="text-xs text-muted-foreground ml-auto shrink-0">
+                    {new Date(r.uploaded_at).toLocaleDateString('es-CL')}
+                  </span>
+                </a>
+              ))}
+            </div>
+          ) : !canUpload ? (
+            <p className="text-xs text-muted-foreground italic">El postulante aún no ha subido comprobantes.</p>
+          ) : null}
+
+          {/* Upload controls — only for postulante */}
+          {canUpload && (
+            <>
+              {uploadSuccess && (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  Comprobante subido correctamente
+                </div>
+              )}
+              {uploadError && (
+                <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {uploadError}
+                </div>
+              )}
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={handleReceiptUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+                className="gap-2"
               >
-                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                <span className="truncate">{r.file_name || 'Comprobante'}</span>
-                <span className="text-xs text-muted-foreground ml-auto shrink-0">
-                  {new Date(r.uploaded_at).toLocaleDateString('es-CL')}
-                </span>
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* Upload button */}
-        {uploadSuccess && (
-          <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Comprobante subido correctamente
-          </div>
-        )}
-        {uploadError && (
-          <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {uploadError}
-          </div>
-        )}
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png,.webp"
-          onChange={handleReceiptUpload}
-          className="hidden"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-          className="gap-2"
-        >
-          {uploading
-            ? <><Loader2 className="h-4 w-4 animate-spin" />Subiendo...</>
-            : <><Upload className="h-4 w-4" />{info.receipts.length > 0 ? 'Subir otro comprobante' : 'Subir comprobante de pago'}</>
-          }
-        </Button>
-        <p className="text-xs text-muted-foreground">PDF, JPG o PNG. Máx 10MB</p>
-      </div>}
+                {uploading
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />Subiendo...</>
+                  : <><Upload className="h-4 w-4" />{info.receipts.length > 0 ? 'Subir otro comprobante' : 'Subir comprobante de pago'}</>
+                }
+              </Button>
+              <p className="text-xs text-muted-foreground">PDF, JPG o PNG. Máx 10MB</p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
