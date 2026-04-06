@@ -24,7 +24,7 @@ export default async function HomePage() {
               <Button asChild size="lg" className="bg-gold text-navy hover:bg-gold-dark font-semibold">
                 <Link href="/register">Empieza Gratis <ArrowRight className="ml-2 h-5 w-5" /></Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-gold text-gold hover:bg-gold/10">
+              <Button asChild size="lg" variant="outline" className="bg-transparent border-gold text-gold hover:bg-gold/10 hover:text-gold">
                 <Link href="#pricing">Ver Planes</Link>
               </Button>
             </div>
@@ -77,14 +77,14 @@ export default async function HomePage() {
       <section className="py-20 bg-navy text-white">
         <div className="container text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Lleva tu inmobiliaria al siguiente nivel</h2>
-          <p className="text-navy-100 mb-8 max-w-xl mx-auto">
+          <p className="text-white/70 mb-8 max-w-xl mx-auto">
             Unete a las inmobiliarias que ya usan Altaprop para gestionar su negocio de forma profesional.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="bg-gold text-navy hover:bg-gold-dark font-semibold">
               <Link href="/register">Crear Cuenta Gratis</Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
+            <Button asChild size="lg" variant="outline" className="bg-transparent border-white text-white hover:bg-white/10 hover:text-white">
               <Link href="/contacto">Contactanos</Link>
             </Button>
           </div>
