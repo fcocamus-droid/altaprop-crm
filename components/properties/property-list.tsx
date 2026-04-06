@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty } from '@/lib/actions/properties'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle } from 'lucide-react'
+import { notifyAgentAssignment } from '@/lib/actions/agent-notify'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -102,6 +103,21 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
       setBlocked(allTimes)
     }
     setLoadingSlot(null)
+  }
+
+  const [notifyingAgent, setNotifyingAgent] = useState<string | null>(null)
+  const [notifySuccess, setNotifySuccess] = useState<string | null>(null)
+
+  const handleNotifyAgent = async (propertyId: string, agentId: string) => {
+    setNotifyingAgent(propertyId)
+    const result = await notifyAgentAssignment(propertyId, agentId)
+    setNotifyingAgent(null)
+    if (result.error) {
+      alert(result.error)
+    } else {
+      setNotifySuccess(propertyId)
+      setTimeout(() => setNotifySuccess(null), 3000)
+    }
   }
 
   const handleDelete = async (id: string, title: string) => {
@@ -280,6 +296,29 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                       <span className={`text-xs font-medium ${property.agent?.full_name ? 'text-navy' : 'text-muted-foreground'}`}>
                         {property.agent?.full_name || 'Sin agente asignado'}
                       </span>
+                    )}
+
+                    {/* Notify agent button — only when an agent is assigned */}
+                    {property.agent_id && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') && (
+                      <button
+                        type="button"
+                        title={notifySuccess === property.id ? '¡Correo enviado!' : 'Notificar al agente por email'}
+                        disabled={notifyingAgent === property.id}
+                        onClick={() => handleNotifyAgent(property.id, property.agent_id!)}
+                        className={`ml-1 inline-flex items-center justify-center rounded-full w-5 h-5 transition-colors ${
+                          notifySuccess === property.id
+                            ? 'bg-green-100 text-green-600'
+                            : 'bg-navy/10 text-navy hover:bg-navy/20'
+                        }`}
+                      >
+                        {notifyingAgent === property.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : notifySuccess === property.id ? (
+                          <CheckCircle className="h-3 w-3" />
+                        ) : (
+                          <Mail className="h-3 w-3" />
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
