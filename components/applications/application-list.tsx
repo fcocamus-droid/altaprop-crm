@@ -16,6 +16,7 @@ import { InventoryPanel } from '@/components/applications/inventory-panel'
 import { RentalContract } from '@/components/applications/rental-contract'
 import { CommissionPayment } from '@/components/applications/commission-payment'
 import { OtherServicesPayment } from '@/components/applications/other-services-payment'
+import { AgencyBankPanel } from '@/components/applications/agency-bank-panel'
 
 interface ApplicationItem {
   id: string
@@ -544,6 +545,17 @@ export function ApplicationList({ applications: initial, isApplicant, userRole }
                         isApplicant={isApplicant}
                         userRole={userRole}
                         currency={app.property?.currency ?? null}
+                      />
+                    </div>
+                  )}
+
+                  {/* AGENCY BANK TRANSFER — visible to PROPIETARIO and POSTULANTE when rented or sold */}
+                  {['rented', 'sold'].includes(app.status) && (
+                    <div className="pt-3 border-t">
+                      <AgencyBankPanel
+                        applicationId={app.id}
+                        isApplicant={isApplicant}
+                        userRole={userRole}
                       />
                     </div>
                   )}

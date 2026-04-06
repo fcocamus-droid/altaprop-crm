@@ -56,11 +56,12 @@ export async function GET(
     .eq('id', property.owner_id)
     .single()
 
-  // 6. Fetch payment receipts for this application
+  // 6. Fetch payment receipts for this application (owner transfers only)
   const { data: receipts } = await admin
     .from('payment_receipts')
     .select('id, file_url, file_name, uploaded_at')
     .eq('application_id', applicationId)
+    .like('file_url', '%/payment-receipts/%')
     .order('uploaded_at', { ascending: false })
 
   const hasAnyBankData = owner && (
