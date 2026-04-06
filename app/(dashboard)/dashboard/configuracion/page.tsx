@@ -307,8 +307,8 @@ export default function ConfiguracionPage() {
           </Card>
         )}
 
-        {/* BANK ACCOUNT CARD — only for PROPIETARIO */}
-        {profile?.role === 'PROPIETARIO' && (
+        {/* BANK ACCOUNT CARD — visible for PROPIETARIO, POSTULANTE, SUPERADMIN, SUPERADMINBOSS */}
+        {['PROPIETARIO', 'POSTULANTE', 'SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -316,7 +316,9 @@ export default function ConfiguracionPage() {
                 Datos Bancarios
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Esta información será visible para los postulantes aprobados en tus propiedades para que puedan realizar el pago.
+                {profile?.role === 'PROPIETARIO'
+                  ? 'Esta información será visible para los postulantes aprobados en tus propiedades para que puedan realizar el pago.'
+                  : 'Ingresa tus datos bancarios para recibir o realizar transferencias relacionadas a tus postulaciones.'}
               </p>
             </CardHeader>
             <CardContent>
