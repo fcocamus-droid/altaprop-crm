@@ -7,8 +7,36 @@ import { revalidatePath } from 'next/cache'
 import {
   buildCanceledEmail,
   buildPausedEmail,
+  buildTrialExpiredEmail,
   sendSubscriptionEmail,
 } from '@/lib/emails/subscription-emails'
+
+/**
+ * Called from the dashboard layout when a trialing user's trial_ends_at is in the past.
+ * Updates their status to 'none' and sends the expiry email immediately (before the cron runs).
+ * Safe to call repeatedly — after the first update the status is 'none' and this won't fire again.
+ */
+export async function expireTrialIfNeeded(userId: string, fullName: string | null, planId: string | null) {
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ subscription_status: 'none', plan: null, max_agents: 0, trial_ends_at: null })
+    .eq('id', userId)
+    .eq('subscription_status', 'trialing') // only update if still trialing (prevents double-send)
+
+  if (error) return
+
+  const { data: authData } = await admin.auth.admin.getUserById(userId)
+  const email = authData?.user?.email
+  if (email) {
+    const plan = PLANS.find(p => p.id === planId)
+    await sendSubscriptionEmail(
+      email,
+      buildTrialExpiredEmail(fullName || 'Cliente', plan?.name || planId || 'tu plan')
+    )
+  }
+}
 
 async function getUserEmail(userId: string): Promise<string | null> {
   const admin = createAdminClient()
