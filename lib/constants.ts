@@ -96,7 +96,7 @@ export const PLANS = [
 
 export type PlanId = (typeof PLANS)[number]['id']
 
-export const SUBSCRIPTION_STATUSES = ['none', 'trialing', 'active', 'past_due', 'canceled'] as const
+export const SUBSCRIPTION_STATUSES = ['none', 'trialing', 'active', 'past_due', 'canceled', 'paused'] as const
 
 export const DOCUMENT_TYPES = [
   { value: 'cedula', label: 'Cédula de Identidad (ambos lados)' },
