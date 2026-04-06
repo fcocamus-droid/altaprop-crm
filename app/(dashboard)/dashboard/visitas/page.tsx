@@ -2,7 +2,7 @@ import { getUserProfile } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { RoleGuard } from '@/components/auth/role-guard'
 import { PageHeader } from '@/components/shared/page-header'
-import { VisitList } from '@/components/visits/visit-list'
+import { VisitsView } from '@/components/visits/visits-view'
 import { ScheduleManager } from '@/components/visits/schedule-manager'
 import { getAllVisits, getVisitsByVisitor, getVisitsByPropertyOwner, getVisitsByAgent, getVisitsBySubscriber } from '@/lib/queries/visits'
 import { PROPERTY_MANAGER_ROLES, isAdmin, ROLES } from '@/lib/constants'
@@ -55,7 +55,7 @@ export default async function VisitasPage() {
   return (
     <RoleGuard allowedRoles={PROPERTY_MANAGER_ROLES}>
       <PageHeader title="Visitas" description="Gestiona las visitas agendadas a propiedades" />
-      <VisitList visits={visits} properties={properties} canCreate={canCreate} />
+      <VisitsView visits={visits} properties={properties} canCreate={canCreate} />
     </RoleGuard>
   )
 }
