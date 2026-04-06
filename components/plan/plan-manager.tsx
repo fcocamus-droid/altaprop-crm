@@ -58,13 +58,13 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
   const canResume = localStatus === 'paused'
   const canCancel = ['active', 'trialing', 'paused', 'past_due'].includes(localStatus)
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = async (planId: string, annual = false) => {
     setLoading(planId)
     try {
       const res = await fetch('/api/mp/create-preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId, annual }),
       })
       const data = await res.json()
       if (data.url) {
