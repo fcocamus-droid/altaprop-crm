@@ -24,6 +24,8 @@ export default function ConfiguracionPage() {
   const [pwError, setPwError] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+  const [avatarSuccess, setAvatarSuccess] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -53,22 +55,42 @@ export default function ConfiguracionPage() {
     const file = e.target.files?.[0]
     if (!file || !profile) return
 
-    setUploading(true)
-    const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const filePath = `avatars/${profile.id}.${ext}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('property-images')
-      .upload(filePath, file, { upsert: true })
-
-    if (!uploadError) {
-      const { data } = supabase.storage.from('property-images').getPublicUrl(filePath)
-      const url = `${data.publicUrl}?t=${Date.now()}`
-      setAvatarUrl(url)
-      await supabase.from('profiles').update({ avatar_url: url }).eq('id', profile.id)
+    // Client-side validation before sending
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarError('El archivo supera el límite de 2 MB.')
+      return
     }
-    setUploading(false)
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setAvatarError('Tipo de archivo no permitido. Usa JPG, PNG o WebP.')
+      return
+    }
+
+    setUploading(true)
+    setAvatarError('')
+    setAvatarSuccess(false)
+
+    const body = new FormData()
+    body.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload/avatar', { method: 'POST', body })
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        setAvatarError(data.error || 'Error al subir la imagen. Intenta de nuevo.')
+      } else {
+        setAvatarUrl(data.url)
+        setAvatarSuccess(true)
+        setTimeout(() => setAvatarSuccess(false), 3000)
+        router.refresh()
+      }
+    } catch {
+      setAvatarError('Error de conexión. Intenta de nuevo.')
+    } finally {
+      setUploading(false)
+      // Reset input so same file can be re-selected after error
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -187,7 +209,15 @@ export default function ConfiguracionPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Foto de perfil o logo</p>
-                  <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB</p>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, WebP. Max 2MB</p>
+                  {avatarError && (
+                    <p className="text-xs text-destructive mt-1">{avatarError}</p>
+                  )}
+                  {avatarSuccess && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />Imagen actualizada
+                    </p>
+                  )}
                 </div>
               </div>
 
