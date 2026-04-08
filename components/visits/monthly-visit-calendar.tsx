@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, MapPin, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, MapPin, CalendarDays, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { toChileDateKey, formatChileTime } from '@/lib/utils/chile-datetime'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -349,9 +350,14 @@ export function MonthlyVisitCalendar({ visits }: MonthlyVisitCalendarProps) {
                       </div>
 
                       {/* Property */}
-                      <p className="text-xs font-semibold text-navy truncate leading-tight mb-1.5">
-                        {v.property?.title ?? 'Propiedad'}
-                      </p>
+                      <Link
+                        href={`/dashboard/propiedades/${v.property_id}`}
+                        target="_blank"
+                        className="text-xs font-semibold text-navy truncate leading-tight mb-1.5 hover:text-blue-600 hover:underline inline-flex items-center gap-1 group"
+                      >
+                        <span className="truncate">{v.property?.title ?? 'Propiedad'}</span>
+                        <ExternalLink className="h-2.5 w-2.5 opacity-0 group-hover:opacity-60 flex-shrink-0 transition-opacity" />
+                      </Link>
 
                       {/* Location */}
                       {v.property?.city && (
