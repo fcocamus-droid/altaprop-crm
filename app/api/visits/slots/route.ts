@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getChileDayBoundsISO } from '@/lib/utils/chile-datetime'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -30,9 +31,8 @@ export async function GET(request: NextRequest) {
     .eq('subscriber_id', property.subscriber_id)
     .eq('blocked_date', date)
 
-  // Get existing visits for this date on this property
-  const dayStart = `${date}T00:00:00`
-  const dayEnd = `${date}T23:59:59`
+  // Get existing visits for this Chile calendar day (using proper UTC bounds)
+  const { start: dayStart, end: dayEnd } = getChileDayBoundsISO(date)
   const { data: visits } = await supabase
     .from('visits')
     .select('scheduled_at')
@@ -49,9 +49,15 @@ export async function GET(request: NextRequest) {
   }
 
   const blockedTimes = new Set((blocked || []).map(b => b.blocked_time?.substring(0, 5)))
+
+  // Extract booked times in Chile timezone (server runs UTC, so getHours() would be wrong)
   const bookedTimes = new Set((visits || []).map(v => {
-    const d = new Date(v.scheduled_at)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Santiago',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).format(new Date(v.scheduled_at)).substring(0, 5)
   }))
 
   const slots = allSlots.map(slot => ({

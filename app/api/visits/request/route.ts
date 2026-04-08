@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { toChileDatetime } from '@/lib/utils/chile-datetime'
 
 export async function POST(request: NextRequest) {
   const { propertyId, date, time, name, rut, phone, email, notes } = await request.json()
@@ -9,7 +10,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Completa todos los campos requeridos' }, { status: 400 })
   }
 
-  const scheduledAt = `${date}T${time}:00`
+  // Store with explicit Chile timezone offset so DB receives correct UTC
+  const scheduledAt = toChileDatetime(date, time)
   const supabase = createClient()
   const admin = createAdminClient()
 

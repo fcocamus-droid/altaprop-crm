@@ -9,6 +9,7 @@ import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
 import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
 
 interface Visit {
   id: string
@@ -35,10 +36,7 @@ const BUSINESS_HOURS = [
 ]
 
 function formatDateTime(date: string) {
-  return new Date(date).toLocaleDateString('es-CL', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  })
+  return formatChileDateTimeDisplay(date)
 }
 
 export function VisitList({ visits: initialVisits, properties, canCreate }: {
@@ -66,7 +64,7 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
     e.preventDefault()
     setLoading('create')
     setError('')
-    const scheduled_at = `${newVisit.date}T${newVisit.time}:00`
+    const scheduled_at = toChileDatetime(newVisit.date, newVisit.time)
     const result = await createVisit({
       property_id: newVisit.property_id,
       scheduled_at,
@@ -92,7 +90,7 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
   async function handleConfirmWithDate(visitId: string) {
     if (!calDate || !calTime) return
     setLoading(visitId)
-    const scheduledAt = `${calDate}T${calTime}:00`
+    const scheduledAt = toChileDatetime(calDate, calTime)
     try {
       const res = await fetch(`/api/visits/${visitId}/confirm`, {
         method: 'POST',

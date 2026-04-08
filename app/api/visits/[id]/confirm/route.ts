@@ -78,10 +78,12 @@ export async function POST(
     } catch {}
   }
 
-  // 6. Format visit date
+  // 6. Format visit date (always in Chile timezone, 24h)
   const visitDate = new Date(scheduled_at).toLocaleDateString('es-CL', {
+    timeZone: 'America/Santiago',
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
+    hourCycle: 'h23',
   })
 
   const agentName = agentProfile?.full_name || profile.full_name || 'Agente Altaprop'

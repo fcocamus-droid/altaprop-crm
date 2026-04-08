@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, MapPin, CalendarDays } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toChileDateKey, formatChileTime } from '@/lib/utils/chile-datetime'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DAYS_ES   = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -46,7 +47,7 @@ function getVisitorName(visit: Visit): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+  return formatChileTime(iso)
 }
 
 function toDayKey(year: number, month: number, day: number): string {
@@ -72,11 +73,11 @@ export function MonthlyVisitCalendar({ visits }: MonthlyVisitCalendarProps) {
     [visits, statusFilter],
   )
 
-  // Group visits by YYYY-MM-DD, sorted by time within each day
+  // Group visits by Chile YYYY-MM-DD (not UTC), sorted by time within each day
   const visitsByDay = useMemo(() => {
     const map = new Map<string, Visit[]>()
     filteredVisits.forEach(v => {
-      const key = v.scheduled_at.substring(0, 10)
+      const key = toChileDateKey(v.scheduled_at)
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(v)
     })
@@ -86,10 +87,10 @@ export function MonthlyVisitCalendar({ visits }: MonthlyVisitCalendarProps) {
     return map
   }, [filteredVisits])
 
-  // Stats for currently displayed month (unfiltered)
+  // Stats for currently displayed month (using Chile dates)
   const monthStats = useMemo(() => {
     const prefix = `${year}-${String(month + 1).padStart(2, '0')}`
-    const mv = visits.filter(v => v.scheduled_at.startsWith(prefix))
+    const mv = visits.filter(v => toChileDateKey(v.scheduled_at).startsWith(prefix))
     return {
       total:     mv.length,
       confirmed: mv.filter(v => v.status === 'confirmed').length,
@@ -108,7 +109,7 @@ export function MonthlyVisitCalendar({ visits }: MonthlyVisitCalendarProps) {
     return d >= 1 && d <= daysInMonth ? d : null
   })
 
-  const todayKey = toDayKey(today.getFullYear(), today.getMonth(), today.getDate())
+  const todayKey = toChileDateKey(today.toISOString())
 
   // Navigation
   function prevMonth() {
@@ -127,7 +128,8 @@ export function MonthlyVisitCalendar({ visits }: MonthlyVisitCalendarProps) {
 
   // Format selected day header
   const selectedDayLabel = selectedDay
-    ? new Date(selectedDay + 'T12:00:00').toLocaleDateString('es-CL', {
+    ? new Date(selectedDay + 'T12:00:00-04:00').toLocaleDateString('es-CL', {
+        timeZone: 'America/Santiago',
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
       })
     : ''

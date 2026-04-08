@@ -22,8 +22,9 @@ const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 
 
 export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps) {
   const today = new Date()
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth())
-  const [currentYear, setCurrentYear] = useState(today.getFullYear())
+  const todayChile = new Date(today.toLocaleString('en-US', { timeZone: 'America/Santiago' }))
+  const [currentMonth, setCurrentMonth] = useState(todayChile.getMonth())
+  const [currentYear, setCurrentYear] = useState(todayChile.getFullYear())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
@@ -72,7 +73,7 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
   // Generate calendar days
   const firstDay = new Date(currentYear, currentMonth, 1).getDay()
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'America/Santiago' })
 
   const days: (number | null)[] = []
   for (let i = 0; i < firstDay; i++) days.push(null)
@@ -156,7 +157,7 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
         <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
         <h3 className="text-xl font-semibold mb-2">Visita Solicitada</h3>
         <p className="text-muted-foreground text-sm mb-1">
-          {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })} a las {selectedTime}
+          {new Date(selectedDate + 'T12:00:00-04:00').toLocaleDateString('es-CL', { timeZone: 'America/Santiago', weekday: 'long', day: 'numeric', month: 'long' })} a las {selectedTime}
         </p>
         <p className="text-xs text-muted-foreground">Te contactaremos para confirmar</p>
       </div>
@@ -167,7 +168,7 @@ export function VisitCalendar({ propertyId, propertyTitle }: VisitCalendarProps)
     return (
       <div>
         <div className="bg-navy/5 rounded-lg p-3 mb-4 text-sm">
-          <p className="font-medium">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          <p className="font-medium">{new Date(selectedDate + 'T12:00:00-04:00').toLocaleDateString('es-CL', { timeZone: 'America/Santiago', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           <p className="text-muted-foreground">Hora: {selectedTime}</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
