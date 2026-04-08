@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserProfile } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { preferenceClient } from '@/lib/mercadopago'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,49 +97,8 @@ export async function POST(
     return NextResponse.json({ error: insertError?.message || 'Error al crear el cobro' }, { status: 500 })
   }
 
-  // Create MercadoPago preference
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.altaprop-app.cl'
-  const payerLabel = payerType === 'applicant' ? 'Postulante' : 'Propietario'
-
-  try {
-    const preference = await preferenceClient.create({
-      body: {
-        items: [
-          {
-            id: `other-service-${payment.id}`,
-            title: `Altaprop - ${description.trim()}`,
-            description: `Cobro a ${payerLabel} - ${property?.title || 'Propiedad'}`,
-            quantity: 1,
-            unit_price: numAmount,
-            currency_id: usedCurrency === 'USD' ? 'USD' : 'CLP',
-          },
-        ],
-        payer: {
-          email: profile.email || '',
-        },
-        back_urls: {
-          success: `${siteUrl}/api/mp/commission-callback?status=success&type=other_service&payment_id=${payment.id}`,
-          failure: `${siteUrl}/api/mp/commission-callback?status=failure&type=other_service&payment_id=${payment.id}`,
-          pending: `${siteUrl}/api/mp/commission-callback?status=pending&type=other_service&payment_id=${payment.id}`,
-        },
-        auto_return: 'approved',
-        external_reference: `other_service:${payment.id}`,
-        notification_url: `${siteUrl}/api/mp/webhook`,
-      },
-    })
-
-    // Save the preference id for reference
-    await admin
-      .from('other_service_payments')
-      .update({ mp_preference_id: preference.id || null })
-      .eq('id', payment.id)
-
-    return NextResponse.json({ url: preference.init_point, payment })
-  } catch (err: any) {
-    // Rollback: delete the payment record if preference creation failed
-    await admin.from('other_service_payments').delete().eq('id', payment.id)
-    return NextResponse.json({ error: err?.message || 'Error al crear preferencia MP' }, { status: 500 })
-  }
+  // Return the created payment — receipt upload handles payment confirmation
+  return NextResponse.json({ payment })
 }
 
 // PATCH: mark a payment as paid manually (admin override)
