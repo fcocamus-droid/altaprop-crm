@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
-import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react'
+import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 
 interface Visit {
   id: string
@@ -28,9 +29,15 @@ function getStatusInfo(status: string) {
   return VISIT_STATUSES.find(s => s.value === status) || VISIT_STATUSES[0]
 }
 
+const BUSINESS_HOURS = [
+  '09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30',
+  '14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00',
+]
+
 function formatDateTime(date: string) {
   return new Date(date).toLocaleDateString('es-CL', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
   })
 }
 
@@ -166,7 +173,17 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                 </div>
                 <div className="space-y-2">
                   <Label>Hora</Label>
-                  <Input type="time" value={newVisit.time} onChange={(e) => setNewVisit({ ...newVisit, time: e.target.value })} required />
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={newVisit.time}
+                    onChange={(e) => setNewVisit({ ...newVisit, time: e.target.value })}
+                    required
+                  >
+                    <option value="">Seleccionar hora...</option>
+                    {BUSINESS_HOURS.map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <Label>Notas (opcional)</Label>
@@ -258,7 +275,14 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                       <Calendar className="h-5 w-5 text-blue-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{(visit.property as any)?.title || 'Propiedad'}</p>
+                      <Link
+                        href={`/dashboard/propiedades/${visit.property_id}`}
+                        className="font-medium truncate hover:text-blue-600 hover:underline inline-flex items-center gap-1 group"
+                        target="_blank"
+                      >
+                        {(visit.property as any)?.title || 'Propiedad'}
+                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60 flex-shrink-0 transition-opacity" />
+                      </Link>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDateTime(visit.scheduled_at)}</span>
                         {(visit.property as any)?.city && (
