@@ -319,23 +319,7 @@ export default function ConfiguracionPage() {
           </div>
         )}
 
-        {/* PORTALES DE PUBLICACIÓN CARD — for subscribers/agents/admins */}
-        {profile && ['SUPERADMINBOSS', 'SUPERADMIN', 'AGENTE'].includes(profile.role) && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Portales de Publicación
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Conecta tu cuenta de MercadoLibre para publicar propiedades en MercadoLibre y Portal Inmobiliario simultáneamente.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <MLConnectButton profile={profile as any} />
-            </CardContent>
-          </Card>
-        )}
+        {/* PORTALES DE PUBLICACIÓN — hidden */}
 
         {/* BANK ACCOUNT CARD — visible for PROPIETARIO, POSTULANTE, SUPERADMIN, SUPERADMINBOSS */}
         {['PROPIETARIO', 'POSTULANTE', 'SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (
