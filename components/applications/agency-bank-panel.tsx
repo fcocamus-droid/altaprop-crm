@@ -255,8 +255,8 @@ export function AgencyBankPanel({ applicationId, userRole, isApplicant }: Agency
             </p>
           )}
 
-          {/* Receipts section */}
-          <div className="rounded-lg border border-dashed border-emerald-300 bg-white/60 p-3 space-y-2">
+          {/* Receipts section — temporarily hidden */}
+          {false && <div className="rounded-lg border border-dashed border-emerald-300 bg-white/60 p-3 space-y-2">
             <div className="flex items-center gap-2">
               {isAdmin ? (
                 <Eye className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -331,7 +331,7 @@ export function AgencyBankPanel({ applicationId, userRole, isApplicant }: Agency
                 <p className="text-xs text-muted-foreground">PDF, JPG, PNG o WebP · Máx 10 MB</p>
               </>
             )}
-          </div>
+          </div>}
         </>
       )}
     </div>
