@@ -365,8 +365,8 @@ function buildInternalEmail(
 
     <!-- Property section -->
     <div style="margin:0 0 20px;">
-      <div style="background:#1a2332;padding:8px 14px;border-radius:6px 6px 0 0;">
-        <p style="margin:0;font-size:10px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:1px;">🏠 Datos de la Propiedad</p>
+      <div style="background:#e8eef6;padding:8px 14px;border-radius:6px 6px 0 0;border-left:3px solid #c9a84c;">
+        <p style="margin:0;font-size:10px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;">🏠 Datos de la Propiedad</p>
       </div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 6px 6px;">
         <tr style="background:#f8fafc;"><td style="padding:8px 14px;color:#64748b;font-size:13px;width:150px;border-bottom:1px solid #f1f5f9;">Propiedad</td><td style="padding:8px 14px;color:#1a2332;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;">${propertyTitle}</td></tr>
@@ -378,8 +378,8 @@ function buildInternalEmail(
 
     <!-- Visitor section -->
     <div style="margin:0 0 20px;">
-      <div style="background:#1a2332;padding:8px 14px;border-radius:6px 6px 0 0;">
-        <p style="margin:0;font-size:10px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:1px;">👤 Datos del Visitante</p>
+      <div style="background:#e8eef6;padding:8px 14px;border-radius:6px 6px 0 0;border-left:3px solid #c9a84c;">
+        <p style="margin:0;font-size:10px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;">👤 Datos del Visitante</p>
       </div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;">
         <tr style="background:#f8fafc;"><td style="padding:8px 14px;color:#64748b;font-size:13px;width:150px;border-bottom:1px solid #f1f5f9;">Nombre</td><td style="padding:8px 14px;color:#1a2332;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;">${visitor.name || '—'}</td></tr>
@@ -392,8 +392,8 @@ function buildInternalEmail(
 
     <!-- Agent section -->
     <div style="margin:0 0 24px;">
-      <div style="background:#1a2332;padding:8px 14px;border-radius:6px 6px 0 0;">
-        <p style="margin:0;font-size:10px;font-weight:700;color:#c9a84c;text-transform:uppercase;letter-spacing:1px;">🏢 Agente Responsable</p>
+      <div style="background:#e8eef6;padding:8px 14px;border-radius:6px 6px 0 0;border-left:3px solid #c9a84c;">
+        <p style="margin:0;font-size:10px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:1px;">🏢 Agente Responsable</p>
       </div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;">
         <tr style="background:#f8fafc;"><td style="padding:8px 14px;color:#64748b;font-size:13px;width:150px;border-bottom:1px solid #f1f5f9;">Nombre</td><td style="padding:8px 14px;color:#1a2332;font-size:13px;font-weight:600;border-bottom:1px solid #f1f5f9;">${agentName}</td></tr>

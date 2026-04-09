@@ -1,11 +1,13 @@
 import PDFDocument from 'pdfkit'
 
 // ── Colours ───────────────────────────────────────────────────────────────────
-const NAVY  = '#1a2332'
-const GOLD  = '#c9a84c'
-const LIGHT = '#f1f5f9'
-const GRAY  = '#64748b'
-const BLACK = '#1a1a1a'
+const NAVY        = '#1a2332'   // header / footer background
+const SECTION_BG  = '#e8eef6'  // section header bars (light blue-gray)
+const SECTION_FG  = '#1e3a5f'  // section header text (dark blue)
+const GOLD        = '#c9a84c'
+const LIGHT       = '#f1f5f9'
+const GRAY        = '#64748b'
+const BLACK       = '#1a1a1a'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function hexToRgb(hex: string): [number, number, number] {
@@ -123,8 +125,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     let y = 148
 
     // ── SECTION: DATOS DE LA PROPIEDAD ─────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('DATOS DE LA PROPIEDAD', M + 10, y + 6, { width: CW })
     y += 22
 
@@ -144,8 +147,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     y += 10
 
     // ── SECTION: DATOS DEL VISITANTE ───────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('DATOS DEL VISITANTE', M + 10, y + 6, { width: CW })
     y += 22
 
@@ -166,8 +170,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     y += 10
 
     // ── SECTION: DATOS DEL AGENTE ──────────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('DATOS DEL AGENTE', M + 10, y + 6, { width: CW })
     y += 22
 
@@ -187,8 +192,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     y += 10
 
     // ── SECTION: DECLARACIÓN ───────────────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('DECLARACIÓN', M + 10, y + 6, { width: CW })
     y += 22
 
@@ -204,8 +210,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     y += 52 + 10
 
     // ── SECTION: OBSERVACIÓN ───────────────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('OBSERVACIÓN / COMENTARIO', M + 10, y + 6, { width: CW })
     y += 22
 
@@ -217,8 +224,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     y += obsHeight + 10
 
     // ── SECTION: LINK PROPIEDAD ────────────────────────────────────────────
-    fillRect(doc, M, y, CW, 22, NAVY)
-    doc.font('Helvetica-Bold').fontSize(9).fillColor(GOLD)
+    fillRect(doc, M, y, CW, 22, SECTION_BG)
+    fillRect(doc, M, y, 3, 22, GOLD)
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(SECTION_FG)
        .text('LINK PROPIEDAD', M + 10, y + 6, { width: CW })
     y += 22
 
