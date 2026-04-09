@@ -161,7 +161,7 @@ export async function POST(
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'Altaprop <noreply@altaprop-app.cl>',
+        from: `${subscriberBrand.name} <noreply@altaprop-app.cl>`,
         to,
         subject,
         html,
