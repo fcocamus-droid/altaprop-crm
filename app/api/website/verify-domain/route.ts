@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserProfile } from '@/lib/auth'
 
-const EXPECTED_CNAME = process.env.NEXT_PUBLIC_SITE_URL?.replace('https://', '') || 'altaprop-app.cl'
+// Vercel's CNAME target for custom domains
+const VERCEL_CNAME = 'cname.vercel-dns.com'
+// Vercel's A record IP for root domains
+const VERCEL_IP    = '76.76.21.21'
 
 export async function GET(request: NextRequest) {
   const profile = await getUserProfile()
@@ -10,44 +13,53 @@ export async function GET(request: NextRequest) {
   const domain = request.nextUrl.searchParams.get('domain')?.toLowerCase().trim()
   if (!domain) return NextResponse.json({ error: 'Dominio requerido' }, { status: 400 })
 
-  // Basic domain format validation
   if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(domain)) {
     return NextResponse.json({ verified: false, reason: 'Formato de dominio inválido' })
   }
 
   try {
-    // Use Cloudflare's DNS-over-HTTPS to resolve CNAME
-    const res = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`,
-      { headers: { Accept: 'application/dns-json' }, next: { revalidate: 0 } }
-    )
+    // Check CNAME record (works for www.domain.com or domain.com subdomains)
+    const [cnameRes, aRes] = await Promise.all([
+      fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=CNAME`,
+        { headers: { Accept: 'application/dns-json' }, next: { revalidate: 0 } }),
+      fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`,
+        { headers: { Accept: 'application/dns-json' }, next: { revalidate: 0 } }),
+    ])
 
-    if (!res.ok) {
-      return NextResponse.json({ verified: false, reason: 'Error al verificar DNS. Intenta de nuevo.' })
+    const cnameJson = cnameRes.ok ? await cnameRes.json() : { Answer: [] }
+    const aJson     = aRes.ok    ? await aRes.json()     : { Answer: [] }
+
+    const cnameAnswers: { type: number; data: string }[] = cnameJson.Answer || []
+    const aAnswers:     { type: number; data: string }[] = aJson.Answer     || []
+
+    const cnames  = cnameAnswers.filter(a => a.type === 5).map(a => a.data.replace(/\.$/, '').toLowerCase())
+    const arecords = aAnswers.filter(a => a.type === 1).map(a => a.data.trim())
+
+    // Valid if CNAME points to cname.vercel-dns.com OR A record points to Vercel IP
+    const validCname = cnames.some(c => c === VERCEL_CNAME)
+    const validA     = arecords.some(ip => ip === VERCEL_IP)
+
+    if (validCname || validA) {
+      return NextResponse.json({ verified: true, via: validCname ? 'cname' : 'a' })
     }
 
-    const json = await res.json()
-    const answers: { type: number; data: string }[] = json.Answer || []
-
-    // CNAME records are type 5
-    const cnames = answers.filter(a => a.type === 5).map(a => a.data.replace(/\.$/, '').toLowerCase())
-
-    if (cnames.length === 0) {
+    // Give specific feedback
+    if (cnames.length > 0) {
       return NextResponse.json({
         verified: false,
-        reason: `No se encontró un registro CNAME para ${domain}. Configura un CNAME apuntando a ${EXPECTED_CNAME}`,
+        reason: `El CNAME apunta a "${cnames[0]}" pero debe apuntar a "${VERCEL_CNAME}"`,
       })
     }
-
-    const pointsCorrectly = cnames.some(c => c === EXPECTED_CNAME || c.endsWith(`.${EXPECTED_CNAME}`))
-
-    if (pointsCorrectly) {
-      return NextResponse.json({ verified: true })
+    if (arecords.length > 0) {
+      return NextResponse.json({
+        verified: false,
+        reason: `El registro A apunta a "${arecords[0]}" pero debe apuntar a "${VERCEL_IP}"`,
+      })
     }
 
     return NextResponse.json({
       verified: false,
-      reason: `El CNAME apunta a "${cnames[0]}" pero debería apuntar a "${EXPECTED_CNAME}"`,
+      reason: `No se encontró DNS configurado para ${domain}. Agrega un registro CNAME o A según las instrucciones.`,
     })
   } catch {
     return NextResponse.json({ verified: false, reason: 'Error al consultar DNS. Intenta de nuevo.' })

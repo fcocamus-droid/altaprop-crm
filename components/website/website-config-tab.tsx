@@ -13,8 +13,9 @@ import {
 } from 'lucide-react'
 
 // Hardcoded production domain — avoids env var issues in Edge/Client bundles
-const APP_DOMAIN = 'altaprop-app.cl'
-const CNAME_TARGET = `www.${APP_DOMAIN}`
+const APP_DOMAIN    = 'altaprop-app.cl'
+const VERCEL_CNAME  = 'cname.vercel-dns.com'   // For www / subdomains
+const VERCEL_IP     = '76.76.21.21'             // For root domain (@)
 
 function StatusBadge({ ok, text }: { ok: boolean; text: string }) {
   return (
@@ -83,15 +84,37 @@ export function WebsiteConfigTab() {
     return () => clearTimeout(t)
   }, [subdomain, checkSubdomain])
 
-  async function verifyDomain() {
+  async function verifyAndRegisterDomain() {
     if (!customDomain) return
     setDomainStatus('checking')
-    const res = await fetch(`/api/website/verify-domain?domain=${encodeURIComponent(customDomain)}`)
-    const data = await res.json()
-    if (data.verified) {
-      setDomainStatus('verified'); setDomainMsg('¡Dominio verificado correctamente!')
+
+    // 1. Check DNS propagation
+    const verifyRes = await fetch(`/api/website/verify-domain?domain=${encodeURIComponent(customDomain)}`)
+    const verifyData = await verifyRes.json()
+
+    if (!verifyData.verified) {
+      setDomainStatus('failed')
+      setDomainMsg(verifyData.reason || 'DNS aún no propagado. Espera unos minutos y vuelve a intentar.')
+      return
+    }
+
+    // 2. Register domain in Vercel automatically
+    const regRes = await fetch('/api/website/register-domain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: customDomain }),
+    })
+    const regData = await regRes.json()
+
+    if (regData.registered) {
+      setDomainStatus('verified')
+      setDomainMsg('¡Dominio verificado y activado! Puede tardar unos minutos en estar disponible.')
+    } else if (regData.manual) {
+      setDomainStatus('verified')
+      setDomainMsg('DNS verificado. ' + regData.message)
     } else {
-      setDomainStatus('failed'); setDomainMsg(data.reason || 'No se pudo verificar el dominio')
+      setDomainStatus('failed')
+      setDomainMsg(regData.message || 'DNS verificado pero no se pudo activar. Intenta guardar primero.')
     }
   }
 
@@ -218,7 +241,7 @@ export function WebsiteConfigTab() {
             onChange={e => { setCustomDomain(e.target.value.toLowerCase().trim()); setDomainStatus('idle') }}
             className="flex-1"
           />
-          <Button type="button" variant="outline" size="sm" onClick={verifyDomain}
+          <Button type="button" variant="outline" size="sm" onClick={verifyAndRegisterDomain}
             disabled={!customDomain || domainStatus === 'checking'} className="shrink-0">
             {domainStatus === 'checking' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verificar'}
           </Button>
@@ -230,19 +253,61 @@ export function WebsiteConfigTab() {
           </div>
         )}
         {customDomain && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-semibold text-blue-800 flex items-center gap-1">
-              <Info className="h-3.5 w-3.5" />Instrucciones para configurar tu dominio
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
+            <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+              <Info className="h-3.5 w-3.5" />Cómo configurar tu dominio en 2 pasos
             </p>
-            <p className="text-xs text-blue-700">
-              En el panel DNS de tu proveedor (GoDaddy, Cloudflare, etc.) agrega el siguiente registro:
-            </p>
-            <div className="font-mono text-xs bg-white border border-blue-200 rounded p-2 grid grid-cols-3 gap-2 text-blue-900">
-              <div><span className="font-semibold text-blue-600">Tipo</span><br />CNAME</div>
-              <div><span className="font-semibold text-blue-600">Nombre</span><br />{customDomain.split('.')[0] || '@'}</div>
-              <div><span className="font-semibold text-blue-600">Valor</span><br />{CNAME_TARGET}</div>
+
+            {/* Step 1 */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-blue-900">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
+                Agrega estos registros DNS en tu proveedor (NIC.cl, GoDaddy, Cloudflare, etc.)
+              </p>
+
+              {/* DNS table */}
+              <div className="rounded-lg overflow-hidden border border-blue-200">
+                <table className="w-full text-xs font-mono">
+                  <thead className="bg-blue-100">
+                    <tr>
+                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
+                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
+                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
+                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Para</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-blue-100">
+                    <tr>
+                      <td className="px-3 py-2 text-blue-900 font-bold">A</td>
+                      <td className="px-3 py-2 text-blue-900">@</td>
+                      <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
+                      <td className="px-3 py-2 text-blue-600">{customDomain}</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
+                      <td className="px-3 py-2 text-blue-900">www</td>
+                      <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
+                      <td className="px-3 py-2 text-blue-600">www.{customDomain}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-blue-600 flex items-start gap-1">
+                <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                En NIC.cl: Mi NIC → Mis Dominios → {customDomain} → Configurar DNS → Agregar registros
+              </p>
             </div>
-            <p className="text-xs text-blue-600">Los cambios DNS pueden tardar hasta 24 horas en propagarse.</p>
+
+            {/* Step 2 */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-blue-900">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">2</span>
+                Haz click en <strong>Verificar</strong> — el sistema comprobará el DNS y activará tu dominio automáticamente
+              </p>
+              <p className="text-xs text-blue-600">
+                Los cambios DNS pueden tardar entre <strong>5 minutos y 24 horas</strong> en propagarse. Si falla, espera y vuelve a intentar.
+              </p>
+            </div>
           </div>
         )}
       </div>
