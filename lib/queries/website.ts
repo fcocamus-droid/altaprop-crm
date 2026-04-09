@@ -6,6 +6,22 @@ const PROFILE_SELECT =
   'website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, ' +
   'website_about_text, website_whatsapp, phone'
 
+type SubscriberRow = {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  website_enabled: boolean | null
+  website_subdomain: string | null
+  website_domain: string | null
+  website_primary_color: string | null
+  website_accent_color: string | null
+  website_hero_title: string | null
+  website_hero_subtitle: string | null
+  website_about_text: string | null
+  website_whatsapp: string | null
+  phone: string | null
+}
+
 /**
  * Looks up a subscriber profile by subdomain (e.g. "magnolia") or custom domain
  * (e.g. "globalcomex.cl"). Wrapped with React.cache() so layout, page, and
@@ -21,7 +37,7 @@ export const getSubscriberProfile = cache(async (subdomain: string) => {
     .eq('website_subdomain', subdomain)
     .maybeSingle()
 
-  let profile = bySubdomain
+  let profile = bySubdomain as SubscriberRow | null
 
   if (!profile) {
     const { data: byDomain } = await admin
@@ -29,7 +45,7 @@ export const getSubscriberProfile = cache(async (subdomain: string) => {
       .select(PROFILE_SELECT)
       .eq('website_domain', subdomain)
       .maybeSingle()
-    profile = byDomain
+    profile = byDomain as SubscriberRow | null
   }
 
   if (!profile) return null
