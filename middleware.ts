@@ -5,11 +5,13 @@ import { NextResponse } from 'next/server'
 // Main domain stripped of protocol and www (e.g. "altaprop-app.cl")
 const MAIN_DOMAIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl')
   .replace(/^https?:\/\//, '')
-  .replace(/^www\./, '')
+  .replace(/^www\./i, '')
   .replace(/\/$/, '')
+  .trim()
+  .toLowerCase()
 
 // Both the bare domain and www variant are "main" — never route them to subscriber sites
-const MAIN_HOSTS = new Set([MAIN_DOMAIN, `www.${MAIN_DOMAIN}`])
+const MAIN_DOMAIN_WWW = `www.${MAIN_DOMAIN}`
 
 // Subdomains reserved for the platform itself (never route to subscriber sites)
 const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'admin', 'app', 'dashboard', 'staging', 'dev'])
@@ -21,7 +23,8 @@ export async function middleware(request: NextRequest) {
   // Only applies when the host is NOT the main platform domain and not localhost
   if (
     host &&
-    !MAIN_HOSTS.has(host) &&
+    host !== MAIN_DOMAIN &&
+    host !== MAIN_DOMAIN_WWW &&
     !host.endsWith('.localhost') &&
     host !== 'localhost' &&
     !host.startsWith('127.') &&
