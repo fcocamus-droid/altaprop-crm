@@ -35,6 +35,7 @@ async function getSubscriberProperties(subscriberId: string, filters: Record<str
     .select('*, images:property_images(*)')
     .eq('subscriber_id', subscriberId)
     .eq('status', 'available')
+    .eq('website_visible', true)
     .order('created_at', { ascending: false })
 
   if (filters.operation) query = query.eq('operation', filters.operation)

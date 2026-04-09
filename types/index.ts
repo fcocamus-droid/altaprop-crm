@@ -88,6 +88,8 @@ export interface Property {
   ml_listing_type?: string | null
   ml_published_at?: string | null
   ml_poi_visible?: boolean | null
+  // Subscriber website visibility
+  website_visible?: boolean | null
   // Extra area fields
   covered_area?: number | null
 }

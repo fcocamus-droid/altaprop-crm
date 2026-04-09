@@ -9,11 +9,10 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark, Globe } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 import { MLConnectButton } from '@/components/portals/ml-connect-button'
-import { WebsiteConfigCard } from '@/components/website/website-config-card'
 
 export default function ConfiguracionPage() {
   const { profile, loading: profileLoading } = useUser()
@@ -321,9 +320,6 @@ export default function ConfiguracionPage() {
         )}
 
         {/* PORTALES DE PUBLICACIÓN — hidden */}
-
-        {/* WEBSITE CONFIG CARD — visible for SUPERADMIN and SUPERADMINBOSS */}
-        <WebsiteConfigCard />
 
         {/* BANK ACCOUNT CARD — visible for PROPIETARIO, POSTULANTE, SUPERADMIN, SUPERADMINBOSS */}
         {['PROPIETARIO', 'POSTULANTE', 'SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (
