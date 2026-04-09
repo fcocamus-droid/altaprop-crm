@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   CalendarDays, Clock, User, Mail, Phone, FileText,
   CheckCircle, Loader2, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
+import { formatRut } from '@/lib/validations/chilean-formats'
 
 const TIME_SLOTS = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -30,17 +31,21 @@ export function SiteVisitRequestButton({ propertyId, primaryColor, accentColor }
   const [success, setSuccess]         = useState(false)
   const [error, setError]             = useState('')
 
-  function formatRut(v: string) {
-    let c = v.replace(/[^0-9kK]/g, '').slice(0, 9)
-    if (c.length <= 1) return c
-    return `${c.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}-${c.slice(-1).toUpperCase()}`
-  }
-
   function set(field: string, value: string) {
     setForm(p => ({ ...p, [field]: field === 'rut' ? formatRut(value) : value }))
   }
 
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
+
+  // Load blocked days for the current month on mount
+  useEffect(() => {
+    const monthStr = `${calMonth.getFullYear()}-${String(calMonth.getMonth()+1).padStart(2,'0')}`
+    fetch(`/api/time-slots?propertyId=${propertyId}&month=${monthStr}`)
+      .then(r => r.json())
+      .then(data => setBlockedDays(new Set(data.blockedDays || [])))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { firstDay, days } = useMemo(() => {
     const y = calMonth.getFullYear(), m = calMonth.getMonth()
