@@ -243,16 +243,22 @@ interface SubscriberBrand {
 // ── Brand header HTML (used in both email types) ──────────────────────────────
 function buildBrandHeader(brand: SubscriberBrand, visitNumber: number): string {
   const logoHtml = brand.logoUrl
-    ? `<img src="${brand.logoUrl}" alt="${brand.name}" style="max-height:48px;max-width:160px;object-fit:contain;display:block;" />`
+    ? `<img src="${brand.logoUrl}" alt="${brand.name}" style="max-height:52px;max-width:180px;object-fit:contain;display:block;" />`
     : `<h1 style="color:#c9a84c;margin:0;font-size:24px;font-weight:800;letter-spacing:2px;">${brand.displayName}</h1>
        <p style="color:#6b7f96;margin:4px 0 0;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Gestión Inmobiliaria</p>`
   return `
-  <div style="background:#1a2332;padding:24px 40px;display:flex;align-items:center;justify-content:space-between;">
-    <div>${logoHtml}</div>
-    <div style="background:#c9a84c;padding:8px 18px;border-radius:8px;text-align:center;">
-      <p style="margin:0;font-size:9px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:0.5px;">Orden de Visita</p>
-      <p style="margin:0;font-size:20px;font-weight:800;color:#1a2332;">N° ${visitNumber}</p>
-    </div>
+  <div style="background:#1a2332;padding:0;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#1a2332;">
+      <tr>
+        <td style="padding:24px 32px;vertical-align:middle;">${logoHtml}</td>
+        <td style="padding:24px 32px;vertical-align:middle;text-align:right;white-space:nowrap;">
+          <div style="display:inline-block;background:#c9a84c;padding:8px 20px;border-radius:8px;text-align:center;">
+            <p style="margin:0;font-size:9px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:0.5px;">Orden de Visita</p>
+            <p style="margin:0;font-size:22px;font-weight:800;color:#1a2332;line-height:1.2;">N° ${visitNumber}</p>
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>`
 }
 
