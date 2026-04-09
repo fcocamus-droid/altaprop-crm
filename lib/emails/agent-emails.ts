@@ -1,3 +1,6 @@
+import type { SubscriberBrand } from '@/lib/utils/subscriber-brand'
+import { DEFAULT_BRAND } from '@/lib/utils/subscriber-brand'
+
 const BRAND = {
   navy:   '#1a2332',
   gold:   '#c9a84c',
@@ -5,10 +8,15 @@ const BRAND = {
   border: '#e5e7eb',
 }
 
-function emailWrapper(content: string): string {
+function emailWrapper(content: string, brand: SubscriberBrand = DEFAULT_BRAND): string {
+  const headerHtml = brand.logoUrl
+    ? `<img src="${brand.logoUrl}" alt="${brand.name}" style="max-height:52px;max-width:200px;object-fit:contain;display:inline-block;" />`
+    : `<p style="margin:0;font-size:26px;font-weight:800;color:#c9a84c;letter-spacing:2px;">${brand.displayName}</p>
+       <p style="margin:6px 0 0;font-size:12px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;text-transform:uppercase;">Gestión Inmobiliaria</p>`
+
   return `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Altaprop</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${brand.name}</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 0;">
     <tr><td align="center">
@@ -16,13 +24,8 @@ function emailWrapper(content: string): string {
 
         <!-- Header -->
         <tr>
-          <td style="background:${BRAND.navy};padding:32px 40px 28px;text-align:center;">
-            <p style="margin:0;font-size:28px;font-weight:800;letter-spacing:-0.5px;">
-              <span style="color:#ffffff;">Alta</span><span style="color:${BRAND.gold};">prop</span>
-            </p>
-            <p style="margin:8px 0 0;font-size:12px;color:rgba(255,255,255,0.55);letter-spacing:1.5px;text-transform:uppercase;">
-              Plataforma Inmobiliaria
-            </p>
+          <td style="background:${BRAND.navy};padding:28px 40px;text-align:center;">
+            ${headerHtml}
           </td>
         </tr>
 
@@ -37,8 +40,8 @@ function emailWrapper(content: string): string {
         <tr>
           <td style="background:${BRAND.light};border-top:1px solid ${BRAND.border};padding:24px 40px;text-align:center;">
             <p style="margin:0;font-size:12px;color:#9ca3af;">
-              Este correo fue enviado por <strong style="color:${BRAND.navy};">Altaprop</strong> ·
-              <a href="https://www.altaprop-app.cl" style="color:${BRAND.gold};text-decoration:none;">www.altaprop-app.cl</a>
+              Este correo fue enviado por <strong style="color:${BRAND.navy};">${brand.name}</strong> ·
+              <a href="${brand.siteUrl}" style="color:${BRAND.gold};text-decoration:none;">${brand.website}</a>
             </p>
             <p style="margin:6px 0 0;font-size:11px;color:#c4c9d4;">
               Si crees que este mensaje es un error, por favor ignóralo o contáctanos.
@@ -66,7 +69,7 @@ export interface AgentAssignmentEmailData {
   dashboardUrl:  string
 }
 
-export function buildAgentAssignmentEmail(d: AgentAssignmentEmailData): { subject: string; html: string } {
+export function buildAgentAssignmentEmail(d: AgentAssignmentEmailData, brand: SubscriberBrand = DEFAULT_BRAND): { subject: string; html: string } {
   const operationLabel = d.propertyOperation === 'arriendo' ? 'Arriendo' : 'Venta'
   const priceFormatted =
     d.propertyCurrency === 'UF'  ? `${d.propertyPrice} UF` :
@@ -131,7 +134,7 @@ export function buildAgentAssignmentEmail(d: AgentAssignmentEmailData): { subjec
     <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;text-align:center;">
       O copia este enlace: <a href="${d.dashboardUrl}" style="color:${BRAND.gold};word-break:break-all;">${d.dashboardUrl}</a>
     </p>
-  `)
+  `, brand)
 
   return {
     subject: `🏠 Nueva propiedad asignada: ${d.propertyTitle}`,
@@ -139,7 +142,7 @@ export function buildAgentAssignmentEmail(d: AgentAssignmentEmailData): { subjec
   }
 }
 
-export async function sendAgentEmail(to: string, subject: string, html: string): Promise<void> {
+export async function sendAgentEmail(to: string, subject: string, html: string, senderName = 'Altaprop'): Promise<void> {
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -147,7 +150,7 @@ export async function sendAgentEmail(to: string, subject: string, html: string):
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'Altaprop <propiedades@altaprop-app.cl>',
+      from: `${senderName} <propiedades@altaprop-app.cl>`,
       to,
       subject,
       html,

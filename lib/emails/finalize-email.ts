@@ -3,6 +3,9 @@
  * Used by both finalizeProperty (properties.ts) and finalizeApplicationStatus (applications.ts).
  */
 
+import type { SubscriberBrand } from '@/lib/utils/subscriber-brand'
+import { buildSimpleBrandHeader, DEFAULT_BRAND } from '@/lib/utils/subscriber-brand'
+
 interface BankInfo {
   bank_name?: string | null
   bank_account_type?: string | null
@@ -38,7 +41,8 @@ export function buildFinalizeEmail(
   propertyTitle: string,
   status: 'rented' | 'sold',
   dashboardUrl: string,
-  bank?: BankInfo | Record<string, string | null> | null
+  bank?: BankInfo | Record<string, string | null> | null,
+  brand: SubscriberBrand = DEFAULT_BRAND
 ): string {
   const isRent = status === 'rented'
 
@@ -66,17 +70,14 @@ export function buildFinalizeEmail(
 
   const step1Text = bank
     ? 'Realiza la transferencia con los datos bancarios indicados arriba y sube tu comprobante de pago en tu panel.'
-    : `Un ejecutivo de <strong>Altaprop</strong> se pondrá en contacto contigo para coordinar ${isRent ? 'la firma del contrato y la entrega de llaves' : 'los siguientes pasos de la escrituración'}.`
+    : `Un ejecutivo de <strong>${brand.name}</strong> se pondrá en contacto contigo para coordinar ${isRent ? 'la firma del contrato y la entrega de llaves' : 'los siguientes pasos de la escrituración'}.`
 
   return `
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-  <div style="background:#1a2332;padding:28px 40px;text-align:center;">
-    <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-    <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
-  </div>
+  ${buildSimpleBrandHeader(brand)}
 
   <div style="background:${bgGradient};border-bottom:3px solid ${borderColor};padding:32px 40px;text-align:center;">
     <div style="font-size:52px;margin-bottom:12px;">${emoji}</div>
@@ -128,12 +129,12 @@ export function buildFinalizeEmail(
       <a href="${dashboardUrl}" style="background:#1a2332;color:#c9a84c;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Ver mi Panel →</a>
     </div>
     <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
-      ${farewell}<br><strong style="color:#1a2332;">El equipo de Altaprop</strong>
+      ${farewell}<br><strong style="color:#1a2332;">El equipo de ${brand.name}</strong>
     </p>
   </div>
 
   <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a></p>
+    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a></p>
   </div>
 </div>
 </body></html>`
@@ -147,7 +148,8 @@ export function buildOwnerFinalizeEmail(
   applicantName: string,
   propertyTitle: string,
   propertyUrl: string,
-  status: 'rented' | 'sold'
+  status: 'rented' | 'sold',
+  brand: SubscriberBrand = DEFAULT_BRAND
 ): string {
   const isRent = status === 'rented'
 
@@ -174,10 +176,7 @@ export function buildOwnerFinalizeEmail(
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-  <div style="background:#1a2332;padding:28px 40px;text-align:center;">
-    <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-    <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
-  </div>
+  ${buildSimpleBrandHeader(brand)}
 
   <div style="background:${bgGradient};border-bottom:3px solid ${borderColor};padding:32px 40px;text-align:center;">
     <div style="font-size:52px;margin-bottom:12px;">${emoji}</div>
@@ -213,13 +212,13 @@ export function buildOwnerFinalizeEmail(
       <a href="${propertyUrl}" style="background:#c9a84c;color:#1a2332;padding:15px 40px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Ver mi Propiedad →</a>
     </div>
     <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
-      ¡Gracias por confiar en <strong style="color:#1a2332;">Altaprop</strong>!<br>
-      <strong style="color:#1a2332;">El equipo de Altaprop</strong>
+      ¡Gracias por confiar en <strong style="color:#1a2332;">${brand.name}</strong>!<br>
+      <strong style="color:#1a2332;">El equipo de ${brand.name}</strong>
     </p>
   </div>
 
   <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a></p>
+    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a></p>
   </div>
 </div>
 </body></html>`

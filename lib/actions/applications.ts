@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import type { SubscriberBrand } from '@/lib/utils/subscriber-brand'
+import { buildSimpleBrandHeader, DEFAULT_BRAND } from '@/lib/utils/subscriber-brand'
 
 export async function createApplication(formData: FormData) {
   const profile = await getUserProfile()
@@ -195,10 +197,10 @@ export async function finalizeApplicationStatus(
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
 
     if (resendKey) {
-      // Fetch property title + owner_id
+      // Fetch property title + owner_id + subscriber_id
       const { data: property } = await admin
         .from('properties')
-        .select('id, title, owner_id')
+        .select('id, title, owner_id, subscriber_id')
         .eq('id', propertyId)
         .single()
 
@@ -210,6 +212,10 @@ export async function finalizeApplicationStatus(
         .single()
 
       const applicantName = (application?.applicant as any)?.full_name || 'Postulante'
+
+      // Fetch subscriber brand
+      const { fetchSubscriberBrand } = await import('@/lib/utils/subscriber-brand')
+      const brand = await fetchSubscriberBrand((property as any)?.subscriber_id, admin, siteUrl)
 
       // Fetch owner bank details
       let bankInfo: Record<string, string | null> | null = null
@@ -236,12 +242,12 @@ export async function finalizeApplicationStatus(
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: 'Altaprop <noreply@altaprop-app.cl>',
+              from: `${brand.name} <noreply@altaprop-app.cl>`,
               to: email,
               subject: isRent
                 ? `🔑 ¡Tu arriendo está confirmado! — ${property.title}`
                 : `🏆 ¡Tu compra está confirmada! — ${property.title}`,
-              html: buildFinalizeEmail(applicantName, property.title, newStatus, `${siteUrl}/dashboard/postulaciones`, bankInfo),
+              html: buildFinalizeEmail(applicantName, property.title, newStatus, `${siteUrl}/dashboard/postulaciones`, bankInfo, brand),
             }),
           })
         }
@@ -258,12 +264,12 @@ export async function finalizeApplicationStatus(
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: 'Altaprop <noreply@altaprop-app.cl>',
+              from: `${brand.name} <noreply@altaprop-app.cl>`,
               to: ownerEmail,
               subject: isRent
                 ? `🔑 ¡Propiedad arrendada! — ${property.title}`
                 : `🏆 ¡Propiedad vendida! — ${property.title}`,
-              html: buildOwnerFinalizeEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`, newStatus),
+              html: buildOwnerFinalizeEmail(ownerName, applicantName, property.title, `${siteUrl}/dashboard/propiedades/${propertyId}`, newStatus, brand),
             }),
           })
         }
@@ -291,7 +297,7 @@ export async function approveApplication(applicationId: string) {
   // Get the application with property + applicant info
   const { data: app } = await admin
     .from('applications')
-    .select('id, property_id, applicant_id, property:properties(id, title, owner_id), applicant:profiles!applications_applicant_id_fkey(id, full_name)')
+    .select('id, property_id, applicant_id, property:properties(id, title, owner_id, subscriber_id), applicant:profiles!applications_applicant_id_fkey(id, full_name)')
     .eq('id', applicationId)
     .single()
 
@@ -325,6 +331,11 @@ export async function approveApplication(applicationId: string) {
     const propertyTitle = (app.property as any)?.title || 'la propiedad'
     const applicantName = (app.applicant as any)?.full_name || 'Postulante'
     const ownerId = (app.property as any)?.owner_id
+    const subscriberId = (app.property as any)?.subscriber_id
+
+    // Fetch subscriber brand for all emails in this action
+    const { fetchSubscriberBrand } = await import('@/lib/utils/subscriber-brand')
+    const brand = await fetchSubscriberBrand(subscriberId, admin, siteUrl)
 
     if (resendKey) {
       // 4a. Email to applicant
@@ -336,10 +347,10 @@ export async function approveApplication(applicationId: string) {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: 'Altaprop <noreply@altaprop-app.cl>',
+              from: `${brand.name} <noreply@altaprop-app.cl>`,
               to: applicantEmail,
               subject: `🎉 ¡Tu postulación fue aprobada! — ${propertyTitle}`,
-              html: buildApprovalEmail(applicantName, propertyTitle, `${siteUrl}/dashboard/postulaciones`),
+              html: buildApprovalEmail(applicantName, propertyTitle, `${siteUrl}/dashboard/postulaciones`, brand),
             }),
           })
         }
@@ -356,10 +367,10 @@ export async function approveApplication(applicationId: string) {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              from: 'Altaprop <noreply@altaprop-app.cl>',
+              from: `${brand.name} <noreply@altaprop-app.cl>`,
               to: ownerEmail,
               subject: `🏠 ¡Arrendatario aprobado para tu propiedad! — ${propertyTitle}`,
-              html: buildOwnerApprovalEmail(ownerName, applicantName, propertyTitle, `${siteUrl}/dashboard/propiedades/${app.property_id}`),
+              html: buildOwnerApprovalEmail(ownerName, applicantName, propertyTitle, `${siteUrl}/dashboard/propiedades/${app.property_id}`, brand),
             }),
           })
         }
@@ -374,7 +385,7 @@ export async function approveApplication(applicationId: string) {
   return { success: true, propertyId: app.property_id }
 }
 
-function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: string): string {
+function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: string, brand: SubscriberBrand = DEFAULT_BRAND): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -383,10 +394,7 @@ function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: s
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
     <!-- HEADER -->
-    <div style="background:#1a2332;padding:28px 40px;text-align:center;">
-      <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-      <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
-    </div>
+    ${buildSimpleBrandHeader(brand)}
 
     <!-- SUCCESS BANNER -->
     <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:3px solid #10b981;padding:32px 40px;text-align:center;">
@@ -431,7 +439,7 @@ function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: s
       <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
         <div style="background:#c9a84c;color:#1a2332;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">1</div>
         <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">
-          Un ejecutivo de <strong>Altaprop</strong> se pondrá en contacto contigo a la brevedad para coordinar los próximos pasos del proceso de arriendo.
+          Un ejecutivo de <strong>${brand.name}</strong> se pondrá en contacto contigo a la brevedad para coordinar los próximos pasos del proceso de arriendo.
         </p>
       </div>
 
@@ -459,17 +467,17 @@ function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: s
 
       <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
         ¡Felicitaciones y bienvenido/a a tu nuevo hogar! 🏠<br>
-        <strong style="color:#1a2332;">El equipo de Altaprop</strong>
+        <strong style="color:#1a2332;">El equipo de ${brand.name}</strong>
       </p>
     </div>
 
     <!-- FOOTER -->
     <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
       <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;">
-        Este correo fue enviado automáticamente por <strong style="color:#64748b;">Altaprop CRM Inmobiliario</strong>
+        Este correo fue enviado automáticamente por <strong style="color:#64748b;">${brand.name}</strong>
       </p>
       <p style="color:#cbd5e1;font-size:11px;margin:0;">
-        <a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a>
+        <a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a>
       </p>
     </div>
 
@@ -479,7 +487,7 @@ function buildApprovalEmail(name: string, propertyTitle: string, dashboardUrl: s
   `
 }
 
-function buildOwnerApprovalEmail(ownerName: string, applicantName: string, propertyTitle: string, propertyUrl: string): string {
+function buildOwnerApprovalEmail(ownerName: string, applicantName: string, propertyTitle: string, propertyUrl: string, brand: SubscriberBrand = DEFAULT_BRAND): string {
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -488,10 +496,7 @@ function buildOwnerApprovalEmail(ownerName: string, applicantName: string, prope
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
     <!-- HEADER -->
-    <div style="background:#1a2332;padding:28px 40px;text-align:center;">
-      <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-      <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">CRM Inmobiliario</p>
-    </div>
+    ${buildSimpleBrandHeader(brand)}
 
     <!-- SUCCESS BANNER -->
     <div style="background:linear-gradient(135deg,#fffbeb,#fef3c7);border-bottom:3px solid #c9a84c;padding:32px 40px;text-align:center;">
@@ -542,7 +547,7 @@ function buildOwnerApprovalEmail(ownerName: string, applicantName: string, prope
       <div style="margin-bottom:14px;display:flex;align-items:flex-start;">
         <div style="background:#1a2332;color:#c9a84c;width:26px;height:26px;border-radius:50%;font-size:13px;font-weight:800;text-align:center;line-height:26px;margin-right:14px;flex-shrink:0;">1</div>
         <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;padding-top:3px;">
-          Un ejecutivo de <strong>Altaprop</strong> coordinará contigo y con el arrendatario los próximos pasos del proceso de firma y entrega de llaves.
+          Un ejecutivo de <strong>${brand.name}</strong> coordinará contigo y con el arrendatario los próximos pasos del proceso de firma y entrega de llaves.
         </p>
       </div>
 
@@ -569,18 +574,18 @@ function buildOwnerApprovalEmail(ownerName: string, applicantName: string, prope
       </div>
 
       <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">
-        ¡Gracias por confiar en <strong style="color:#1a2332;">Altaprop</strong> para gestionar tu propiedad!<br>
-        <strong style="color:#1a2332;">El equipo de Altaprop</strong>
+        ¡Gracias por confiar en <strong style="color:#1a2332;">${brand.name}</strong> para gestionar tu propiedad!<br>
+        <strong style="color:#1a2332;">El equipo de ${brand.name}</strong>
       </p>
     </div>
 
     <!-- FOOTER -->
     <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
       <p style="color:#94a3b8;font-size:12px;margin:0 0 4px;">
-        Este correo fue enviado automáticamente por <strong style="color:#64748b;">Altaprop CRM Inmobiliario</strong>
+        Este correo fue enviado automáticamente por <strong style="color:#64748b;">${brand.name}</strong>
       </p>
       <p style="color:#cbd5e1;font-size:11px;margin:0;">
-        <a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a>
+        <a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a>
       </p>
     </div>
 
