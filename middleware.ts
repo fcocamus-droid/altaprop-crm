@@ -2,10 +2,14 @@ import { updateSession } from '@/lib/supabase/middleware'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
-// Main domain (without protocol). Adjust via env if needed.
+// Main domain stripped of protocol and www (e.g. "altaprop-app.cl")
 const MAIN_DOMAIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl')
   .replace(/^https?:\/\//, '')
+  .replace(/^www\./, '')
   .replace(/\/$/, '')
+
+// Both the bare domain and www variant are "main" — never route them to subscriber sites
+const MAIN_HOSTS = new Set([MAIN_DOMAIN, `www.${MAIN_DOMAIN}`])
 
 // Subdomains reserved for the platform itself (never route to subscriber sites)
 const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'admin', 'app', 'dashboard', 'staging', 'dev'])
@@ -14,10 +18,10 @@ export async function middleware(request: NextRequest) {
   const host = (request.headers.get('host') || '').toLowerCase().split(':')[0]
 
   // ── Multi-tenant subscriber site routing ──
-  // Only applies when the host differs from the main domain and is not localhost
+  // Only applies when the host is NOT the main platform domain and not localhost
   if (
     host &&
-    host !== MAIN_DOMAIN &&
+    !MAIN_HOSTS.has(host) &&
     !host.endsWith('.localhost') &&
     host !== 'localhost' &&
     !host.startsWith('127.') &&
@@ -41,7 +45,7 @@ export async function middleware(request: NextRequest) {
 
     if (host.endsWith(`.${MAIN_DOMAIN}`)) {
       // Subdomain: magnolia.altaprop-app.cl → /site/magnolia
-      const subdomain = host.slice(0, host.length - MAIN_DOMAIN.length - 1)
+      const subdomain = host.slice(0, -(MAIN_DOMAIN.length + 1))
       if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
         sitePath = `/site/${subdomain}`
       }
