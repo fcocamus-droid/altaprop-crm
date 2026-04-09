@@ -21,14 +21,16 @@ export const getSubscriberProfile = cache(async (subdomain: string) => {
     .eq('website_subdomain', subdomain)
     .maybeSingle()
 
-  const profile = bySubdomain ?? await (async () => {
-    const { data } = await admin
+  let profile = bySubdomain
+
+  if (!profile) {
+    const { data: byDomain } = await admin
       .from('profiles')
       .select(PROFILE_SELECT)
       .eq('website_domain', subdomain)
       .maybeSingle()
-    return data
-  })()
+    profile = byDomain
+  }
 
   if (!profile) return null
 
