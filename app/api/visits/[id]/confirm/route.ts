@@ -153,6 +153,9 @@ export async function POST(
     return NextResponse.json({ success: true, visitNumber })
   }
 
+  // reply_to uses subscriber email so visitors/agents reply directly to the agency
+  const replyTo = subscriberBrand.email || undefined
+
   const sendEmail = (to: string, subject: string, html: string) =>
     fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -162,6 +165,7 @@ export async function POST(
         to,
         subject,
         html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
         attachments: [pdfAttachment],
       }),
     }).catch(() => {})
@@ -291,8 +295,9 @@ function buildVisitorEmail(
         <tr><td style="padding:5px 0;color:#166534;font-size:14px;width:140px;">Propiedad</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">${propertyTitle}</td></tr>
         <tr><td style="padding:5px 0;color:#166534;font-size:14px;">Fecha y hora</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">📅 ${visitDate}</td></tr>
         <tr><td style="padding:5px 0;color:#166534;font-size:14px;">Agente</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">👤 ${agentName}</td></tr>
-        ${agentPhone ? `<tr><td style="padding:5px 0;color:#166534;font-size:14px;">Teléfono agente</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">📞 ${agentPhone}</td></tr>` : ''}
-        ${agentEmail ? `<tr><td style="padding:5px 0;color:#166534;font-size:14px;">Email agente</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">✉️ ${agentEmail}</td></tr>` : ''}
+        <tr><td style="padding:5px 0;color:#166534;font-size:14px;">Agencia</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">🏢 ${brand.name}</td></tr>
+        ${(brand.phone || agentPhone) ? `<tr><td style="padding:5px 0;color:#166534;font-size:14px;">Teléfono contacto</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">📞 ${brand.phone || agentPhone}</td></tr>` : ''}
+        ${(brand.email || agentEmail) ? `<tr><td style="padding:5px 0;color:#166534;font-size:14px;">Email contacto</td><td style="padding:5px 0;color:#1a2332;font-size:14px;font-weight:600;">✉️ ${brand.email || agentEmail}</td></tr>` : ''}
       </table>
     </div>
 
