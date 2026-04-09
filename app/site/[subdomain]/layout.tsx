@@ -14,12 +14,19 @@ export async function generateMetadata({
   const admin = createAdminClient()
   const subdomain = decodeURIComponent(params.subdomain)
 
-  const { data } = await admin
+  const { data: bySubdomain } = await admin
     .from('profiles')
     .select('full_name, avatar_url, website_subdomain, website_hero_title')
     .eq('website_subdomain', subdomain)
-    .eq('website_enabled', true)
     .maybeSingle()
+
+  const { data } = bySubdomain
+    ? { data: bySubdomain }
+    : await admin
+        .from('profiles')
+        .select('full_name, avatar_url, website_subdomain, website_hero_title')
+        .eq('website_domain', subdomain)
+        .maybeSingle()
 
   const name = data?.full_name || 'Portal Inmobiliario'
   const favicon = data?.avatar_url || '/icon.svg'
@@ -40,11 +47,10 @@ async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
 
   // Try subdomain first
-  const { data: bySubdomain, error: e1 } = await admin
+  const { data: bySubdomain } = await admin
     .from('profiles')
     .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
     .eq('website_subdomain', subdomain)
-    .eq('website_enabled', true)
     .maybeSingle()
 
   if (bySubdomain) {
@@ -58,7 +64,6 @@ async function getSubscriberBySubdomain(subdomain: string) {
     .from('profiles')
     .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
     .eq('website_domain', subdomain)
-    .eq('website_enabled', true)
     .maybeSingle()
 
   if (byDomain) {
@@ -79,6 +84,11 @@ export default async function SiteLayout({
   const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
 
   if (!subscriber) notFound()
+
+  // Disabled sites render only children (page.tsx shows "coming soon" full-screen)
+  if (!subscriber.website_enabled) {
+    return <>{children}</>
+  }
 
   const primaryColor = subscriber.website_primary_color || '#1a2332'
   const accentColor  = subscriber.website_accent_color  || '#c9a84c'
