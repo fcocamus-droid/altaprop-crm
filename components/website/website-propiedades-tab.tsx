@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Search, Home, Loader2, Eye, EyeOff, AlertCircle, Pencil } from 'lucide-react'
+import { Search, Home, Loader2, Eye, EyeOff, AlertCircle, Pencil, Copy, Check, ExternalLink } from 'lucide-react'
 
 function fmtPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price.toFixed(0)} UF`
@@ -38,12 +38,64 @@ const OP_LABELS: Record<string, string> = {
   venta: 'Venta',
 }
 
+function MigrationBanner({ sql }: { sql: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(sql).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-900">Actualización de base de datos requerida</p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            El campo de visibilidad aún no está creado. Ejecuta este SQL una sola vez en el{' '}
+            <a
+              href="https://supabase.com/dashboard/project/_/sql/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium inline-flex items-center gap-0.5"
+            >
+              Editor SQL de Supabase <ExternalLink className="h-3 w-3" />
+            </a>
+            :
+          </p>
+          <div className="mt-2 flex items-center gap-2 bg-amber-100 border border-amber-200 rounded-lg px-3 py-2">
+            <code className="text-xs text-amber-900 flex-1 break-all font-mono">{sql}</code>
+            <button
+              type="button"
+              onClick={copy}
+              title="Copiar SQL"
+              className="shrink-0 p-1 rounded hover:bg-amber-200 transition-colors"
+            >
+              {copied
+                ? <Check className="h-4 w-4 text-green-600" />
+                : <Copy className="h-4 w-4 text-amber-700" />
+              }
+            </button>
+          </div>
+          <p className="text-xs text-amber-600 mt-1.5">
+            Después de ejecutarlo, los toggles funcionarán correctamente.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function WebsitePropiedadesTab() {
   const [properties, setProperties] = useState<SiteProperty[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [toggling, setToggling] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [migrationSql, setMigrationSql] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/website/properties')
@@ -55,6 +107,7 @@ export function WebsitePropiedadesTab() {
   const toggleVisibility = useCallback(async (id: string, current: boolean) => {
     setToggling(id)
     setError('')
+    setMigrationSql(null)
 
     // Optimistic update
     setProperties(prev => prev.map(p => p.id === id ? { ...p, website_visible: !current } : p))
@@ -66,9 +119,15 @@ export function WebsitePropiedadesTab() {
     })
 
     if (!res.ok) {
-      // Rollback on error
+      // Rollback
       setProperties(prev => prev.map(p => p.id === id ? { ...p, website_visible: current } : p))
-      setError('No se pudo actualizar la visibilidad. Intenta de nuevo.')
+
+      const data = await res.json().catch(() => ({}))
+      if (data.error === 'column_missing' && data.sql) {
+        setMigrationSql(data.sql)
+      } else {
+        setError('No se pudo actualizar la visibilidad. Intenta de nuevo.')
+      }
     }
 
     setToggling(null)
@@ -119,6 +178,10 @@ export function WebsitePropiedadesTab() {
         </div>
       </div>
 
+      {/* Migration required banner */}
+      {migrationSql && <MigrationBanner sql={migrationSql} />}
+
+      {/* Generic error */}
       {error && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
           <AlertCircle className="h-4 w-4 shrink-0" />{error}
@@ -179,13 +242,13 @@ export function WebsitePropiedadesTab() {
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </Link>
-                {/* Visibility badge */}
+
+                {/* Visibility */}
                 <div className="shrink-0 flex items-center gap-2">
                   {p.website_visible
                     ? <span className="hidden sm:flex items-center gap-1 text-xs text-green-700 font-medium"><Eye className="h-3.5 w-3.5" />Visible</span>
                     : <span className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground"><EyeOff className="h-3.5 w-3.5" />Oculta</span>
                   }
-                  {/* Toggle */}
                   <button
                     type="button"
                     onClick={() => toggleVisibility(p.id, p.website_visible)}
