@@ -56,15 +56,15 @@ export function WebsiteConfigTab() {
     setEnabled(profile.website_enabled ?? false)
     setSubdomain(profile.website_subdomain ?? '')
     setCustomDomain(profile.website_domain ?? '')
-    const savedNs1 = (profile as any).website_ns1 ?? ''
-    const savedNs2 = (profile as any).website_ns2 ?? ''
+    const savedNs1 = profile.website_ns1 ?? ''
+    const savedNs2 = profile.website_ns2 ?? ''
     setNs1(savedNs1)
     setNs2(savedNs2)
     // Derive domain status from DB:
     // - domain set + ns1 null  → verified (ns cleared after successful verification)
     // - domain set + ns1 set   → pending_ns (waiting for propagation)
     // - no domain              → idle
-    if ((profile as any).website_domain) {
+    if (profile.website_domain) {
       setDomainStatus(savedNs1 ? 'pending_ns' : 'verified')
     } else {
       setDomainStatus('idle')

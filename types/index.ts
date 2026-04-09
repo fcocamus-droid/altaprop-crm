@@ -33,6 +33,8 @@ export interface Profile {
   // Subscriber website builder
   website_subdomain?: string | null
   website_domain?: string | null
+  website_ns1?: string | null
+  website_ns2?: string | null
   website_enabled?: boolean
   website_primary_color?: string | null
   website_accent_color?: string | null

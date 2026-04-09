@@ -1,7 +1,7 @@
-import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscriberProfile } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Phone, Mail, MapPin, MessageCircle, Building2 } from 'lucide-react'
+import { Phone, Mail, MessageCircle, Building2 } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -11,25 +11,9 @@ export async function generateMetadata({
 }: {
   params: { subdomain: string }
 }): Promise<Metadata> {
-  const admin = createAdminClient()
-  const subdomain = decodeURIComponent(params.subdomain)
-
-  const { data: bySubdomain } = await admin
-    .from('profiles')
-    .select('full_name, avatar_url, website_subdomain, website_hero_title')
-    .eq('website_subdomain', subdomain)
-    .maybeSingle()
-
-  const { data } = bySubdomain
-    ? { data: bySubdomain }
-    : await admin
-        .from('profiles')
-        .select('full_name, avatar_url, website_subdomain, website_hero_title')
-        .eq('website_domain', subdomain)
-        .maybeSingle()
-
-  const name = data?.full_name || 'Portal Inmobiliario'
-  const favicon = data?.avatar_url || '/icon.svg'
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
+  const name    = subscriber?.full_name || 'Portal Inmobiliario'
+  const favicon = subscriber?.avatar_url || '/icon.svg'
 
   return {
     title: {
@@ -43,37 +27,6 @@ export async function generateMetadata({
   }
 }
 
-async function getSubscriberBySubdomain(subdomain: string) {
-  const admin = createAdminClient()
-
-  // Try subdomain first
-  const { data: bySubdomain } = await admin
-    .from('profiles')
-    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
-    .eq('website_subdomain', subdomain)
-    .maybeSingle()
-
-  if (bySubdomain) {
-    // Get email from auth.users via admin API
-    const { data: authUser } = await admin.auth.admin.getUserById(bySubdomain.id)
-    return { ...bySubdomain, email: authUser?.user?.email || null }
-  }
-
-  // Try custom domain (subdomain param could be the full domain)
-  const { data: byDomain } = await admin
-    .from('profiles')
-    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
-    .eq('website_domain', subdomain)
-    .maybeSingle()
-
-  if (byDomain) {
-    const { data: authUser } = await admin.auth.admin.getUserById(byDomain.id)
-    return { ...byDomain, email: authUser?.user?.email || null }
-  }
-
-  return null
-}
-
 export default async function SiteLayout({
   children,
   params,
@@ -81,7 +34,7 @@ export default async function SiteLayout({
   children: React.ReactNode
   params: { subdomain: string }
 }) {
-  const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
 
   if (!subscriber) notFound()
 
@@ -100,7 +53,6 @@ export default async function SiteLayout({
       {/* Header */}
       <header className="sticky top-0 z-50 shadow-sm" style={{ background: primaryColor }}>
         <div className="container flex h-16 items-center justify-between">
-          {/* Logo / name */}
           <Link href="/" className="flex items-center gap-3">
             {subscriber.avatar_url ? (
               <img src={subscriber.avatar_url} alt={companyName} className="h-9 w-auto max-w-[140px] object-contain rounded" />
@@ -112,13 +64,11 @@ export default async function SiteLayout({
             )}
           </Link>
 
-          {/* Nav */}
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Inicio</Link>
             <Link href="/propiedades" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Propiedades</Link>
           </nav>
 
-          {/* CTA */}
           {subscriber.website_whatsapp && (
             <a
               href={`https://wa.me/${subscriber.website_whatsapp.replace(/\D/g, '')}`}
@@ -134,7 +84,6 @@ export default async function SiteLayout({
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex-1">{children}</main>
 
       {/* Footer */}

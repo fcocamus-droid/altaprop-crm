@@ -1,34 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscriberProfile } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
 import { PropertyCard } from '@/components/properties/property-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PROPERTY_TYPES, OPERATION_TYPES } from '@/lib/constants'
-import { Button } from '@/components/ui/button'
 import { MessageCircle, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
-
-async function getSubscriberBySubdomain(subdomain: string) {
-  const admin = createAdminClient()
-  // Do NOT filter by website_enabled here — we find the profile regardless,
-  // then decide in the page whether to show the site or a "coming soon" message.
-  // Filtering here causes 404 when the toggle is off, which is confusing for visitors
-  // arriving via a verified custom domain.
-  const { data: bySubdomain } = await admin
-    .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, website_subdomain, website_domain')
-    .eq('website_subdomain', subdomain)
-    .maybeSingle()
-  if (bySubdomain) return bySubdomain
-
-  const { data: byDomain } = await admin
-    .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, website_subdomain, website_domain')
-    .eq('website_domain', subdomain)
-    .maybeSingle()
-  return byDomain
-}
 
 async function getSubscriberProperties(subscriberId: string, filters: Record<string, string | undefined>) {
   const admin = createAdminClient()
@@ -59,7 +38,7 @@ async function getSubscriberProperties(subscriberId: string, filters: Record<str
 }
 
 export async function generateMetadata({ params }: { params: { subdomain: string } }): Promise<Metadata> {
-  const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
   if (!subscriber) return { title: 'Portal Inmobiliario' }
   const name = subscriber.full_name || 'Portal Inmobiliario'
   return {
@@ -75,19 +54,24 @@ export default async function SitePage({
   params: { subdomain: string }
   searchParams: { [key: string]: string | undefined }
 }) {
-  const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
   if (!subscriber) notFound()
 
   // Site exists but owner has it paused — show a clean "coming soon" instead of 404
   if (!subscriber.website_enabled) {
     const primaryColor = subscriber.website_primary_color || '#1a2332'
     const accentColor  = subscriber.website_accent_color  || '#c9a84c'
+    const initial      = subscriber.full_name?.charAt(0).toUpperCase() || 'A'
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-center px-4"
-        style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}>
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl mb-6 text-3xl font-bold"
-          style={{ background: accentColor, color: primaryColor }}>
-          A
+      <div
+        className="min-h-screen flex flex-col items-center justify-center text-center px-4"
+        style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}
+      >
+        <div
+          className="inline-flex h-20 w-20 items-center justify-center rounded-2xl mb-6 text-3xl font-bold"
+          style={{ background: accentColor, color: primaryColor }}
+        >
+          {initial}
         </div>
         <h1 className="text-3xl font-bold text-white mb-3">
           {subscriber.website_hero_title || subscriber.full_name || 'Portal Inmobiliario'}
