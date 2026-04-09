@@ -1,39 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscriberProfile } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice, formatDate } from '@/lib/utils'
 import { Bed, Bath, Maximize, MapPin, Calendar, MessageCircle, ArrowLeft, Phone } from 'lucide-react'
 import Link from 'next/link'
+import { SiteVisitRequestButton } from '@/components/site/site-visit-request-button'
+import { SiteApplyButton } from '@/components/site/site-apply-button'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
-
-async function getSubscriberBySubdomain(subdomain: string) {
-  const admin = createAdminClient()
-  const { data: bySubdomain } = await admin
-    .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, phone')
-    .eq('website_subdomain', subdomain)
-    .eq('website_enabled', true)
-    .maybeSingle()
-  if (bySubdomain) {
-    const { data: authUser } = await admin.auth.admin.getUserById(bySubdomain.id)
-    return { ...bySubdomain, email: authUser?.user?.email || null }
-  }
-
-  const { data: byDomain } = await admin
-    .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, phone')
-    .eq('website_domain', subdomain)
-    .eq('website_enabled', true)
-    .maybeSingle()
-  if (byDomain) {
-    const { data: authUser } = await admin.auth.admin.getUserById(byDomain.id)
-    return { ...byDomain, email: authUser?.user?.email || null }
-  }
-  return null
-}
 
 async function getProperty(propertyId: string, subscriberId: string) {
   const admin = createAdminClient()
@@ -51,7 +28,7 @@ export async function generateMetadata({
 }: {
   params: { subdomain: string; id: string }
 }): Promise<Metadata> {
-  const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
   if (!subscriber) return { title: 'Propiedad no encontrada' }
   const property = await getProperty(params.id, subscriber.id)
   if (!property) return { title: 'Propiedad no encontrada' }
@@ -66,7 +43,7 @@ export default async function SitePropertyDetailPage({
 }: {
   params: { subdomain: string; id: string }
 }) {
-  const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
+  const subscriber = await getSubscriberProfile(decodeURIComponent(params.subdomain))
   if (!subscriber) notFound()
 
   const property = await getProperty(params.id, subscriber.id)
@@ -77,7 +54,6 @@ export default async function SitePropertyDetailPage({
 
   const location = [property.address, property.sector, property.city].filter(Boolean).join(', ')
 
-  // Build WhatsApp message
   const waText = encodeURIComponent(
     `Hola! Me interesa la propiedad "${property.title}"${location ? ` en ${location}` : ''}. ¿Está disponible?`
   )
@@ -180,62 +156,78 @@ export default async function SitePropertyDetailPage({
 
         {/* Sidebar */}
         <div>
-          <Card className="sticky top-20">
-            <CardContent className="pt-6 space-y-4">
-              <p className="text-3xl font-bold mb-1" style={{ color: primaryColor }}>
-                {formatPrice(property.price, property.currency)}
-              </p>
-              {property.operation === 'arriendo' && (
-                <p className="text-sm text-muted-foreground -mt-2">mensual</p>
-              )}
+          <div className="sticky top-20 space-y-4">
+            {/* Price + contact */}
+            <Card>
+              <CardContent className="pt-6 space-y-4">
+                <p className="text-3xl font-bold" style={{ color: primaryColor }}>
+                  {formatPrice(property.price, property.currency)}
+                </p>
+                {property.operation === 'arriendo' && (
+                  <p className="text-sm text-muted-foreground -mt-2">mensual</p>
+                )}
 
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                Publicado {formatDate(property.created_at)}
-              </div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  Publicado {formatDate(property.created_at)}
+                </div>
 
-              {/* Contact CTAs */}
-              {waUrl && (
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ background: '#25D366' }}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Consultar por WhatsApp
-                </a>
-              )}
+                {waUrl && (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    style={{ background: '#25D366' }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Consultar por WhatsApp
+                  </a>
+                )}
 
-              {subscriber.phone && (
-                <a
-                  href={`tel:${subscriber.phone.replace(/\s/g, '')}`}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
-                  style={{ borderColor: primaryColor + '40', color: primaryColor }}
-                >
-                  <Phone className="h-4 w-4" />
-                  Llamar al agente
-                </a>
-              )}
+                {subscriber.phone && (
+                  <a
+                    href={`tel:${subscriber.phone.replace(/\s/g, '')}`}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
+                    style={{ borderColor: primaryColor + '40', color: primaryColor }}
+                  >
+                    <Phone className="h-4 w-4" />
+                    Llamar al agente
+                  </a>
+                )}
 
-              {subscriber.email && (
-                <a
-                  href={`mailto:${subscriber.email}?subject=Consulta por: ${property.title}`}
-                  className="flex items-center justify-center gap-2 w-full py-2 text-sm text-center text-muted-foreground hover:underline"
-                >
-                  {subscriber.email}
-                </a>
-              )}
+                {subscriber.email && (
+                  <a
+                    href={`mailto:${subscriber.email}?subject=Consulta por: ${property.title}`}
+                    className="flex items-center justify-center gap-2 w-full py-2 text-sm text-center text-muted-foreground hover:underline"
+                  >
+                    {subscriber.email}
+                  </a>
+                )}
 
-              <p className="text-xs text-muted-foreground text-center pt-2 border-t">
-                Powered by{' '}
-                <a href="https://altaprop-app.cl" target="_blank" rel="noopener noreferrer" className="hover:underline">
-                  Altaprop
-                </a>
-              </p>
-            </CardContent>
-          </Card>
+                <p className="text-xs text-muted-foreground text-center border-t pt-2">
+                  Powered by{' '}
+                  <a href="https://altaprop-app.cl" target="_blank" rel="noopener noreferrer" className="hover:underline">
+                    Altaprop
+                  </a>
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Application module */}
+            <SiteApplyButton
+              propertyId={property.id}
+              primaryColor={primaryColor}
+              accentColor={accentColor}
+            />
+
+            {/* Visit request module */}
+            <SiteVisitRequestButton
+              propertyId={property.id}
+              primaryColor={primaryColor}
+              accentColor={accentColor}
+            />
+          </div>
         </div>
       </div>
     </div>
