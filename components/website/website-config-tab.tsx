@@ -38,6 +38,7 @@ export function WebsiteConfigTab() {
   const [customDomain, setCustomDomain]   = useState('')
   const [domainStatus, setDomainStatus]   = useState<'idle' | 'checking' | 'verified' | 'failed'>('idle')
   const [domainMsg, setDomainMsg]         = useState('')
+  const [dnsProvider, setDnsProvider]     = useState<'nicl' | 'other'>('nicl')
   const [primaryColor, setPrimaryColor]   = useState('#1a2332')
   const [accentColor, setAccentColor]     = useState('#c9a84c')
   const [heroTitle, setHeroTitle]         = useState('')
@@ -273,57 +274,163 @@ export function WebsiteConfigTab() {
         {customDomain && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
             <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
-              <Info className="h-3.5 w-3.5" />Cómo configurar tu dominio en 2 pasos
+              <Info className="h-3.5 w-3.5" />Cómo configurar tu dominio — elige tu proveedor
             </p>
 
-            {/* Step 1 */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-blue-900">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
-                Agrega estos registros DNS en tu proveedor (NIC.cl, GoDaddy, Cloudflare, etc.)
-              </p>
-
-              {/* DNS table */}
-              <div className="rounded-lg overflow-hidden border border-blue-200">
-                <table className="w-full text-xs font-mono">
-                  <thead className="bg-blue-100">
-                    <tr>
-                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
-                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
-                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
-                      <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Para</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-blue-100">
-                    <tr className="bg-green-50">
-                      <td className="px-3 py-2 text-blue-900 font-bold">A</td>
-                      <td className="px-3 py-2 text-blue-900">@</td>
-                      <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
-                      <td className="px-3 py-2 text-green-700 font-semibold">{customDomain} ✓ requerido</td>
-                    </tr>
-                    <tr>
-                      <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
-                      <td className="px-3 py-2 text-blue-900">www</td>
-                      <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
-                      <td className="px-3 py-2 text-blue-400">www.{customDomain} (opcional)</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-blue-600 flex items-start gap-1">
-                <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                En NIC.cl: Mi NIC → Mis Dominios → {customDomain} → Configurar DNS → Agregar registros
-              </p>
+            {/* Provider selector */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDnsProvider('nicl')}
+                className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-all ${
+                  dnsProvider === 'nicl'
+                    ? 'bg-blue-700 text-white border-blue-700'
+                    : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                }`}
+              >
+                🇨🇱 NIC.cl
+              </button>
+              <button
+                type="button"
+                onClick={() => setDnsProvider('other')}
+                className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-all ${
+                  dnsProvider === 'other'
+                    ? 'bg-blue-700 text-white border-blue-700'
+                    : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                }`}
+              >
+                🌐 GoDaddy / Cloudflare / Otro
+              </button>
             </div>
 
-            {/* Step 2 */}
-            <div className="space-y-1">
+            {/* ── NIC.CL FLOW ── */}
+            {dnsProvider === 'nicl' && (
+              <div className="space-y-3">
+                {/* Aviso importante */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    <strong>NIC.cl solo gestiona nameservers</strong>, no registros DNS (A/CNAME).
+                    Necesitas usar <strong>Cloudflare gratis</strong> como intermediario para agregar los registros.
+                  </p>
+                </div>
+
+                {/* Step 1 */}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-900">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
+                    Crea cuenta gratis en Cloudflare y agrega tu dominio
+                  </p>
+                  <p className="text-xs text-blue-600 ml-5.5 pl-1">
+                    Ve a{' '}
+                    <a href="https://cloudflare.com" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
+                      cloudflare.com <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                    {' '}→ Agregar sitio → escribe <strong>{customDomain}</strong> → elige plan <strong>Free</strong>
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-blue-900">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">2</span>
+                    En Cloudflare → DNS → Agregar estos registros
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-blue-200 ml-5.5">
+                    <table className="w-full text-xs font-mono">
+                      <thead className="bg-blue-100">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Proxy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-blue-100">
+                        <tr className="bg-green-50">
+                          <td className="px-3 py-2 text-blue-900 font-bold">A</td>
+                          <td className="px-3 py-2 text-blue-900">@</td>
+                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
+                          <td className="px-3 py-2 text-gray-500">Solo DNS ☁</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
+                          <td className="px-3 py-2 text-blue-900">www</td>
+                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
+                          <td className="px-3 py-2 text-gray-500">Solo DNS ☁</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-blue-500 ml-5.5 pl-1">Importante: deja el proxy en <strong>Solo DNS</strong> (nube gris, no naranja)</p>
+                </div>
+
+                {/* Step 3 */}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-900">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">3</span>
+                    En NIC.cl → cambia los nameservers a los de Cloudflare
+                  </p>
+                  <p className="text-xs text-blue-600 ml-5.5 pl-1">
+                    <a href="https://clientes.nic.cl" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
+                      clientes.nic.cl <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                    {' '}→ Mis Dominios → <strong>{customDomain}</strong> → Modificar → Sección <em>"Servidores DNS"</em> → reemplaza los nameservers actuales por los que Cloudflare te asignó (ej: <code className="bg-blue-100 px-1 rounded">xxx.ns.cloudflare.com</code>)
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ── OTHER PROVIDER FLOW ── */}
+            {dnsProvider === 'other' && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-blue-900">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
+                    Agrega estos registros en el panel DNS de tu proveedor
+                  </p>
+                  <div className="rounded-lg overflow-hidden border border-blue-200">
+                    <table className="w-full text-xs font-mono">
+                      <thead className="bg-blue-100">
+                        <tr>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
+                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Para</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-blue-100">
+                        <tr className="bg-green-50">
+                          <td className="px-3 py-2 text-blue-900 font-bold">A</td>
+                          <td className="px-3 py-2 text-blue-900">@</td>
+                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
+                          <td className="px-3 py-2 text-green-700 font-semibold">{customDomain} ✓ requerido</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
+                          <td className="px-3 py-2 text-blue-900">www</td>
+                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
+                          <td className="px-3 py-2 text-blue-400">www.{customDomain} (opcional)</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <p className="text-xs text-blue-600 flex items-start gap-1">
+                  <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                  Si usas Cloudflare: desactiva el proxy (nube gris) para los registros arriba.
+                </p>
+              </div>
+            )}
+
+            {/* Step final — common to both */}
+            <div className="space-y-1 border-t border-blue-200 pt-3">
               <p className="text-xs font-semibold text-blue-900">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">2</span>
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">{dnsProvider === 'nicl' ? '4' : '2'}</span>
                 Haz click en <strong>Verificar</strong> — el sistema comprobará el DNS y activará tu dominio automáticamente
               </p>
               <p className="text-xs text-blue-600">
-                Los cambios DNS pueden tardar entre <strong>5 minutos y 24 horas</strong> en propagarse. Si falla, espera y vuelve a intentar.
+                Los cambios DNS pueden tardar entre <strong>5 minutos y 48 horas</strong> en propagarse. Si falla, espera y vuelve a intentar.
               </p>
             </div>
           </div>
