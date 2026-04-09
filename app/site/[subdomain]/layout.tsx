@@ -9,24 +9,33 @@ async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
 
   // Try subdomain first
-  const { data: bySubdomain } = await admin
+  const { data: bySubdomain, error: e1 } = await admin
     .from('profiles')
-    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, email, phone')
+    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
     .eq('website_subdomain', subdomain)
     .eq('website_enabled', true)
     .maybeSingle()
 
-  if (bySubdomain) return bySubdomain
+  if (bySubdomain) {
+    // Get email from auth.users via admin API
+    const { data: authUser } = await admin.auth.admin.getUserById(bySubdomain.id)
+    return { ...bySubdomain, email: authUser?.user?.email || null }
+  }
 
   // Try custom domain (subdomain param could be the full domain)
   const { data: byDomain } = await admin
     .from('profiles')
-    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, email, phone')
+    .select('id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, phone')
     .eq('website_domain', subdomain)
     .eq('website_enabled', true)
     .maybeSingle()
 
-  return byDomain
+  if (byDomain) {
+    const { data: authUser } = await admin.auth.admin.getUserById(byDomain.id)
+    return { ...byDomain, email: authUser?.user?.email || null }
+  }
+
+  return null
 }
 
 export default async function SiteLayout({

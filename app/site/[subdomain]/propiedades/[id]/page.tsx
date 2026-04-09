@@ -13,19 +13,26 @@ async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
   const { data: bySubdomain } = await admin
     .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, email, phone')
+    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, phone')
     .eq('website_subdomain', subdomain)
     .eq('website_enabled', true)
     .maybeSingle()
-  if (bySubdomain) return bySubdomain
+  if (bySubdomain) {
+    const { data: authUser } = await admin.auth.admin.getUserById(bySubdomain.id)
+    return { ...bySubdomain, email: authUser?.user?.email || null }
+  }
 
   const { data: byDomain } = await admin
     .from('profiles')
-    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, email, phone')
+    .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_whatsapp, phone')
     .eq('website_domain', subdomain)
     .eq('website_enabled', true)
     .maybeSingle()
-  return byDomain
+  if (byDomain) {
+    const { data: authUser } = await admin.auth.admin.getUserById(byDomain.id)
+    return { ...byDomain, email: authUser?.user?.email || null }
+  }
+  return null
 }
 
 async function getProperty(propertyId: string, subscriberId: string) {
