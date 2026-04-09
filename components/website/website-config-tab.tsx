@@ -375,7 +375,7 @@ export function WebsiteConfigTab() {
                     <a href="https://clientes.nic.cl" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
                       clientes.nic.cl <ExternalLink className="h-2.5 w-2.5" />
                     </a>
-                    {' '}→ Mis Dominios → <strong>{customDomain}</strong> → Modificar → Sección <em>"Servidores DNS"</em> → reemplaza los nameservers actuales por los que Cloudflare te asignó (ej: <code className="bg-blue-100 px-1 rounded">xxx.ns.cloudflare.com</code>)
+                    {' '}→ Mis Dominios → <strong>{customDomain}</strong> → Modificar → Sección <em>&ldquo;Servidores DNS&rdquo;</em> → reemplaza los nameservers actuales por los que Cloudflare te asignó (ej: <code className="bg-blue-100 px-1 rounded">xxx.ns.cloudflare.com</code>)
                   </p>
                 </div>
               </div>
