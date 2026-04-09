@@ -13,9 +13,7 @@ import {
 } from 'lucide-react'
 
 // Hardcoded production domain — avoids env var issues in Edge/Client bundles
-const APP_DOMAIN    = 'altaprop-app.cl'
-const VERCEL_CNAME  = 'cname.vercel-dns.com'   // For www / subdomains
-const VERCEL_IP     = '76.76.21.21'             // For root domain (@)
+const APP_DOMAIN = 'altaprop-app.cl'
 
 function StatusBadge({ ok, text }: { ok: boolean; text: string }) {
   return (
@@ -36,9 +34,11 @@ export function WebsiteConfigTab() {
   const [subdomainStatus, setSubdomainStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [subdomainMsg, setSubdomainMsg]       = useState('')
   const [customDomain, setCustomDomain]   = useState('')
-  const [domainStatus, setDomainStatus]   = useState<'idle' | 'checking' | 'verified' | 'failed'>('idle')
+  // setup: configuring zone in Cloudflare | pending_ns: waiting for NIC.cl | verified | failed
+  const [domainStatus, setDomainStatus]   = useState<'idle' | 'setup' | 'pending_ns' | 'verifying' | 'verified' | 'failed'>('idle')
   const [domainMsg, setDomainMsg]         = useState('')
-  const [dnsProvider, setDnsProvider]     = useState<'nicl' | 'other'>('nicl')
+  const [ns1, setNs1]                     = useState('')
+  const [ns2, setNs2]                     = useState('')
   const [primaryColor, setPrimaryColor]   = useState('#1a2332')
   const [accentColor, setAccentColor]     = useState('#c9a84c')
   const [heroTitle, setHeroTitle]         = useState('')
@@ -56,6 +56,9 @@ export function WebsiteConfigTab() {
     setEnabled(profile.website_enabled ?? false)
     setSubdomain(profile.website_subdomain ?? '')
     setCustomDomain(profile.website_domain ?? '')
+    setNs1((profile as any).website_ns1 ?? '')
+    setNs2((profile as any).website_ns2 ?? '')
+    if ((profile as any).website_ns1) setDomainStatus('pending_ns')
     setPrimaryColor(profile.website_primary_color ?? '#1a2332')
     setAccentColor(profile.website_accent_color ?? '#c9a84c')
     setHeroTitle(profile.website_hero_title ?? '')
@@ -85,55 +88,60 @@ export function WebsiteConfigTab() {
     return () => clearTimeout(t)
   }, [subdomain, checkSubdomain])
 
-  async function verifyAndRegisterDomain() {
+  // Step 1 — Platform creates Cloudflare zone, adds DNS records, returns nameservers
+  async function setupDomain() {
     if (!customDomain || !profile) return
+    const clean = customDomain.toLowerCase().trim().replace(/^www\./, '')
+    if (!clean) return
 
-    // Reject domains with www prefix — user should enter root domain only
-    if (customDomain.startsWith('www.')) {
-      setDomainStatus('failed')
-      setDomainMsg('Ingresa el dominio sin "www" (ej: mipropiedades.cl). El www se agrega automáticamente.')
-      return
-    }
+    setDomainStatus('setup')
+    setDomainMsg('')
 
-    setDomainStatus('checking')
-
-    // 1. Check DNS propagation
-    const verifyRes = await fetch(`/api/website/verify-domain?domain=${encodeURIComponent(customDomain)}`)
-    const verifyData = await verifyRes.json()
-
-    if (!verifyData.verified) {
-      setDomainStatus('failed')
-      setDomainMsg(verifyData.reason || 'DNS aún no propagado. Espera unos minutos y vuelve a intentar.')
-      return
-    }
-
-    // 2. Register domain in Vercel automatically (root + www)
-    const regRes = await fetch('/api/website/register-domain', {
+    const res = await fetch('/api/website/setup-domain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ domain: customDomain }),
+      body: JSON.stringify({ domain: clean }),
     })
-    const regData = await regRes.json()
+    const data = await res.json()
 
-    if (regData.registered || regData.manual) {
-      setDomainStatus('verified')
-      setDomainMsg(
-        regData.manual
-          ? 'DNS verificado. ' + regData.message
-          : '¡Dominio verificado y activado! Puede tardar unos minutos en estar disponible.'
-      )
-
-      // ── AUTO-SAVE: persist website_domain to DB so middleware can route correctly ──
-      await supabase
-        .from('profiles')
-        .update({ website_domain: customDomain })
-        .eq('id', profile.id)
-
-      router.refresh()
+    if (data.ok && data.ns1 && data.ns2) {
+      setNs1(data.ns1)
+      setNs2(data.ns2)
+      setCustomDomain(data.domain)
+      setDomainStatus('pending_ns')
+      setDomainMsg('')
     } else {
       setDomainStatus('failed')
-      setDomainMsg(regData.message || 'DNS verificado pero no se pudo activar. Intenta guardar primero.')
+      setDomainMsg(data.message || 'Error al configurar el dominio. Intenta de nuevo.')
     }
+  }
+
+  // Step 2 — Verify NS propagation (Cloudflare zone active)
+  async function verifyDns() {
+    if (!customDomain || !profile) return
+    setDomainStatus('verifying')
+    setDomainMsg('')
+
+    const res = await fetch(`/api/website/verify-domain?domain=${encodeURIComponent(customDomain)}`)
+    const data = await res.json()
+
+    if (data.verified) {
+      setDomainStatus('verified')
+      setDomainMsg('¡Dominio activo y funcionando correctamente!')
+      // Ensure domain is saved in DB for middleware routing
+      await supabase.from('profiles').update({ website_domain: customDomain } as any).eq('id', profile.id)
+      router.refresh()
+    } else {
+      setDomainStatus('pending_ns')
+      setDomainMsg(data.reason || 'DNS aún no propagado. Espera unos minutos y vuelve a intentar.')
+    }
+  }
+
+  function resetDomain() {
+    setCustomDomain('')
+    setNs1(''); setNs2('')
+    setDomainStatus('idle')
+    setDomainMsg('')
   }
 
   async function handleSave() {
@@ -252,187 +260,140 @@ export function WebsiteConfigTab() {
       {/* ── CUSTOM DOMAIN ── */}
       <div className="space-y-3">
         <Label className="text-sm font-semibold">Dominio personalizado <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-        <p className="text-xs text-muted-foreground -mt-1">Ingresa el dominio <strong>sin www</strong> (ej: mipropiedades.cl). Agrega el registro A en tu proveedor DNS.</p>
-        <div className="flex gap-2">
-          <Input
-            placeholder="mipropiedades.cl"
-            value={customDomain}
-            onChange={e => { setCustomDomain(e.target.value.toLowerCase().trim().replace(/^www\./, '')); setDomainStatus('idle') }}
-            className="flex-1"
-          />
-          <Button type="button" variant="outline" size="sm" onClick={verifyAndRegisterDomain}
-            disabled={!customDomain || domainStatus === 'checking'} className="shrink-0">
-            {domainStatus === 'checking' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Verificar'}
-          </Button>
-        </div>
-        {domainMsg && (
-          <div className={`flex items-start gap-2 text-xs p-2 rounded-md ${domainStatus === 'verified' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {domainStatus === 'verified' ? <CheckCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" /> : <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
-            {domainMsg}
+        <p className="text-xs text-muted-foreground -mt-1">Ingresa el dominio <strong>sin www</strong> (ej: mipropiedades.cl)</p>
+
+        {/* ── IDLE: Enter domain ── */}
+        {domainStatus === 'idle' && (
+          <div className="flex gap-2">
+            <Input
+              placeholder="mipropiedades.cl"
+              value={customDomain}
+              onChange={e => setCustomDomain(e.target.value.toLowerCase().trim().replace(/^www\./, ''))}
+              className="flex-1"
+            />
+            <Button type="button" size="sm" onClick={setupDomain}
+              disabled={!customDomain} className="shrink-0 bg-gold hover:bg-gold/90 text-white">
+              Configurar dominio
+            </Button>
           </div>
         )}
-        {customDomain && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-4">
-            <p className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
-              <Info className="h-3.5 w-3.5" />Cómo configurar tu dominio — elige tu proveedor
-            </p>
 
-            {/* Provider selector */}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDnsProvider('nicl')}
-                className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-all ${
-                  dnsProvider === 'nicl'
-                    ? 'bg-blue-700 text-white border-blue-700'
-                    : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
-                }`}
-              >
-                🇨🇱 NIC.cl
-              </button>
-              <button
-                type="button"
-                onClick={() => setDnsProvider('other')}
-                className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-all ${
-                  dnsProvider === 'other'
-                    ? 'bg-blue-700 text-white border-blue-700'
-                    : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
-                }`}
-              >
-                🌐 GoDaddy / Cloudflare / Otro
+        {/* ── SETUP: Creating Cloudflare zone ── */}
+        {domainStatus === 'setup' && (
+          <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-900">Configurando zona DNS…</p>
+              <p className="text-xs text-blue-600">Estamos preparando el DNS para <strong>{customDomain}</strong></p>
+            </div>
+          </div>
+        )}
+
+        {/* ── PENDING NS: Show nameservers to enter in NIC.cl ── */}
+        {(domainStatus === 'pending_ns' || domainStatus === 'verifying') && ns1 && ns2 && (
+          <div className="space-y-3">
+            {/* Domain + change link */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                {customDomain}
+              </p>
+              <button type="button" onClick={resetDomain}
+                className="text-xs text-blue-600 underline hover:text-blue-800">
+                Cambiar dominio
               </button>
             </div>
 
-            {/* ── NIC.CL FLOW ── */}
-            {dnsProvider === 'nicl' && (
-              <div className="space-y-3">
-                {/* Aviso importante */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-800">
-                    <strong>NIC.cl solo gestiona nameservers</strong>, no registros DNS (A/CNAME).
-                    Necesitas usar <strong>Cloudflare gratis</strong> como intermediario para agregar los registros.
-                  </p>
-                </div>
-
-                {/* Step 1 */}
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-blue-900">
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
-                    Crea cuenta gratis en Cloudflare y agrega tu dominio
-                  </p>
-                  <p className="text-xs text-blue-600 ml-5.5 pl-1">
-                    Ve a{' '}
-                    <a href="https://cloudflare.com" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
-                      cloudflare.com <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                    {' '}→ Agregar sitio → escribe <strong>{customDomain}</strong> → elige plan <strong>Free</strong>
-                  </p>
-                </div>
-
-                {/* Step 2 */}
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-blue-900">
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">2</span>
-                    En Cloudflare → DNS → Agregar estos registros
-                  </p>
-                  <div className="rounded-lg overflow-hidden border border-blue-200 ml-5.5">
-                    <table className="w-full text-xs font-mono">
-                      <thead className="bg-blue-100">
-                        <tr>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Proxy</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-blue-100">
-                        <tr className="bg-green-50">
-                          <td className="px-3 py-2 text-blue-900 font-bold">A</td>
-                          <td className="px-3 py-2 text-blue-900">@</td>
-                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
-                          <td className="px-3 py-2 text-gray-500">Solo DNS ☁</td>
-                        </tr>
-                        <tr>
-                          <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
-                          <td className="px-3 py-2 text-blue-900">www</td>
-                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
-                          <td className="px-3 py-2 text-gray-500">Solo DNS ☁</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-xs text-blue-500 ml-5.5 pl-1">Importante: deja el proxy en <strong>Solo DNS</strong> (nube gris, no naranja)</p>
-                </div>
-
-                {/* Step 3 */}
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-blue-900">
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">3</span>
-                    En NIC.cl → cambia los nameservers a los de Cloudflare
-                  </p>
-                  <p className="text-xs text-blue-600 ml-5.5 pl-1">
-                    <a href="https://clientes.nic.cl" target="_blank" rel="noopener noreferrer" className="underline font-medium inline-flex items-center gap-0.5">
-                      clientes.nic.cl <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                    {' '}→ Mis Dominios → <strong>{customDomain}</strong> → Modificar → Sección <em>&ldquo;Servidores DNS&rdquo;</em> → reemplaza los nameservers actuales por los que Cloudflare te asignó (ej: <code className="bg-blue-100 px-1 rounded">xxx.ns.cloudflare.com</code>)
-                  </p>
+            {/* Nameservers card */}
+            <div className="rounded-xl border border-gray-200 bg-gray-50 divide-y divide-gray-200">
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">DNS 1</span>
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-mono font-semibold text-gray-900">{ns1}</code>
+                  <button type="button" onClick={() => copyUrl(ns1)} title="Copiar"
+                    className="p-1 rounded hover:bg-gray-200 transition-colors">
+                    {copied ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+                  </button>
                 </div>
               </div>
-            )}
-
-            {/* ── OTHER PROVIDER FLOW ── */}
-            {dnsProvider === 'other' && (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-semibold text-blue-900">
-                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">1</span>
-                    Agrega estos registros en el panel DNS de tu proveedor
-                  </p>
-                  <div className="rounded-lg overflow-hidden border border-blue-200">
-                    <table className="w-full text-xs font-mono">
-                      <thead className="bg-blue-100">
-                        <tr>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Tipo</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Nombre</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Valor</th>
-                          <th className="text-left px-3 py-1.5 text-blue-700 font-semibold">Para</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-blue-100">
-                        <tr className="bg-green-50">
-                          <td className="px-3 py-2 text-blue-900 font-bold">A</td>
-                          <td className="px-3 py-2 text-blue-900">@</td>
-                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
-                          <td className="px-3 py-2 text-green-700 font-semibold">{customDomain} ✓ requerido</td>
-                        </tr>
-                        <tr>
-                          <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
-                          <td className="px-3 py-2 text-blue-900">www</td>
-                          <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
-                          <td className="px-3 py-2 text-blue-400">www.{customDomain} (opcional)</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">DNS 2</span>
+                <div className="flex items-center gap-2">
+                  <code className="text-sm font-mono font-semibold text-gray-900">{ns2}</code>
+                  <button type="button" onClick={() => copyUrl(ns2)} title="Copiar"
+                    className="p-1 rounded hover:bg-gray-200 transition-colors">
+                    {copied ? <CheckCircle className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
+                  </button>
                 </div>
-                <p className="text-xs text-blue-600 flex items-start gap-1">
-                  <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                  Si usas Cloudflare: desactiva el proxy (nube gris) para los registros arriba.
-                </p>
               </div>
-            )}
+            </div>
 
-            {/* Step final — common to both */}
-            <div className="space-y-1 border-t border-blue-200 pt-3">
-              <p className="text-xs font-semibold text-blue-900">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 text-blue-800 font-bold text-[10px] mr-1.5">{dnsProvider === 'nicl' ? '4' : '2'}</span>
-                Haz click en <strong>Verificar</strong> — el sistema comprobará el DNS y activará tu dominio automáticamente
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5 shrink-0" />Ingresa estos nameservers en tu registrador de dominio
               </p>
-              <p className="text-xs text-blue-600">
-                Los cambios DNS pueden tardar entre <strong>5 minutos y 48 horas</strong> en propagarse. Si falla, espera y vuelve a intentar.
+              <p className="text-xs text-blue-700">
+                En{' '}
+                <a href="https://clientes.nic.cl" target="_blank" rel="noopener noreferrer"
+                  className="underline font-semibold inline-flex items-center gap-0.5">
+                  NIC.cl <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+                {' '}→ Mis Dominios → <strong>{customDomain}</strong> → Modificar → Servidores DNS
+              </p>
+              <p className="text-xs text-blue-500">
+                Los cambios pueden tardar entre <strong>5 minutos y 24 horas</strong> en propagarse.
               </p>
             </div>
+
+            {/* Error message */}
+            {domainMsg && domainStatus === 'pending_ns' && (
+              <div className="flex items-start gap-2 text-xs p-2 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />{domainMsg}
+              </div>
+            )}
+
+            {/* Verify button */}
+            <Button type="button" onClick={verifyDns}
+              disabled={domainStatus === 'verifying'}
+              className="w-full bg-gold hover:bg-gold/90 text-white">
+              {domainStatus === 'verifying'
+                ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verificando DNS…</>
+                : 'Verificar DNS'
+              }
+            </Button>
+          </div>
+        )}
+
+        {/* ── VERIFIED ── */}
+        {domainStatus === 'verified' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-900">{customDomain}</p>
+                  <p className="text-xs text-green-700">Dominio activo y funcionando</p>
+                </div>
+              </div>
+              <button type="button" onClick={resetDomain}
+                className="text-xs text-green-700 underline hover:text-green-900">
+                Cambiar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── FAILED ── */}
+        {domainStatus === 'failed' && (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2 text-sm p-3 rounded-xl bg-red-50 border border-red-200 text-red-700">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />{domainMsg}
+            </div>
+            <button type="button" onClick={resetDomain}
+              className="text-xs text-red-600 underline">
+              Intentar con otro dominio
+            </button>
           </div>
         )}
       </div>

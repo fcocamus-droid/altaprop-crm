@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Altaprop - Importar Propiedad",
+  "version": "1.0.1",
+  "description": "Importa propiedades desde Portal Inmobiliario a Altaprop con un click",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://www.loginaltaprop.cl/*", "https://loginaltaprop.cl/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon48.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.portalinmobiliario.com/*MLC*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
