@@ -139,11 +139,14 @@ export function WebsiteConfigTab() {
       setDomainStatus('verified')
       setDomainMsg('¡Dominio activo y funcionando correctamente!')
       // Save domain + clear ns1/ns2 — null ns signals "verified" on next load
+      // Also auto-enable the site so it's immediately live for visitors
       await supabase.from('profiles').update({
         website_domain: customDomain,
         website_ns1: null,
         website_ns2: null,
+        website_enabled: true,
       } as any).eq('id', profile.id)
+      setEnabled(true)
       setNs1(''); setNs2('')
     } else {
       setDomainStatus('pending_ns')

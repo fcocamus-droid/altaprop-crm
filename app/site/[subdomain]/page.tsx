@@ -11,11 +11,14 @@ export const dynamic = 'force-dynamic'
 
 async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
+  // Do NOT filter by website_enabled here — we find the profile regardless,
+  // then decide in the page whether to show the site or a "coming soon" message.
+  // Filtering here causes 404 when the toggle is off, which is confusing for visitors
+  // arriving via a verified custom domain.
   const { data: bySubdomain } = await admin
     .from('profiles')
     .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, website_subdomain, website_domain')
     .eq('website_subdomain', subdomain)
-    .eq('website_enabled', true)
     .maybeSingle()
   if (bySubdomain) return bySubdomain
 
@@ -23,7 +26,6 @@ async function getSubscriberBySubdomain(subdomain: string) {
     .from('profiles')
     .select('id, full_name, website_enabled, website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, website_about_text, website_whatsapp, website_subdomain, website_domain')
     .eq('website_domain', subdomain)
-    .eq('website_enabled', true)
     .maybeSingle()
   return byDomain
 }
@@ -75,6 +77,25 @@ export default async function SitePage({
 }) {
   const subscriber = await getSubscriberBySubdomain(decodeURIComponent(params.subdomain))
   if (!subscriber) notFound()
+
+  // Site exists but owner has it paused — show a clean "coming soon" instead of 404
+  if (!subscriber.website_enabled) {
+    const primaryColor = subscriber.website_primary_color || '#1a2332'
+    const accentColor  = subscriber.website_accent_color  || '#c9a84c'
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center px-4"
+        style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}>
+        <div className="inline-flex h-20 w-20 items-center justify-center rounded-2xl mb-6 text-3xl font-bold"
+          style={{ background: accentColor, color: primaryColor }}>
+          A
+        </div>
+        <h1 className="text-3xl font-bold text-white mb-3">
+          {subscriber.website_hero_title || subscriber.full_name || 'Portal Inmobiliario'}
+        </h1>
+        <p className="text-white/70 text-lg">Sitio en construcción — vuelve pronto</p>
+      </div>
+    )
+  }
 
   const properties = await getSubscriberProperties(subscriber.id, {
     operation: searchParams.operation,
