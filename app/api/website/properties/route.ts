@@ -31,7 +31,20 @@ export async function GET() {
     query = query.eq('subscriber_id', subscriberId)
   }
 
-  const { data, error } = await query
+  let { data, error } = await query
+
+  // Fallback: if website_visible column doesn't exist yet, retry without it
+  if (error) {
+    let fallback = supabase
+      .from('properties')
+      .select('id, title, city, sector, status, operation, price, currency, images:property_images(url)')
+      .order('created_at', { ascending: false })
+    if (subscriberId) fallback = fallback.eq('subscriber_id', subscriberId)
+    const res = await fallback
+    data = (res.data || []).map((p: any) => ({ ...p, website_visible: true }))
+    error = res.error
+  }
+
   if (error) return NextResponse.json([], { status: 500 })
 
   return NextResponse.json(data || [])

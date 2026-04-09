@@ -30,19 +30,29 @@ async function getSubscriberBySubdomain(subdomain: string) {
 
 async function getSubscriberProperties(subscriberId: string, filters: Record<string, string | undefined>) {
   const admin = createAdminClient()
-  let query = admin
-    .from('properties')
-    .select('*, images:property_images(*)')
-    .eq('subscriber_id', subscriberId)
-    .eq('status', 'available')
-    .eq('website_visible', true)
-    .order('created_at', { ascending: false })
 
-  if (filters.operation) query = query.eq('operation', filters.operation)
-  if (filters.type) query = query.eq('type', filters.type)
-  if (filters.city) query = query.ilike('city', `%${filters.city}%`)
+  const buildQuery = (withVisibility: boolean) => {
+    let q = admin
+      .from('properties')
+      .select('*, images:property_images(*)')
+      .eq('subscriber_id', subscriberId)
+      .eq('status', 'available')
+      .order('created_at', { ascending: false })
+    if (withVisibility) q = q.eq('website_visible', true)
+    if (filters.operation) q = q.eq('operation', filters.operation)
+    if (filters.type) q = q.eq('type', filters.type)
+    if (filters.city) q = q.ilike('city', `%${filters.city}%`)
+    return q
+  }
 
-  const { data } = await query
+  let { data, error } = await buildQuery(true)
+
+  // Fallback if website_visible column doesn't exist yet
+  if (error && error.message?.includes('website_visible')) {
+    const res = await buildQuery(false)
+    data = res.data
+  }
+
   return data || []
 }
 
