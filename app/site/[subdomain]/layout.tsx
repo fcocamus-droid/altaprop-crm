@@ -2,8 +2,39 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Phone, Mail, MapPin, MessageCircle, Building2 } from 'lucide-react'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { subdomain: string }
+}): Promise<Metadata> {
+  const admin = createAdminClient()
+  const subdomain = decodeURIComponent(params.subdomain)
+
+  const { data } = await admin
+    .from('profiles')
+    .select('full_name, avatar_url, website_subdomain, website_hero_title')
+    .eq('website_subdomain', subdomain)
+    .eq('website_enabled', true)
+    .maybeSingle()
+
+  const name = data?.full_name || 'Portal Inmobiliario'
+  const favicon = data?.avatar_url || '/icon.svg'
+
+  return {
+    title: {
+      default: name,
+      template: `%s | ${name}`,
+    },
+    icons: {
+      icon: favicon,
+      apple: favicon,
+    },
+  }
+}
 
 async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
