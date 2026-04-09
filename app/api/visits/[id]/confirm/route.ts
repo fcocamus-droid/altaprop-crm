@@ -66,16 +66,44 @@ export async function POST(
     agentProfile = { full_name: profile.full_name || 'Agente Altaprop', phone: (profile as any).phone || '' }
   }
 
-  // 5. Get SUPERADMIN email via visit.subscriber_id
+  // 5. Get SUPERADMIN email + branding via visit.subscriber_id
   //    subscriber_id on a visit points to the SUPERADMIN who owns the org
   const subscriberId: string | null = (visit as any).subscriber_id || null
   let superadminEmail = ''
+  let subscriberBrand = {
+    name: 'Altaprop',
+    displayName: 'ALTAPROP',
+    logoUrl: '',
+    phone: '',
+    email: '',
+    siteUrl: 'https://altaprop-app.cl',
+    website: 'altaprop-app.cl',
+  }
 
   if (subscriberId) {
     try {
       const { data: authSuperadmin } = await admin.auth.admin.getUserById(subscriberId)
       superadminEmail = authSuperadmin?.user?.email || ''
     } catch {}
+
+    // Fetch subscriber profile for branding
+    const { data: subProfile } = await admin
+      .from('profiles')
+      .select('full_name, avatar_url, phone')
+      .eq('id', subscriberId)
+      .single()
+
+    if (subProfile?.full_name) {
+      subscriberBrand = {
+        name: subProfile.full_name,
+        displayName: subProfile.full_name.toUpperCase(),
+        logoUrl: subProfile.avatar_url || '',
+        phone: subProfile.phone || '',
+        email: superadminEmail,
+        siteUrl: siteUrl,
+        website: siteUrl.replace(/^https?:\/\//, ''),
+      }
+    }
   }
 
   // 6. Format visit date (always in Chile timezone, 24h)
@@ -109,7 +137,9 @@ export async function POST(
     agentName,
     agentPhone,
     agentEmail,
-    agentCompany: 'Alta Prop Gestión Inmobiliaria',
+    agentCompany: subscriberBrand.name,
+    companyDisplayName: subscriberBrand.displayName,
+    companyWebsite: subscriberBrand.website,
     observation: visitor.observation,
   })
 
@@ -138,7 +168,7 @@ export async function POST(
 
   // 8. Email to VISITOR
   if (visitor.email) {
-    const html = buildVisitorEmail(visitor.name, propertyTitle, visitDate, agentName, agentEmail, agentPhone, propertyUrl, visitNumber)
+    const html = buildVisitorEmail(visitor.name, propertyTitle, visitDate, agentName, agentEmail, agentPhone, propertyUrl, visitNumber, subscriberBrand)
     await sendEmail(
       visitor.email,
       `📅 Visita Confirmada — ${propertyTitle} | Orden N° ${visitNumber}`,
@@ -160,6 +190,7 @@ export async function POST(
       agentPhone,
       dashboardUrl,
       visitNumber,
+      subscriberBrand,
     )
     await sendEmail(
       agentEmail,
@@ -171,7 +202,7 @@ export async function POST(
   // 10. Email to SUPERADMIN
   if (superadminEmail) {
     const html = buildInternalEmail(
-      'Administrador',
+      subscriberBrand.name,
       'Super Admin',
       visitor,
       propertyTitle,
@@ -182,6 +213,7 @@ export async function POST(
       agentPhone,
       dashboardUrl,
       visitNumber,
+      subscriberBrand,
     )
     await sendEmail(
       superadminEmail,
@@ -191,6 +223,33 @@ export async function POST(
   }
 
   return NextResponse.json({ success: true, visitNumber })
+}
+
+// ── Subscriber brand type ─────────────────────────────────────────────────────
+interface SubscriberBrand {
+  name: string
+  displayName: string
+  logoUrl: string
+  phone: string
+  email: string
+  siteUrl: string
+  website: string
+}
+
+// ── Brand header HTML (used in both email types) ──────────────────────────────
+function buildBrandHeader(brand: SubscriberBrand, visitNumber: number): string {
+  const logoHtml = brand.logoUrl
+    ? `<img src="${brand.logoUrl}" alt="${brand.name}" style="max-height:48px;max-width:160px;object-fit:contain;display:block;" />`
+    : `<h1 style="color:#c9a84c;margin:0;font-size:24px;font-weight:800;letter-spacing:2px;">${brand.displayName}</h1>
+       <p style="color:#6b7f96;margin:4px 0 0;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Gestión Inmobiliaria</p>`
+  return `
+  <div style="background:#1a2332;padding:24px 40px;display:flex;align-items:center;justify-content:space-between;">
+    <div>${logoHtml}</div>
+    <div style="background:#c9a84c;padding:8px 18px;border-radius:8px;text-align:center;">
+      <p style="margin:0;font-size:9px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:0.5px;">Orden de Visita</p>
+      <p style="margin:0;font-size:20px;font-weight:800;color:#1a2332;">N° ${visitNumber}</p>
+    </div>
+  </div>`
 }
 
 // ── Visitor confirmation email ────────────────────────────────────────────────
@@ -203,22 +262,14 @@ function buildVisitorEmail(
   agentPhone: string,
   propertyUrl: string,
   visitNumber: number,
+  brand: SubscriberBrand,
 ): string {
   return `
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
 <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-  <div style="background:#1a2332;padding:28px 40px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <h1 style="color:#c9a84c;margin:0;font-size:26px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-      <p style="color:#6b7f96;margin:4px 0 0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Gestión Inmobiliaria</p>
-    </div>
-    <div style="background:#c9a84c;padding:8px 18px;border-radius:8px;text-align:center;">
-      <p style="margin:0;font-size:9px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:0.5px;">Orden de Visita</p>
-      <p style="margin:0;font-size:20px;font-weight:800;color:#1a2332;">N° ${visitNumber}</p>
-    </div>
-  </div>
+  ${buildBrandHeader(brand, visitNumber)}
 
   <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-bottom:3px solid #22c55e;padding:32px 40px;text-align:center;">
     <div style="font-size:52px;margin-bottom:12px;">📅</div>
@@ -255,11 +306,11 @@ function buildVisitorEmail(
     <div style="text-align:center;margin:0 0 28px;">
       <a href="${propertyUrl}" style="background:#1a2332;color:#c9a84c;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;">Ver Propiedad →</a>
     </div>
-    <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">¡Te esperamos en la visita!<br><strong style="color:#1a2332;">El equipo de Altaprop</strong></p>
+    <p style="color:#64748b;font-size:14px;line-height:1.6;text-align:center;margin:0;">¡Te esperamos en la visita!<br><strong style="color:#1a2332;">El equipo de ${brand.name}</strong></p>
   </div>
 
   <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 40px;text-align:center;">
-    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a></p>
+    <p style="color:#94a3b8;font-size:12px;margin:0;"><a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a></p>
   </div>
 </div>
 </body></html>`
@@ -278,6 +329,7 @@ function buildInternalEmail(
   agentPhone: string,
   dashboardUrl: string,
   visitNumber: number,
+  brand: SubscriberBrand,
 ): string {
   const operationLabel = property?.operation === 'arriendo' ? 'Arriendo' : property?.operation === 'venta' ? 'Venta' : property?.operation || ''
   return `
@@ -286,23 +338,14 @@ function buildInternalEmail(
 <div style="max-width:620px;margin:32px auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
   <!-- Header -->
-  <div style="background:#1a2332;padding:24px 36px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <h1 style="color:#c9a84c;margin:0;font-size:24px;font-weight:800;letter-spacing:2px;">ALTAPROP</h1>
-      <p style="color:#6b7f96;margin:4px 0 0;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Gestión Inmobiliaria — Uso Interno</p>
-    </div>
-    <div style="background:#c9a84c;padding:7px 16px;border-radius:8px;text-align:center;">
-      <p style="margin:0;font-size:8px;font-weight:700;color:#1a2332;text-transform:uppercase;letter-spacing:0.5px;">Orden de Visita</p>
-      <p style="margin:0;font-size:22px;font-weight:800;color:#1a2332;">N° ${visitNumber}</p>
-    </div>
-  </div>
+  ${buildBrandHeader(brand, visitNumber)}
 
   <!-- Alert band -->
   <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-bottom:3px solid #3b82f6;padding:24px 36px;display:flex;align-items:center;gap:16px;">
     <div style="font-size:44px;">📋</div>
     <div>
       <h2 style="color:#1e3a5f;margin:0;font-size:20px;font-weight:700;">Nueva Orden de Visita Confirmada</h2>
-      <p style="color:#1d4ed8;margin:6px 0 0;font-size:14px;">Se ha confirmado una visita en tu organización — <strong>${recipientRole}</strong></p>
+      <p style="color:#1d4ed8;margin:6px 0 0;font-size:14px;">Se ha confirmado una visita en <strong>${brand.name}</strong> — <strong>${recipientRole}</strong></p>
     </div>
   </div>
 
@@ -362,7 +405,7 @@ function buildInternalEmail(
   </div>
 
   <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 36px;text-align:center;">
-    <p style="color:#94a3b8;font-size:11px;margin:0;">Correo de uso interno — <a href="https://altaprop-app.cl" style="color:#94a3b8;text-decoration:none;">altaprop-app.cl</a></p>
+    <p style="color:#94a3b8;font-size:11px;margin:0;">Correo de uso interno — <a href="${brand.siteUrl}" style="color:#94a3b8;text-decoration:none;">${brand.website}</a></p>
   </div>
 </div>
 </body></html>`

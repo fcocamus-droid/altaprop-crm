@@ -74,6 +74,9 @@ export interface VisitPdfData {
   agentPhone: string
   agentEmail: string
   agentCompany: string
+  // Subscriber branding (optional — defaults to Altaprop)
+  companyDisplayName?: string   // short name shown in header badge area
+  companyWebsite?: string       // shown in footer
   // Extras
   observation: string
 }
@@ -94,11 +97,12 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
     // ── HEADER BACKGROUND ──────────────────────────────────────────────────
     fillRect(doc, 0, 0, PW, 90, NAVY)
 
-    // Logo text
+    // Logo text — use subscriber company name if provided
+    const headerName = (data.companyDisplayName || 'ALTAPROP').toUpperCase()
     doc.font('Helvetica-Bold').fontSize(22).fillColor(GOLD)
-       .text('ALTAPROP', M, 22, { width: 200, align: 'left' })
+       .text(headerName, M, 22, { width: 260, align: 'left' })
     doc.font('Helvetica').fontSize(8).fillColor('#8ca0b5')
-       .text('GESTIÓN INMOBILIARIA', M, 48, { width: 200, align: 'left' })
+       .text('GESTIÓN INMOBILIARIA', M, 48, { width: 260, align: 'left' })
 
     // Visit number badge (top right)
     const badgeX = PW - M - 140
@@ -188,8 +192,9 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
        .text('DECLARACIÓN', M + 10, y + 6, { width: CW })
     y += 22
 
+    const companyForDecl = data.agentCompany || 'Alta Prop Gestión Inmobiliaria'
     const declText =
-      'El visitante declara haber conocido la propiedad a través de Alta Prop Gestión Inmobiliaria ' +
+      `El visitante declara haber conocido la propiedad a través de ${companyForDecl} ` +
       'y se compromete a no realizar negociaciones directas con el propietario sin la intermediación del corredor de propiedades.'
 
     fillRect(doc, M, y, CW, 52, '#fffbeb')
@@ -243,9 +248,11 @@ export async function generateVisitPdf(data: VisitPdfData): Promise<Buffer> {
        .text(data.agentName, sigRx, sigY + 14, { width: halfW, align: 'center' })
 
     // ── FOOTER ─────────────────────────────────────────────────────────────
+    const footerCompany = data.agentCompany || 'Alta Prop Gestión Inmobiliaria'
+    const footerSite    = data.companyWebsite || 'altaprop-app.cl'
     fillRect(doc, 0, PH - 30, PW, 30, NAVY)
     doc.font('Helvetica').fontSize(7.5).fillColor('#8ca0b5')
-       .text('Alta Prop Gestión Inmobiliaria  |  altaprop-app.cl', 0, PH - 19, { width: PW, align: 'center' })
+       .text(`${footerCompany}  |  ${footerSite}`, 0, PH - 19, { width: PW, align: 'center' })
 
     doc.end()
   })
