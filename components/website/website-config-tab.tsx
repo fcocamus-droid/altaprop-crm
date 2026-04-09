@@ -184,6 +184,10 @@ export function WebsiteConfigTab() {
 
   const subdomainChanged = subdomain !== (profile?.website_subdomain ?? '')
   const siteUrl = subdomain ? `https://${subdomain}.${APP_DOMAIN}` : null
+  // Active URL: custom domain takes priority over subdomain
+  const activeSiteUrl = (domainStatus === 'verified' && customDomain)
+    ? `https://${customDomain}`
+    : siteUrl
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -205,6 +209,17 @@ export function WebsiteConfigTab() {
               ? 'Tu sitio está activo y visible para el público'
               : 'Tu sitio está desactivado — nadie puede verlo'}
           </p>
+          {enabled && activeSiteUrl && (
+            <a
+              href={activeSiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Ir al sitio web
+            </a>
+          )}
         </div>
         <button
           type="button"
@@ -376,10 +391,20 @@ export function WebsiteConfigTab() {
                   <p className="text-xs text-green-700">Dominio activo y funcionando</p>
                 </div>
               </div>
-              <button type="button" onClick={resetDomain}
-                className="text-xs text-green-700 underline hover:text-green-900">
-                Cambiar
-              </button>
+              <div className="flex items-center gap-3">
+                <a
+                  href={`https://${customDomain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-green-700 font-semibold underline hover:text-green-900 inline-flex items-center gap-1"
+                >
+                  Ir al sitio <ExternalLink className="h-3 w-3" />
+                </a>
+                <button type="button" onClick={resetDomain}
+                  className="text-xs text-green-700 underline hover:text-green-900">
+                  Cambiar
+                </button>
+              </div>
             </div>
           </div>
         )}
