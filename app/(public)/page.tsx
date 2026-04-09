@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { PricingCards } from '@/components/pricing/pricing-cards'
-import { Building2, Users, FileText, Zap, Shield, BarChart3, ArrowRight } from 'lucide-react'
+import { Building2, Users, FileText, Zap, Shield, BarChart3, ArrowRight, Home } from 'lucide-react'
 
 export default async function HomePage() {
   return (
@@ -70,6 +70,26 @@ export default async function HomePage() {
             <p className="text-muted-foreground max-w-2xl mx-auto">Elige el plan que mejor se adapte a tu inmobiliaria. Cambia de plan cuando quieras.</p>
           </div>
           <PricingCards mode="landing" />
+        </div>
+      </section>
+
+      {/* Propietarios CTA */}
+      <section className="py-16 bg-gradient-to-r from-gold/5 to-gold/10 border-y border-gold/20">
+        <div className="container">
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-8">
+            <div className="w-16 h-16 bg-gold/20 rounded-2xl flex items-center justify-center shrink-0">
+              <Home className="h-8 w-8 text-gold-dark" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">¿Eres propietario?</h2>
+              <p className="text-muted-foreground max-w-xl">
+                Publica gratis tu propiedad y conecta con la red de agentes inmobiliarios de Altaprop. Sin costos, sin complicaciones.
+              </p>
+            </div>
+            <Button asChild size="lg" className="bg-gold text-navy hover:bg-gold/90 font-semibold shrink-0">
+              <Link href="/registro-propietario"><Home className="mr-2 h-5 w-5" />Publica Gratis</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
