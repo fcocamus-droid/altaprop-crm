@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  try {
+  const cleanDomain = domain.toLowerCase().trim()
+  const wwwDomain   = `www.${cleanDomain}`
+
+  async function registerOne(d: string): Promise<boolean> {
     const res = await fetch(
       `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`,
       {
@@ -40,21 +43,26 @@ export async function POST(request: NextRequest) {
           Authorization: `Bearer ${VERCEL_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: domain.toLowerCase().trim() }),
+        body: JSON.stringify({ name: d }),
       }
     )
-
     const data = await res.json()
+    if (res.ok || data.error?.code === 'domain_already_in_use') return true
+    console.error(`Vercel domain registration error for ${d}:`, data)
+    return false
+  }
 
-    if (res.ok || data.error?.code === 'domain_already_in_use') {
-      // domain_already_in_use means it's already registered — that's fine
-      return NextResponse.json({ registered: true })
+  try {
+    // Register root domain AND www subdomain so both work
+    const [rootOk, wwwOk] = await Promise.all([registerOne(cleanDomain), registerOne(wwwDomain)])
+
+    if (rootOk) {
+      return NextResponse.json({ registered: true, www: wwwOk })
     }
 
-    console.error('Vercel domain registration error:', data)
     return NextResponse.json({
       registered: false,
-      message: data.error?.message || 'No se pudo registrar el dominio. Intenta de nuevo.',
+      message: 'No se pudo registrar el dominio en el servidor. Intenta de nuevo.',
     })
   } catch (e: any) {
     console.error('Vercel API error:', e)

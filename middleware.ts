@@ -48,7 +48,9 @@ export async function middleware(request: NextRequest) {
       }
     } else {
       // Custom domain: mipropiedades.cl → /site/mipropiedades.cl
-      sitePath = `/site/${encodeURIComponent(host)}`
+      // Strip www prefix so www.mipropiedades.cl routes to the same site as mipropiedades.cl
+      const customHost = host.startsWith('www.') ? host.slice(4) : host
+      sitePath = `/site/${encodeURIComponent(customHost)}`
     }
 
     if (sitePath) {

@@ -85,7 +85,15 @@ export function WebsiteConfigTab() {
   }, [subdomain, checkSubdomain])
 
   async function verifyAndRegisterDomain() {
-    if (!customDomain) return
+    if (!customDomain || !profile) return
+
+    // Reject domains with www prefix — user should enter root domain only
+    if (customDomain.startsWith('www.')) {
+      setDomainStatus('failed')
+      setDomainMsg('Ingresa el dominio sin "www" (ej: mipropiedades.cl). El www se agrega automáticamente.')
+      return
+    }
+
     setDomainStatus('checking')
 
     // 1. Check DNS propagation
@@ -98,7 +106,7 @@ export function WebsiteConfigTab() {
       return
     }
 
-    // 2. Register domain in Vercel automatically
+    // 2. Register domain in Vercel automatically (root + www)
     const regRes = await fetch('/api/website/register-domain', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -106,12 +114,21 @@ export function WebsiteConfigTab() {
     })
     const regData = await regRes.json()
 
-    if (regData.registered) {
+    if (regData.registered || regData.manual) {
       setDomainStatus('verified')
-      setDomainMsg('¡Dominio verificado y activado! Puede tardar unos minutos en estar disponible.')
-    } else if (regData.manual) {
-      setDomainStatus('verified')
-      setDomainMsg('DNS verificado. ' + regData.message)
+      setDomainMsg(
+        regData.manual
+          ? 'DNS verificado. ' + regData.message
+          : '¡Dominio verificado y activado! Puede tardar unos minutos en estar disponible.'
+      )
+
+      // ── AUTO-SAVE: persist website_domain to DB so middleware can route correctly ──
+      await supabase
+        .from('profiles')
+        .update({ website_domain: customDomain })
+        .eq('id', profile.id)
+
+      router.refresh()
     } else {
       setDomainStatus('failed')
       setDomainMsg(regData.message || 'DNS verificado pero no se pudo activar. Intenta guardar primero.')
@@ -234,11 +251,12 @@ export function WebsiteConfigTab() {
       {/* ── CUSTOM DOMAIN ── */}
       <div className="space-y-3">
         <Label className="text-sm font-semibold">Dominio personalizado <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+        <p className="text-xs text-muted-foreground -mt-1">Ingresa el dominio <strong>sin www</strong> (ej: mipropiedades.cl). Agrega el registro A en tu proveedor DNS.</p>
         <div className="flex gap-2">
           <Input
             placeholder="mipropiedades.cl"
             value={customDomain}
-            onChange={e => { setCustomDomain(e.target.value.toLowerCase().trim()); setDomainStatus('idle') }}
+            onChange={e => { setCustomDomain(e.target.value.toLowerCase().trim().replace(/^www\./, '')); setDomainStatus('idle') }}
             className="flex-1"
           />
           <Button type="button" variant="outline" size="sm" onClick={verifyAndRegisterDomain}
@@ -277,17 +295,17 @@ export function WebsiteConfigTab() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    <tr>
+                    <tr className="bg-green-50">
                       <td className="px-3 py-2 text-blue-900 font-bold">A</td>
                       <td className="px-3 py-2 text-blue-900">@</td>
                       <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_IP}</td>
-                      <td className="px-3 py-2 text-blue-600">{customDomain}</td>
+                      <td className="px-3 py-2 text-green-700 font-semibold">{customDomain} ✓ requerido</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2 text-blue-900 font-bold">CNAME</td>
                       <td className="px-3 py-2 text-blue-900">www</td>
                       <td className="px-3 py-2 text-blue-900 select-all">{VERCEL_CNAME}</td>
-                      <td className="px-3 py-2 text-blue-600">www.{customDomain}</td>
+                      <td className="px-3 py-2 text-blue-400">www.{customDomain} (opcional)</td>
                     </tr>
                   </tbody>
                 </table>
