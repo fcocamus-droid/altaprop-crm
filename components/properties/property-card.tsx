@@ -1,5 +1,8 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState } from 'react'
 import { Bed, Bath, Maximize, MapPin } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,20 +10,22 @@ import { formatPrice } from '@/lib/utils'
 import type { Property } from '@/types'
 
 export function PropertyCard({ property }: { property: Property }) {
-  const mainImage = property.images?.[0]?.url || '/placeholder-property.jpg'
+  const mainImage = property.images?.[0]?.url || ''
   const operationLabel = property.operation === 'arriendo' ? 'Arriendo' : 'Venta'
+  const [imgError, setImgError] = useState(false)
 
   return (
     <Link href={`/propiedades/${property.id}`}>
       <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
         <div className="relative aspect-[4/3] overflow-hidden">
           <div className="absolute inset-0 bg-navy/20 z-10" />
-          {property.images && property.images.length > 0 ? (
+          {property.images && property.images.length > 0 && !imgError ? (
             <Image
               src={mainImage}
               alt={property.title}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-navy/10 to-gold/10 flex items-center justify-center">

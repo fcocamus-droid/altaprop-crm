@@ -26,6 +26,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.imgix.net',
       },
+      {
+        protocol: 'https',
+        hostname: '**.prop360.cl',
+      },
     ],
   },
 }
