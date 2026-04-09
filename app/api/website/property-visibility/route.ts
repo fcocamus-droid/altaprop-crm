@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 
 export async function PATCH(request: NextRequest) {
   const supabase = createClient()
@@ -41,5 +42,6 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  revalidatePath('/dashboard/propiedades')
   return NextResponse.json({ ok: true })
 }

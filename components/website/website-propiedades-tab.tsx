@@ -1,9 +1,10 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Search, Home, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Search, Home, Loader2, Eye, EyeOff, AlertCircle, Pencil } from 'lucide-react'
 
 function fmtPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price.toFixed(0)} UF`
@@ -170,6 +171,14 @@ export function WebsitePropiedadesTab() {
                   </div>
                 </div>
 
+                {/* Edit link */}
+                <Link
+                  href={`/dashboard/propiedades/${p.id}`}
+                  title="Editar propiedad"
+                  className="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Link>
                 {/* Visibility badge */}
                 <div className="shrink-0 flex items-center gap-2">
                   {p.website_visible

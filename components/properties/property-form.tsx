@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PROPERTY_TYPES, OPERATION_TYPES, CURRENCIES } from '@/lib/constants'
 import { createProperty, updateProperty } from '@/lib/actions/properties'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, Upload, X } from 'lucide-react'
+import { Loader2, Upload, X, Globe } from 'lucide-react'
 import type { Property } from '@/types'
 
 const MAX_IMAGES = 20
@@ -26,6 +26,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
   const [selectedImages, setSelectedImages] = useState<File[]>([])
   const router = useRouter()
   const isEditing = !!property
+  const [websiteVisible, setWebsiteVisible] = useState(property?.website_visible !== false)
 
   async function compressImage(file: File): Promise<File> {
     if (!file.type.startsWith('image/')) return file
@@ -239,6 +240,38 @@ export function PropertyForm({ property }: PropertyFormProps) {
             )}
           </CardContent>
         </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-gold" />
+              Publicación en Sitio Web
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <input type="hidden" name="website_visible" value={websiteVisible.toString()} />
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Mostrar en el sitio web público</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {websiteVisible
+                    ? 'Esta propiedad aparece en tu sitio web si el sitio está activo.'
+                    : 'Esta propiedad está oculta y no aparece en tu sitio web.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWebsiteVisible(v => !v)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  websiteVisible ? 'bg-gold' : 'bg-gray-300'
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${websiteVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
       <div className="flex justify-end gap-3 mt-6">

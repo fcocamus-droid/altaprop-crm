@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty } from '@/lib/actions/properties'
+import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty, updatePropertyWebsiteVisibility } from '@/lib/actions/properties'
 import { notifyAgentAssignment } from '@/lib/actions/agent-notify'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail, Globe, GlobeLock } from 'lucide-react'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -33,6 +33,7 @@ interface Property {
   agent_id: string | null
   agent?: { id: string; full_name: string | null } | null
   images?: { url: string }[]
+  website_visible?: boolean | null
 }
 
 export function PropertyList({ properties: initialProperties, agents = [], currentUserRole = '' }: { properties: Property[]; agents?: Agent[]; currentUserRole?: string }) {
@@ -107,6 +108,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
 
   const [notifyingAgent, setNotifyingAgent] = useState<string | null>(null)
   const [notifySuccess, setNotifySuccess] = useState<string | null>(null)
+  const [togglingWeb, setTogglingWeb] = useState<string | null>(null)
 
   const handleNotifyAgent = async (propertyId: string, agentId: string) => {
     setNotifyingAgent(propertyId)
@@ -118,6 +120,16 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
       setNotifySuccess(propertyId)
       setTimeout(() => setNotifySuccess(null), 3000)
     }
+  }
+
+  const handleToggleWebVisibility = async (id: string, current: boolean) => {
+    setTogglingWeb(id)
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, website_visible: !current } : p))
+    const result = await updatePropertyWebsiteVisibility(id, !current)
+    if (result?.error) {
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, website_visible: current } : p))
+    }
+    setTogglingWeb(null)
   }
 
   const handleDelete = async (id: string, title: string) => {
@@ -274,6 +286,12 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                       <option value="sold">🏆 Vendida</option>
                     </select>
                   </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {property.website_visible !== false
+                      ? <><Globe className="h-3 w-3 text-gold" /><span className="text-[10px] text-gold font-medium">En sitio web</span></>
+                      : <><GlobeLock className="h-3 w-3 text-muted-foreground" /><span className="text-[10px] text-muted-foreground">Oculta del sitio</span></>
+                    }
+                  </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <UserCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     {agents.length > 0 && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') ? (
@@ -324,6 +342,24 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  title={property.website_visible !== false ? 'Ocultar del sitio web' : 'Mostrar en sitio web'}
+                  disabled={togglingWeb === property.id}
+                  onClick={() => handleToggleWebVisibility(property.id, property.website_visible !== false)}
+                  className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors disabled:opacity-50 ${
+                    property.website_visible !== false
+                      ? 'border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100'
+                      : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  {togglingWeb === property.id
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : property.website_visible !== false
+                      ? <Globe className="h-3.5 w-3.5" />
+                      : <GlobeLock className="h-3.5 w-3.5" />
+                  }
+                </button>
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/dashboard/propiedades/${property.id}`}>
                     <Pencil className="mr-2 h-3 w-3" />Editar
