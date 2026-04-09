@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { MessageCircle, ChevronRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()

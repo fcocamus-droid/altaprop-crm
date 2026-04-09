@@ -7,7 +7,7 @@ import { Bed, Bath, Maximize, MapPin, Calendar, MessageCircle, ArrowLeft, Phone 
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Phone, Mail, MapPin, MessageCircle, Building2 } from 'lucide-react'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 async function getSubscriberBySubdomain(subdomain: string) {
   const admin = createAdminClient()
