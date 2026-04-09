@@ -56,9 +56,19 @@ export function WebsiteConfigTab() {
     setEnabled(profile.website_enabled ?? false)
     setSubdomain(profile.website_subdomain ?? '')
     setCustomDomain(profile.website_domain ?? '')
-    setNs1((profile as any).website_ns1 ?? '')
-    setNs2((profile as any).website_ns2 ?? '')
-    if ((profile as any).website_ns1) setDomainStatus('pending_ns')
+    const savedNs1 = (profile as any).website_ns1 ?? ''
+    const savedNs2 = (profile as any).website_ns2 ?? ''
+    setNs1(savedNs1)
+    setNs2(savedNs2)
+    // Derive domain status from DB:
+    // - domain set + ns1 null  → verified (ns cleared after successful verification)
+    // - domain set + ns1 set   → pending_ns (waiting for propagation)
+    // - no domain              → idle
+    if ((profile as any).website_domain) {
+      setDomainStatus(savedNs1 ? 'pending_ns' : 'verified')
+    } else {
+      setDomainStatus('idle')
+    }
     setPrimaryColor(profile.website_primary_color ?? '#1a2332')
     setAccentColor(profile.website_accent_color ?? '#c9a84c')
     setHeroTitle(profile.website_hero_title ?? '')
@@ -128,20 +138,32 @@ export function WebsiteConfigTab() {
     if (data.verified) {
       setDomainStatus('verified')
       setDomainMsg('¡Dominio activo y funcionando correctamente!')
-      // Ensure domain is saved in DB for middleware routing
-      await supabase.from('profiles').update({ website_domain: customDomain } as any).eq('id', profile.id)
-      router.refresh()
+      // Save domain + clear ns1/ns2 — null ns signals "verified" on next load
+      await supabase.from('profiles').update({
+        website_domain: customDomain,
+        website_ns1: null,
+        website_ns2: null,
+      } as any).eq('id', profile.id)
+      setNs1(''); setNs2('')
     } else {
       setDomainStatus('pending_ns')
       setDomainMsg(data.reason || 'DNS aún no propagado. Espera unos minutos y vuelve a intentar.')
     }
   }
 
-  function resetDomain() {
+  async function resetDomain() {
     setCustomDomain('')
     setNs1(''); setNs2('')
     setDomainStatus('idle')
     setDomainMsg('')
+    // Clear domain + ns from DB so page reload shows idle state
+    if (profile) {
+      await supabase.from('profiles').update({
+        website_domain: null,
+        website_ns1: null,
+        website_ns2: null,
+      } as any).eq('id', profile.id)
+    }
   }
 
   async function handleSave() {
