@@ -595,6 +595,17 @@ function buildOwnerApprovalEmail(ownerName: string, applicantName: string, prope
   `
 }
 
+export async function archiveApplication(id: string, archived: boolean) {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('applications')
+    .update({ archived } as any)
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/postulaciones')
+  return { success: true }
+}
+
 export async function deleteApplication(id: string) {
   const supabase = createClient()
 

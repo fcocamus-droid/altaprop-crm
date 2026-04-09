@@ -32,6 +32,17 @@ const nextConfig = {
       },
     ],
   },
+  // Allow subscriber custom domains to serve the Next.js app
+  // Add any known custom domains here, or use a wildcard approach via Vercel
+  async headers() {
+    return [
+      {
+        // Allow subscriber site pages to be iframed for preview purposes
+        source: '/site/:path*',
+        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

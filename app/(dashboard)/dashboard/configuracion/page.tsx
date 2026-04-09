@@ -13,6 +13,7 @@ import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark, Globe } from 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 import { MLConnectButton } from '@/components/portals/ml-connect-button'
+import { WebsiteConfigCard } from '@/components/website/website-config-card'
 
 export default function ConfiguracionPage() {
   const { profile, loading: profileLoading } = useUser()
@@ -320,6 +321,9 @@ export default function ConfiguracionPage() {
         )}
 
         {/* PORTALES DE PUBLICACIÓN — hidden */}
+
+        {/* WEBSITE CONFIG CARD — visible for SUPERADMIN and SUPERADMINBOSS */}
+        <WebsiteConfigCard />
 
         {/* BANK ACCOUNT CARD — visible for PROPIETARIO, POSTULANTE, SUPERADMIN, SUPERADMINBOSS */}
         {['PROPIETARIO', 'POSTULANTE', 'SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (

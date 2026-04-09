@@ -30,6 +30,16 @@ export interface Profile {
   ml_refresh_token?: string | null
   ml_token_expires_at?: string | null
   ml_connected_at?: string | null
+  // Subscriber website builder
+  website_subdomain?: string | null
+  website_domain?: string | null
+  website_enabled?: boolean
+  website_primary_color?: string | null
+  website_accent_color?: string | null
+  website_hero_title?: string | null
+  website_hero_subtitle?: string | null
+  website_about_text?: string | null
+  website_whatsapp?: string | null
 }
 
 export interface PaymentReceipt {

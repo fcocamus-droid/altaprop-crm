@@ -63,3 +63,44 @@ export async function deleteVisit(visitId: string) {
   revalidatePath('/dashboard/visitas')
   return { success: true }
 }
+
+// ─── Aliases used by visit-management component ───────────────────────────
+
+export async function updateVisitRequest(
+  visitId: string,
+  data: { status?: string; scheduledDate?: string; scheduledTime?: string }
+) {
+  const profile = await getUserProfile()
+  if (!profile || !isPropertyManager(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+  const supabase = createClient()
+  const updates: Record<string, unknown> = {}
+  if (data.status) updates.status = data.status
+  if (data.scheduledDate && data.scheduledTime) {
+    updates.scheduled_at = `${data.scheduledDate}T${data.scheduledTime}:00`
+  }
+  const { error } = await supabase.from('visits').update(updates).eq('id', visitId)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/visitas')
+  return { success: true }
+}
+
+export async function deleteVisitRequest(visitId: string) {
+  return deleteVisit(visitId)
+}
+
+export async function assignVisitAgent(visitId: string, agentId: string | null) {
+  const profile = await getUserProfile()
+  if (!profile || !isPropertyManager(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('visits')
+    .update({ agent_id: agentId } as any)
+    .eq('id', visitId)
+  if (error) return { error: error.message }
+  revalidatePath('/dashboard/visitas')
+  return { success: true }
+}
