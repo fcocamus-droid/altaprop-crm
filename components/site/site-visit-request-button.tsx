@@ -5,7 +5,7 @@ import {
   CalendarDays, Clock, User, Mail, Phone, FileText,
   CheckCircle, Loader2, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
-import { formatRut } from '@/lib/validations/chilean-formats'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 const TIME_SLOTS = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -27,12 +27,25 @@ export function SiteVisitRequestButton({ propertyId, primaryColor, accentColor }
   const [calMonth, setCalMonth]       = useState(new Date())
   const [blockedSlots, setBlockedSlots] = useState<Set<string>>(new Set())
   const [blockedDays, setBlockedDays]   = useState<Set<string>>(new Set())
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading]         = useState(false)
   const [success, setSuccess]         = useState(false)
   const [error, setError]             = useState('')
 
   function set(field: string, value: string) {
-    setForm(p => ({ ...p, [field]: field === 'rut' ? formatRut(value) : value }))
+    let formatted = value
+    if (field === 'rut')   formatted = formatRut(value)
+    if (field === 'phone') formatted = formatPhone(value)
+    setForm(p => ({ ...p, [field]: formatted }))
+    if (fieldErrors[field]) setFieldErrors(p => ({ ...p, [field]: '' }))
+  }
+
+  function validate() {
+    const errs: Record<string, string> = {}
+    if (form.rut && !validateRut(form.rut))       errs.rut   = 'RUT inválido'
+    if (form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d }, [])
@@ -88,6 +101,7 @@ export function SiteVisitRequestButton({ propertyId, primaryColor, accentColor }
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.fullName || !form.email) { setError('Nombre y email son obligatorios'); return }
+    if (!validate()) return
     if (!selectedDate) { setError('Selecciona una fecha'); return }
     if (!selectedTime) { setError('Selecciona una hora'); return }
 
@@ -174,8 +188,9 @@ export function SiteVisitRequestButton({ propertyId, primaryColor, accentColor }
               <input
                 value={form.rut} onChange={e => set('rut', e.target.value)}
                 placeholder="12.345.678-9" maxLength={12}
-                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
+                className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.rut ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
               />
+              {fieldErrors.rut && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.rut}</p>}
             </div>
             <div>
               <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
@@ -184,8 +199,9 @@ export function SiteVisitRequestButton({ propertyId, primaryColor, accentColor }
               <input
                 value={form.phone} onChange={e => set('phone', e.target.value)}
                 placeholder="+56 9 1234 5678"
-                className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
+                className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.phone ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
               />
+              {fieldErrors.phone && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.phone}</p>}
             </div>
           </div>
           <div>

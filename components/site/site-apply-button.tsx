@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { User, Mail, Phone, FileText, MessageSquare, CheckCircle, Loader2, ChevronRight, X } from 'lucide-react'
-import { formatRut } from '@/lib/validations/chilean-formats'
+import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
 
 interface Props {
   propertyId: string
@@ -11,19 +11,34 @@ interface Props {
 }
 
 export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props) {
-  const [open, setOpen]   = useState(false)
-  const [form, setForm]   = useState({ fullName: '', rut: '', email: '', phone: '', message: '' })
+  const [open, setOpen]       = useState(false)
+  const [form, setForm]       = useState({ fullName: '', rut: '', email: '', phone: '', message: '' })
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError]     = useState('')
 
   function set(field: string, value: string) {
-    setForm(p => ({ ...p, [field]: field === 'rut' ? formatRut(value) : value }))
+    let formatted = value
+    if (field === 'rut')   formatted = formatRut(value)
+    if (field === 'phone') formatted = formatPhone(value)
+    setForm(p => ({ ...p, [field]: formatted }))
+    // Clear field error on change
+    if (fieldErrors[field]) setFieldErrors(p => ({ ...p, [field]: '' }))
+  }
+
+  function validate() {
+    const errs: Record<string, string> = {}
+    if (form.rut && !validateRut(form.rut))     errs.rut   = 'RUT inválido'
+    if (form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.fullName || !form.email) { setError('Nombre y email son obligatorios'); return }
+    if (!validate()) return
 
     setLoading(true); setError('')
     try {
@@ -70,7 +85,6 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
 
   return (
     <div className="rounded-xl border-2 p-4 space-y-4" style={{ borderColor: primaryColor + '40' }}>
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: primaryColor }}>
           <User className="h-4 w-4" style={{ color: accentColor }} />
@@ -103,8 +117,9 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
             <input
               value={form.rut} onChange={e => set('rut', e.target.value)}
               placeholder="12.345.678-9" maxLength={12}
-              className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
+              className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.rut ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
             />
+            {fieldErrors.rut && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.rut}</p>}
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
@@ -113,8 +128,9 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
             <input
               value={form.phone} onChange={e => set('phone', e.target.value)}
               placeholder="+56 9 1234 5678"
-              className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
+              className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.phone ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
             />
+            {fieldErrors.phone && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.phone}</p>}
           </div>
         </div>
 
