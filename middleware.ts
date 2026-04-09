@@ -2,16 +2,10 @@ import { updateSession } from '@/lib/supabase/middleware'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
-// Main domain stripped of protocol and www (e.g. "altaprop-app.cl")
-const MAIN_DOMAIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl')
-  .replace(/^https?:\/\//, '')
-  .replace(/^www\./i, '')
-  .replace(/\/$/, '')
-  .trim()
-  .toLowerCase()
-
-// Both the bare domain and www variant are "main" — never route them to subscriber sites
-const MAIN_DOMAIN_WWW = `www.${MAIN_DOMAIN}`
+// ─── Main platform domain (hardcoded for reliability in Edge Runtime) ─────────
+// These two hosts are NEVER routed to subscriber sites
+const MAIN_DOMAIN     = 'altaprop-app.cl'
+const MAIN_DOMAIN_WWW = 'www.altaprop-app.cl'
 
 // Subdomains reserved for the platform itself (never route to subscriber sites)
 const RESERVED_SUBDOMAINS = new Set(['www', 'api', 'admin', 'app', 'dashboard', 'staging', 'dev'])

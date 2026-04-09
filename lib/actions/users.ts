@@ -164,3 +164,47 @@ export async function deleteUser(userId: string) {
   revalidatePath('/dashboard/usuarios')
   return { success: true }
 }
+
+export async function assignPropietarioToSubscriber(
+  propietarioId: string,
+  subscriberId: string | null
+) {
+  const profile = await getUserProfile()
+  if (!profile || profile.role !== ROLES.SUPERADMINBOSS) {
+    return { error: 'No autorizado' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('profiles')
+    .update({ subscriber_id: subscriberId })
+    .eq('id', propietarioId)
+    .eq('role', 'PROPIETARIO')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/base-propietarios')
+  return { success: true }
+}
+
+export async function assignPropietarioAgent(
+  propietarioId: string,
+  agentId: string | null
+) {
+  const profile = await getUserProfile()
+  if (!profile || !isAdmin(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('profiles')
+    .update({ agent_id: agentId } as any)
+    .eq('id', propietarioId)
+    .eq('role', 'PROPIETARIO')
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/base-propietarios')
+  return { success: true }
+}
