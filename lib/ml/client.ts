@@ -265,14 +265,19 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   // PARKING_LOTS is required; hint says "Si no tiene estacionamientos, indica 0"
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
-  // Area attributes — use value_struct for value_type:"number_unit"
-  if (property.total_area != null) {
-    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: property.total_area, unit: 'm²' } })
-    // LAND_AREA required; for apartments use total_area as approximation
-    attributes.push({ id: 'LAND_AREA',   value_struct: { number: property.total_area, unit: 'm²' } })
+  // Area attributes — TOTAL_AREA, COVERED_AREA, LAND_AREA are required for all
+  // real-estate classified categories. Use cross-fallbacks so they're always sent
+  // when at least one area value is available.
+  const effectiveTotalArea   = property.total_area   ?? property.covered_area
+  const effectiveCoveredArea = property.covered_area ?? property.total_area
+
+  if (effectiveTotalArea != null) {
+    attributes.push({ id: 'TOTAL_AREA', value_struct: { number: effectiveTotalArea, unit: 'm²' } })
+    // LAND_AREA is also required; for apartments/offices use total_area as proxy
+    attributes.push({ id: 'LAND_AREA',  value_struct: { number: effectiveTotalArea, unit: 'm²' } })
   }
-  if (property.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_struct: { number: property.covered_area, unit: 'm²' } })
+  if (effectiveCoveredArea != null) {
+    attributes.push({ id: 'COVERED_AREA', value_struct: { number: effectiveCoveredArea, unit: 'm²' } })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────

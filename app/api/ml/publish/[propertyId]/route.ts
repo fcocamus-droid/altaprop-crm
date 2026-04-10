@@ -106,6 +106,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Map property images
     const images = (property.images || []).map((img: { url: string }) => ({ url: img.url }))
 
+    // Resolve area values — sqm = total area, covered_sqm = covered area
+    const totalArea: number | null = property.sqm ?? null
+    const coveredArea: number | null = (property as any).covered_sqm ?? property.sqm ?? null
+
+    // ML requires TOTAL_AREA, COVERED_AREA, LAND_AREA for real-estate categories.
+    // Return a friendly error before hitting the API if neither area is available.
+    if (totalArea == null && coveredArea == null) {
+      return NextResponse.json({
+        error: 'La propiedad necesita superficie en m² para publicarse en MercadoLibre / Portal Inmobiliario. ' +
+               'Edita la propiedad y completa el campo de superficie (m²).',
+      }, { status: 400 })
+    }
+
     const mlPropertyData = {
       id: property.id,
       title: property.title,
@@ -120,8 +133,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
       parking: property.parking,
-      total_area: property.sqm,
-      covered_area: property.covered_area ?? property.sqm,
+      total_area: totalArea,
+      covered_area: coveredArea,
       images,
       ml_listing_type: listingType,
     }
