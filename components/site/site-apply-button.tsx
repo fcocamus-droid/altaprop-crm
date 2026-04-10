@@ -27,9 +27,16 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
     if (fieldErrors[field]) setFieldErrors(p => ({ ...p, [field]: '' }))
   }
 
+  function validateField(field: string) {
+    const errs: Record<string, string> = {}
+    if (field === 'rut'   && form.rut   && !validateRut(form.rut))     errs.rut   = 'RUT inválido'
+    if (field === 'phone' && form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
+    if (Object.keys(errs).length) setFieldErrors(p => ({ ...p, ...errs }))
+  }
+
   function validate() {
     const errs: Record<string, string> = {}
-    if (form.rut && !validateRut(form.rut))     errs.rut   = 'RUT inválido'
+    if (form.rut && !validateRut(form.rut))       errs.rut   = 'RUT inválido'
     if (form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
     setFieldErrors(errs)
     return Object.keys(errs).length === 0
@@ -116,6 +123,7 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
             </label>
             <input
               value={form.rut} onChange={e => set('rut', e.target.value)}
+              onBlur={() => validateField('rut')}
               placeholder="12.345.678-9" maxLength={12}
               className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.rut ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
             />
@@ -127,6 +135,7 @@ export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props
             </label>
             <input
               value={form.phone} onChange={e => set('phone', e.target.value)}
+              onBlur={() => validateField('phone')}
               placeholder="+56 9 1234 5678"
               className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.phone ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
             />
