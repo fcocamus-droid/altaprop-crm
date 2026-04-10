@@ -340,12 +340,23 @@ export async function publishProperty(
     body: JSON.stringify(payload),
   })
 
+  const data = await res.json()
+
+  // ML may return HTTP 402 (Payment Required) but still create the item.
+  // If the response contains an `id`, the item was created — treat as success
+  // with status "payment_required" so the UI can guide the user to activate.
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`ML publish failed (${res.status}): ${err}`)
+    if (data?.id) {
+      return {
+        id: data.id,
+        permalink: data.permalink || '',
+        status: data.status || 'payment_required',
+      }
+    }
+    throw new Error(`ML publish failed (${res.status}): ${JSON.stringify(data)}`)
   }
 
-  return res.json()
+  return { id: data.id, permalink: data.permalink || '', status: data.status || 'active' }
 }
 
 export async function updateProperty(
