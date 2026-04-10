@@ -217,6 +217,7 @@ export default async function SitePropertyDetailPage({
             {/* Application module */}
             <SiteApplyButton
               propertyId={property.id}
+              subdomain={decodeURIComponent(params.subdomain)}
               primaryColor={primaryColor}
               accentColor={accentColor}
             />

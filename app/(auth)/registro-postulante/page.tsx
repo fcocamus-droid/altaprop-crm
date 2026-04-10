@@ -37,6 +37,7 @@ export default function RegistroPostulantePage() {
 function RegistroForm() {
   const searchParams = useSearchParams()
   const propertyId = searchParams.get('property')
+  const redirectTo = searchParams.get('redirect')   // path to return to after verification
   const router = useRouter()
 
   const [step, setStep] = useState(1)
@@ -134,7 +135,11 @@ function RegistroForm() {
           emergency_contact_name: form.emergency_contact_name || null,
           emergency_contact_phone: form.emergency_contact_phone || null,
         },
-        emailRedirectTo: `${siteUrl}/auth/callback`,
+        emailRedirectTo: [
+          `${siteUrl}/auth/callback`,
+          redirectTo ? `?next=${encodeURIComponent(redirectTo)}` : '',
+          propertyId ? `${redirectTo ? '&' : '?'}property=${propertyId}` : '',
+        ].join(''),
       },
     })
 
@@ -155,12 +160,13 @@ function RegistroForm() {
       <Card>
         <CardContent className="pt-6 text-center space-y-4">
           <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-          <h2 className="text-xl font-semibold">Cuenta creada exitosamente</h2>
+          <h2 className="text-xl font-semibold">¡Cuenta creada!</h2>
           <p className="text-muted-foreground">
-            Revisa tu email para confirmar tu cuenta. Luego podrás iniciar sesión y postular a propiedades.
+            Revisa tu email y haz clic en el enlace de confirmación.
+            {propertyId && ' Tu postulación quedará registrada automáticamente al verificar.'}
           </p>
           <Button asChild className="w-full">
-            <Link href={propertyId ? `/login?redirect=/propiedades/${propertyId}` : '/login'}>
+            <Link href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'}>
               Ir a Iniciar Sesión
             </Link>
           </Button>
@@ -312,7 +318,7 @@ function RegistroForm() {
           </div>
           <p className="text-sm text-muted-foreground text-center">
             ¿Ya tienes cuenta?{' '}
-            <Link href={propertyId ? `/login?redirect=/propiedades/${propertyId}` : '/login'} className="text-primary hover:underline font-medium">
+            <Link href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : '/login'} className="text-primary hover:underline font-medium">
               Inicia sesión
             </Link>
           </p>

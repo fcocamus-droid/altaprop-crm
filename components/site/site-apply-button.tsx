@@ -1,185 +1,125 @@
 'use client'
 
-import { useState } from 'react'
-import { User, Mail, Phone, FileText, MessageSquare, CheckCircle, Loader2, ChevronRight, X } from 'lucide-react'
-import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { CheckCircle, Loader2, User } from 'lucide-react'
 
 interface Props {
   propertyId: string
+  subdomain: string
   primaryColor: string
   accentColor: string
 }
 
-export function SiteApplyButton({ propertyId, primaryColor, accentColor }: Props) {
-  const [open, setOpen]       = useState(false)
-  const [form, setForm]       = useState({ fullName: '', rut: '', email: '', phone: '', message: '' })
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError]     = useState('')
+export function SiteApplyButton({ propertyId, subdomain, primaryColor, accentColor }: Props) {
+  const [state, setState] = useState<'loading' | 'guest' | 'postulante' | 'applied' | 'success'>('loading')
+  const [applying, setApplying]   = useState(false)
+  const [errorMsg, setErrorMsg]   = useState('')
 
-  function set(field: string, value: string) {
-    let formatted = value
-    if (field === 'rut')   formatted = formatRut(value)
-    if (field === 'phone') formatted = formatPhone(value)
-    setForm(p => ({ ...p, [field]: formatted }))
-    // Clear field error on change
-    if (fieldErrors[field]) setFieldErrors(p => ({ ...p, [field]: '' }))
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setState('guest'); return }
+
+      const role = user.user_metadata?.role ?? user.app_metadata?.role
+      if (role !== 'POSTULANTE') { setState('guest'); return }
+
+      // Check if already applied
+      const { data } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('property_id', propertyId)
+        .eq('applicant_id', user.id)
+        .maybeSingle()
+
+      setState(data ? 'applied' : 'postulante')
+    })
+  }, [propertyId])
+
+  async function handleApply() {
+    setApplying(true)
+    setErrorMsg('')
+    const res = await fetch('/api/public/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propertyId }),
+    })
+    const data = await res.json()
+    setApplying(false)
+    if (data.error) setErrorMsg(data.error)
+    else setState('success')
   }
 
-  function validateField(field: string) {
-    const errs: Record<string, string> = {}
-    if (field === 'rut'   && form.rut   && !validateRut(form.rut))     errs.rut   = 'RUT inválido'
-    if (field === 'phone' && form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
-    if (Object.keys(errs).length) setFieldErrors(p => ({ ...p, ...errs }))
+  // ── Loading skeleton ──────────────────────────────────────────────────────
+  if (state === 'loading') {
+    return <div className="h-12 w-full rounded-xl bg-gray-100 animate-pulse" />
   }
 
-  function validate() {
-    const errs: Record<string, string> = {}
-    if (form.rut && !validateRut(form.rut))       errs.rut   = 'RUT inválido'
-    if (form.phone && !validatePhone(form.phone)) errs.phone = 'Teléfono inválido (+56 9 XXXX XXXX)'
-    setFieldErrors(errs)
-    return Object.keys(errs).length === 0
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.fullName || !form.email) { setError('Nombre y email son obligatorios'); return }
-    if (!validate()) return
-
-    setLoading(true); setError('')
-    try {
-      const res = await fetch('/api/public/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, ...form }),
-      })
-      const data = await res.json()
-      if (data.error) setError(data.error)
-      else setSuccess(true)
-    } catch { setError('Error al enviar. Intenta de nuevo.') }
-    setLoading(false)
-  }
-
-  if (success) {
+  // ── Already applied / just applied ───────────────────────────────────────
+  if (state === 'applied' || state === 'success') {
     return (
       <div className="rounded-xl border-2 border-green-200 bg-green-50 p-4 text-center">
-        <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-        <p className="text-sm font-semibold text-green-800">¡Postulación enviada!</p>
+        <CheckCircle className="h-7 w-7 text-green-600 mx-auto mb-2" />
+        <p className="text-sm font-semibold text-green-800">Ya postulaste a esta propiedad</p>
         <p className="text-xs text-green-700 mt-1">
-          Nos pondremos en contacto a <strong>{form.email}</strong> a la brevedad.
+          El agente revisará tu postulación y se contactará contigo.
         </p>
       </div>
     )
   }
 
-  if (!open) {
+  // ── Logged-in POSTULANTE ─────────────────────────────────────────────────
+  if (state === 'postulante') {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex items-center justify-between w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        style={{ background: primaryColor }}
-      >
-        <span className="flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Postular a esta propiedad
-        </span>
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    )
-  }
-
-  return (
-    <div className="rounded-xl border-2 p-4 space-y-4" style={{ borderColor: primaryColor + '40' }}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: primaryColor }}>
-          <User className="h-4 w-4" style={{ color: accentColor }} />
-          Postular a esta propiedad
-        </h3>
-        <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-2 rounded-lg">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-            <User className="h-3 w-3" /> Nombre Completo *
-          </label>
-          <input
-            value={form.fullName} onChange={e => set('fullName', e.target.value)}
-            placeholder="Juan Pérez González" required
-            className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-              <FileText className="h-3 w-3" /> RUT
-            </label>
-            <input
-              value={form.rut} onChange={e => set('rut', e.target.value)}
-              onBlur={() => validateField('rut')}
-              placeholder="12.345.678-9" maxLength={12}
-              className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.rut ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
-            />
-            {fieldErrors.rut && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.rut}</p>}
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-              <Phone className="h-3 w-3" /> Teléfono
-            </label>
-            <input
-              value={form.phone} onChange={e => set('phone', e.target.value)}
-              onBlur={() => validateField('phone')}
-              placeholder="+56 9 1234 5678"
-              className={`w-full h-9 rounded-lg border px-3 text-sm focus:outline-none ${fieldErrors.phone ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
-            />
-            {fieldErrors.phone && <p className="text-xs text-red-500 mt-0.5">{fieldErrors.phone}</p>}
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-            <Mail className="h-3 w-3" /> Email *
-          </label>
-          <input
-            type="email" value={form.email} onChange={e => set('email', e.target.value)}
-            placeholder="juan@email.com" required
-            className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">
-            <MessageSquare className="h-3 w-3" /> Mensaje (opcional)
-          </label>
-          <textarea
-            value={form.message} onChange={e => set('message', e.target.value)}
-            placeholder="Me interesa esta propiedad porque..."
-            rows={3}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none"
-          />
-        </div>
-
+      <div className="space-y-2">
+        {errorMsg && (
+          <p className="text-xs text-red-500 text-center bg-red-50 border border-red-200 rounded-lg p-2">
+            {errorMsg}
+          </p>
+        )}
         <button
-          type="submit" disabled={loading}
-          className="w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:opacity-60"
+          onClick={handleApply}
+          disabled={applying}
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           style={{ background: primaryColor }}
         >
-          {loading
-            ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-            : <><User className="h-4 w-4" /> Enviar Postulación</>
+          {applying
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando postulación...</>
+            : <><User className="h-4 w-4" /> Postular a esta propiedad</>
           }
         </button>
-        <p className="text-xs text-gray-500 text-center">
-          Tu información es confidencial y solo será compartida con el agente.
-        </p>
-      </form>
+      </div>
+    )
+  }
+
+  // ── Guest: register / login ──────────────────────────────────────────────
+  const base       = typeof window !== 'undefined' ? window.location.origin : ''
+  const returnPath = `/site/${subdomain}/propiedades/${propertyId}`
+  const registerUrl = `/registro-postulante?property=${propertyId}&redirect=${encodeURIComponent(returnPath)}`
+  const loginUrl    = `/login?redirect=${encodeURIComponent(returnPath)}`
+
+  return (
+    <div className="space-y-2">
+      <Link href={registerUrl} className="block">
+        <button
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          style={{ background: primaryColor }}
+        >
+          <User className="h-4 w-4" />
+          Inicia sesión para postular
+        </button>
+      </Link>
+      <p className="text-xs text-center text-gray-500">
+        ¿Ya tienes cuenta?{' '}
+        <Link
+          href={loginUrl}
+          className="font-semibold hover:underline"
+          style={{ color: primaryColor }}
+        >
+          Inicia sesión aquí
+        </Link>
+      </p>
     </div>
   )
 }

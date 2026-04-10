@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { findOrCreatePostulante } from '@/lib/actions/guest-profile'
 import { fetchSubscriberBrand, buildSimpleBrandHeader, type SubscriberBrand } from '@/lib/utils/subscriber-brand'
 
@@ -7,16 +8,27 @@ export async function POST(req: NextRequest) {
   try {
     const { propertyId, fullName, rut, email, phone, message } = await req.json()
 
-    if (!propertyId || !fullName || !email) {
+    if (!propertyId) {
+      return NextResponse.json({ error: 'Propiedad requerida' }, { status: 400 })
+    }
+
+    const admin  = createAdminClient()
+    const server = createClient()
+
+    // Prefer the authenticated session; fall back to guest (email required)
+    const { data: { user } } = await server.auth.getUser()
+    const isAuthenticated = !!user && (user.user_metadata?.role ?? user.app_metadata?.role) === 'POSTULANTE'
+
+    if (!isAuthenticated && (!fullName || !email)) {
       return NextResponse.json({ error: 'Nombre y email son obligatorios' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
-
-    // Property fetch and visitor creation are independent — run in parallel
+    // Property fetch + applicant resolution in parallel (guest only needs both, auth only needs property)
     const [{ data: property }, applicantId] = await Promise.all([
       admin.from('properties').select('id, title, address, subscriber_id').eq('id', propertyId).single(),
-      findOrCreatePostulante(email, fullName, phone ?? null, rut ?? null),
+      isAuthenticated
+        ? Promise.resolve(user!.id)
+        : findOrCreatePostulante(email, fullName, phone ?? null, rut ?? null),
     ])
 
     if (!property) return NextResponse.json({ error: 'Propiedad no encontrada' }, { status: 404 })
@@ -46,13 +58,17 @@ export async function POST(req: NextRequest) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
 
+    // Resolve name/email for notifications (authenticated user may not have passed them)
+    const notifName  = isAuthenticated ? (user!.user_metadata?.full_name ?? user!.email ?? '') : fullName
+    const notifEmail = isAuthenticated ? (user!.email ?? '') : email
+
     // Fire-and-forget — don't block the response
     sendNotificationEmails({
       admin,
       subscriberId: property.subscriber_id,
       propertyTitle: property.title || property.address || 'la propiedad',
-      applicantName: fullName,
-      applicantEmail: email,
+      applicantName: notifName,
+      applicantEmail: notifEmail,
       siteUrl,
     }).catch(err => console.error('apply notification emails error:', err))
 
