@@ -28,13 +28,18 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
   let subscriberConnected = false
   const canManagePortals = isAdmin(profile.role) || profile.role === ROLES.AGENTE
   if (canManagePortals && property.subscriber_id) {
-    const supabase = createClient()
-    const { data: subscriberProfile } = await supabase
-      .from('profiles')
-      .select('ml_user_id')
-      .eq('id', property.subscriber_id)
-      .single()
-    subscriberConnected = !!subscriberProfile?.ml_user_id
+    try {
+      const supabase = createClient()
+      // select * so query doesn't fail if migration 023 hasn't run yet
+      const { data: subscriberProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', property.subscriber_id)
+        .single()
+      subscriberConnected = !!(subscriberProfile as any)?.ml_user_id
+    } catch {
+      // Migration not yet applied — portals widget shows "connect account" CTA
+    }
   }
 
   return (
