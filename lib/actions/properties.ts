@@ -1,11 +1,29 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getUserProfile } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { propertySchema } from '@/lib/validations/property'
 import { isPropertyManager, ROLES } from '@/lib/constants'
+
+/** Revalidates the subscriber's public site pages after a property change. */
+async function revalidateSubscriberSite(subscriberId: string) {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('profiles')
+    .select('website_subdomain, website_domain')
+    .eq('id', subscriberId)
+    .maybeSingle()
+  if (!data) return
+  if (data.website_subdomain) {
+    revalidatePath(`/site/${data.website_subdomain}`)
+  }
+  if (data.website_domain) {
+    revalidatePath(`/site/${encodeURIComponent(data.website_domain)}`)
+  }
+}
 
 export async function createProperty(formData: FormData) {
   const profile = await getUserProfile()
@@ -168,6 +186,10 @@ export async function updateProperty(id: string, formData: FormData) {
   revalidatePath('/dashboard/propiedades')
   revalidatePath(`/propiedades/${id}`)
   revalidatePath('/propiedades')
+
+  const subscriberId = profile.subscriber_id || profile.id
+  await revalidateSubscriberSite(subscriberId)
+
   return { success: true }
 }
 
@@ -199,15 +221,20 @@ export async function deleteProperty(id: string) {
 
 export async function updatePropertyStatus(id: string, status: string) {
   const supabase = createClient()
-  const { error } = await supabase
+
+  const { data: prop, error } = await supabase
     .from('properties')
     .update({ status })
     .eq('id', id)
+    .select('subscriber_id')
+    .single()
 
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/propiedades')
   revalidatePath('/propiedades')
+  if (prop?.subscriber_id) await revalidateSubscriberSite(prop.subscriber_id)
+
   return { success: true }
 }
 
@@ -725,14 +752,19 @@ export async function updatePropertyWebsiteVisibility(id: string, website_visibl
   if (!profile || !isPropertyManager(profile.role)) return { error: 'No autorizado' }
 
   const supabase = createClient()
-  const { error } = await supabase
+
+  const { data: prop, error } = await supabase
     .from('properties')
     .update({ website_visible } as any)
     .eq('id', id)
+    .select('subscriber_id')
+    .single()
 
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/propiedades')
   revalidatePath('/dashboard/mi-sitio')
+  if (prop?.subscriber_id) await revalidateSubscriberSite(prop.subscriber_id)
+
   return { success: true }
 }

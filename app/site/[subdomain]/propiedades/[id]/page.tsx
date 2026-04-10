@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSubscriberProfile } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
+import { unstable_noStore as noStore } from 'next/cache'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice, formatDate } from '@/lib/utils'
@@ -18,6 +19,7 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 
 async function getProperty(propertyId: string, subscriberId: string) {
+  noStore()
   const admin = createAdminClient()
   const { data } = await admin
     .from('properties')

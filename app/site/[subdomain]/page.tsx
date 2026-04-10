@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getSubscriberProfile } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
+import { unstable_noStore as noStore } from 'next/cache'
 import { PropertyCard } from '@/components/properties/property-card'
 import { EmptyState } from '@/components/shared/empty-state'
 import { PROPERTY_TYPES, OPERATION_TYPES } from '@/lib/constants'
@@ -10,6 +11,8 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 
 async function getSubscriberProperties(subscriberId: string, filters: Record<string, string | undefined>) {
+  noStore()
+
   const admin = createAdminClient()
 
   const buildQuery = (withVisibility: boolean) => {
@@ -26,12 +29,16 @@ async function getSubscriberProperties(subscriberId: string, filters: Record<str
     return q
   }
 
-  let { data, error } = await buildQuery(true)
+  const { data, error } = await buildQuery(true)
 
-  // Fallback if website_visible column doesn't exist yet
-  if (error && error.message?.includes('website_visible')) {
-    const res = await buildQuery(false)
-    data = res.data
+  // Fallback ONLY when the column doesn't exist yet (migration not run on this env).
+  // Any other error returns an empty array rather than leaking unfiltered data.
+  if (error) {
+    if (error.message?.includes('website_visible')) {
+      const res = await buildQuery(false)
+      return res.data || []
+    }
+    return []
   }
 
   return data || []

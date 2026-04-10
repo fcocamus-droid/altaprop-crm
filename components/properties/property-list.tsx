@@ -266,8 +266,13 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                           return
                         }
                         // All other transitions (including rented/sold → available) update directly
+                        const prevStatus = property.status
                         setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: newStatus } : p))
-                        await updatePropertyStatus(property.id, newStatus)
+                        const result = await updatePropertyStatus(property.id, newStatus)
+                        if (result?.error) {
+                          setProperties(prev => prev.map(p => p.id === property.id ? { ...p, status: prevStatus } : p))
+                          alert(`Error al actualizar estado: ${result.error}`)
+                        }
                       }}
                       className={`text-xs font-medium px-2 py-1 rounded-full border cursor-pointer appearance-none pr-6 ${
                         property.status === 'available'   ? 'bg-green-100 text-green-800 border-green-200' :
