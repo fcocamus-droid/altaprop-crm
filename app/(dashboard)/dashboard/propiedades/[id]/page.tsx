@@ -1,9 +1,10 @@
 import { getPropertyById } from '@/lib/queries/properties'
 import { getUserProfile } from '@/lib/auth'
-import { isAdmin, ADMIN_ROLES } from '@/lib/constants'
+import { isAdmin, ROLES } from '@/lib/constants'
 import { notFound, redirect } from 'next/navigation'
 import { PageHeader } from '@/components/shared/page-header'
 import { PropertyForm } from '@/components/properties/property-form'
+import { PropertyPortals } from '@/components/portals/property-portals'
 import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
@@ -22,10 +23,33 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
     redirect('/dashboard/propiedades')
   }
 
+  // Determine if the subscriber (org owner) has ML connected
+  // Agents/admins belong to a subscriber org; check that org's ML connection
+  let subscriberConnected = false
+  const canManagePortals = isAdmin(profile.role) || profile.role === ROLES.AGENTE
+  if (canManagePortals && property.subscriber_id) {
+    const supabase = createClient()
+    const { data: subscriberProfile } = await supabase
+      .from('profiles')
+      .select('ml_user_id')
+      .eq('id', property.subscriber_id)
+      .single()
+    subscriberConnected = !!subscriberProfile?.ml_user_id
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title="Editar Propiedad" description={property.title} />
       <PropertyForm property={property} />
+      {canManagePortals && (
+        <PropertyPortals
+          propertyId={property.id}
+          mlItemId={property.ml_item_id}
+          mlStatus={property.ml_status}
+          mlListingType={property.ml_listing_type}
+          subscriberConnected={subscriberConnected}
+        />
+      )}
     </div>
   )
 }
