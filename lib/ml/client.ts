@@ -323,6 +323,60 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   return payload
 }
 
+// ─── Picture pre-upload ───────────────────────────────────────────────────────
+
+/**
+ * Uploads a single image URL to ML's picture API.
+ * Returns the ML picture ID (e.g. "MLC-123456789-1234") or null on failure.
+ * ML requires pictures to be uploaded before item creation for reliable processing.
+ */
+async function uploadPictureToML(
+  accessToken: string,
+  imageUrl: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${ML_API}/pictures?source=${encodeURIComponent(imageUrl)}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Pre-uploads all property images to ML and returns ML picture ID objects.
+ * Falls back to source URLs for any images that fail to upload.
+ */
+async function prepareMLPictures(
+  accessToken: string,
+  images: Array<{ url: string }>
+): Promise<Array<Record<string, string>>> {
+  const results: Array<Record<string, string>> = []
+
+  for (const img of images) {
+    if (!img.url) continue
+    const mlPictureId = await uploadPictureToML(accessToken, img.url)
+    if (mlPictureId) {
+      results.push({ id: mlPictureId })
+    } else {
+      // Fallback: pass the URL directly — ML will attempt to fetch it
+      results.push({ source: img.url })
+    }
+  }
+
+  return results
+}
+
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export async function publishProperty(
@@ -330,6 +384,16 @@ export async function publishProperty(
   propertyData: MLProperty
 ): Promise<{ id: string; permalink: string; status: string }> {
   const payload = buildMLPayload(propertyData)
+
+  // Pre-upload images to ML so they're hosted on ML servers before the item is created.
+  // This avoids the "processing-image" placeholder caused by ML failing to fetch
+  // images from Supabase storage URLs during item creation.
+  if (propertyData.images && propertyData.images.length > 0) {
+    const mlPictures = await prepareMLPictures(accessToken, propertyData.images)
+    if (mlPictures.length > 0) {
+      payload.pictures = mlPictures
+    }
+  }
 
   const res = await fetch(`${ML_API}/items`, {
     method: 'POST',
@@ -375,11 +439,9 @@ export async function updateProperty(
     updates.description = { plain_text: propertyData.description }
   }
 
-  if (propertyData.images) {
-    const pictures = propertyData.images
-      .filter(img => img.url)
-      .map(img => ({ source: img.url }))
-    if (pictures.length > 0) updates.pictures = pictures
+  if (propertyData.images && propertyData.images.length > 0) {
+    const mlPictures = await prepareMLPictures(accessToken, propertyData.images)
+    if (mlPictures.length > 0) updates.pictures = mlPictures
   }
 
   // Update mutable attributes (bedrooms, bathrooms, area, parking)
