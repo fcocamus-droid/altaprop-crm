@@ -111,7 +111,7 @@ function MLCard({
       <div className="flex flex-col flex-1 p-5 gap-4">
         {/* Header row */}
         <div className="flex items-start justify-between">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFE600] shadow-sm overflow-hidden">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
             <MLLogoFull />
           </div>
           <StatusPill active={connected} />
@@ -244,14 +244,14 @@ function StatusPill({ active }: { active: boolean }) {
 
 // ─── Logo SVGs — fiel a cada marca ───────────────────────────────────────────
 
-/** MercadoLibre — logo oficial desde CDN */
+/** MercadoLibre — favicon oficial */
 function MLLogoFull() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.1/mercadolibre/logo__large_plus.png"
+      src="https://www.google.com/s2/favicons?domain=mercadolibre.cl&sz=128"
       alt="MercadoLibre"
-      className="h-7 w-auto object-contain"
+      className="h-9 w-9 object-contain rounded-lg"
     />
   )
 }
