@@ -778,6 +778,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
                     <option value="reserved">Reservada</option>
                     <option value="rented">Arrendada</option>
                     <option value="sold">Vendida</option>
+                    <option value="unavailable">No disponible</option>
                   </Select>
                 </Field>
               </CardContent>

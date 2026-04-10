@@ -65,6 +65,9 @@ export const propertySchema = z.object({
   // ── Internal management ──────────────────────────────────────────────────
   private_notes: z.string().optional(),
   notify_email: z.string().email().optional().or(z.literal('')),
+
+  // ── Status ───────────────────────────────────────────────────────────────
+  status: z.enum(['available', 'unavailable', 'reserved', 'rented', 'sold']).default('available'),
 })
 
 export type PropertyFormData = z.infer<typeof propertySchema>
