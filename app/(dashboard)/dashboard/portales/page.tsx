@@ -29,7 +29,7 @@ export default function PortalesPage() {
         {/* ── Portal Inmobiliario ── */}
         <PortalCard
           logo={<PILogo />}
-          logoBg="bg-white border-2 border-green-100"
+          logoBg="bg-white border border-gray-100"
           name="Portal Inmobiliario"
           description="Se publica automáticamente junto con MercadoLibre con un solo clic."
           badge={{ label: 'Incluido con ML', color: 'blue' }}
@@ -48,7 +48,7 @@ export default function PortalesPage() {
         {/* ── Yapo ── */}
         <PortalCard
           logo={<YapoLogo />}
-          logoBg="bg-[#F7941D]"
+          logoBg="bg-white border border-gray-100"
           name="Yapo"
           description="Portal de clasificados líder en Chile para arriendo y venta de propiedades."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -58,7 +58,7 @@ export default function PortalesPage() {
         {/* ── GoPlaceit ── */}
         <PortalCard
           logo={<GoPlaceitLogo />}
-          logoBg="bg-[#E8432D]"
+          logoBg="bg-white border border-gray-100"
           name="GoPlaceit"
           description="Plataforma inmobiliaria con búsqueda avanzada y datos de mercado en Chile."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -68,7 +68,7 @@ export default function PortalesPage() {
         {/* ── TocToc ── */}
         <PortalCard
           logo={<TocTocLogo />}
-          logoBg="bg-[#0A0A5C]"
+          logoBg="bg-white border border-gray-100"
           name="TocToc"
           description="Portal inmobiliario especializado en nuevos proyectos y propiedades usadas."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -256,75 +256,50 @@ function MLLogoFull() {
   )
 }
 
-/** Portal Inmobiliario — casa sobre pin de mapa (azul + verde) */
+/** Portal Inmobiliario — logo oficial */
 function PILogo() {
   return (
-    <svg viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto">
-      {/* Pin/gota verde */}
-      <ellipse cx="24" cy="46" rx="7" ry="4" fill="#4CAF50" opacity="0.5" />
-      <path
-        d="M24 48 C24 48 8 34 8 22 C8 13.16 15.16 6 24 6 C32.84 6 40 13.16 40 22 C40 34 24 48 24 48Z"
-        fill="#4CAF50"
-      />
-      {/* Casa dentro del pin */}
-      <path d="M16 24 L24 16 L32 24" fill="white" />
-      <rect x="19" y="24" width="10" height="8" rx="1" fill="white" />
-      <rect x="22" y="27" width="4" height="5" rx="0.5" fill="#4CAF50" />
-      {/* Techo azul */}
-      <path d="M16 24 L24 16 L32 24" fill="#1565C0" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="https://www.google.com/s2/favicons?domain=portalinmobiliario.com&sz=128"
+      alt="Portal Inmobiliario"
+      className="h-9 w-9 object-contain rounded-lg"
+    />
   )
 }
 
-/** Yapo — cubo 3D isométrico naranja */
+/** Yapo — logo oficial */
 function YapoLogo() {
   return (
-    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      {/* Cara superior */}
-      <path d="M24 8 L40 17 L24 26 L8 17 Z" fill="white" fillOpacity="0.95" />
-      {/* Cara izquierda */}
-      <path d="M8 17 L8 33 L24 42 L24 26 Z" fill="white" fillOpacity="0.6" />
-      {/* Cara derecha */}
-      <path d="M40 17 L40 33 L24 42 L24 26 Z" fill="white" fillOpacity="0.8" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="https://www.google.com/s2/favicons?domain=yapo.cl&sz=128"
+      alt="Yapo"
+      className="h-9 w-9 object-contain rounded-lg"
+    />
   )
 }
 
-/** GoPlaceit — lupa con pin de ubicación dentro */
+/** GoPlaceit — logo oficial */
 function GoPlaceitLogo() {
   return (
-    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      {/* Círculo de lupa */}
-      <circle cx="20" cy="20" r="12" stroke="white" strokeWidth="3.5" fill="none" />
-      {/* Mango de lupa */}
-      <line x1="29" y1="29" x2="41" y2="41" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
-      {/* Pin dentro */}
-      <circle cx="20" cy="18" r="4" stroke="white" strokeWidth="2.5" fill="none" />
-      <path d="M20 22 L20 27" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="https://www.google.com/s2/favicons?domain=goplaceit.com&sz=128"
+      alt="GoPlaceit"
+      className="h-9 w-9 object-contain rounded-lg"
+    />
   )
 }
 
-/** TocToc — dos "cometas" o tadpoles cyan sobre fondo oscuro */
+/** TocToc — logo oficial */
 function TocTocLogo() {
   return (
-    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      {/* Tadpole izquierdo */}
-      <circle cx="16" cy="14" r="5" fill="#00E5CC" />
-      <path
-        d="M16 19 C14 26 10 30 9 38"
-        stroke="#00E5CC"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      {/* Tadpole derecho */}
-      <circle cx="30" cy="22" r="5" fill="#00E5CC" />
-      <path
-        d="M30 27 C28 34 26 37 26 44"
-        stroke="#00E5CC"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="https://www.google.com/s2/favicons?domain=toctoc.com&sz=128"
+      alt="TocToc"
+      className="h-9 w-9 object-contain rounded-lg"
+    />
   )
 }
