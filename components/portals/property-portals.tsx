@@ -53,7 +53,8 @@ export function PropertyPortals({
         setError(data.error || 'Error al publicar')
       } else {
         setCurrentItemId(data.ml_item_id)
-        setCurrentStatus('active')
+        // ML may return 'active', 'payment_required', or another status
+        setCurrentStatus(data.ml_status || 'active')
       }
     } catch {
       setError('Error de conexión')
@@ -228,6 +229,44 @@ export function PropertyPortals({
                     Eliminar publicación
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {/* PAYMENT REQUIRED — item created but needs ML subscription */}
+            {currentStatus === 'payment_required' && currentItemId && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-200">
+                    Pendiente de pago en MercadoLibre
+                  </Badge>
+                  <a
+                    href={`https://www.mercadolibre.cl/inmuebles`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    Activar plan <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800 space-y-1">
+                  <p>
+                    Tu propiedad fue enviada a MercadoLibre (<strong>{currentItemId}</strong>) pero
+                    requiere activar un plan de publicación inmobiliaria para aparecer en los portales.
+                  </p>
+                  <p>
+                    Ve a <strong>MercadoLibre Inmuebles</strong> y activa el plan correspondiente
+                    para que la publicación quede activa.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                >
+                  Cancelar publicación
+                </Button>
               </div>
             )}
 
