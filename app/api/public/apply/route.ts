@@ -149,7 +149,7 @@ function buildApplicantAckEmail(
       <ul style="margin:0;padding-left:18px;color:#374151;font-size:14px;line-height:1.8;">
         <li>Un agente de <strong>${brand.name}</strong> revisará tu postulación</li>
         <li>Recibirás un correo cuando tu postulación sea aprobada o rechazada</li>
-        <li>Si tienes dudas, puedes responder este correo directamente</li>
+        ${brand.email ? `<li>Para consultas, puedes escribir directamente al agente: <a href="mailto:${brand.email}" style="color:#166534;font-weight:600;">${brand.email}</a></li>` : ''}
       </ul>
     </div>
 
