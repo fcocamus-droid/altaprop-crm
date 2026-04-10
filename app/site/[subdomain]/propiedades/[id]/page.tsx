@@ -66,7 +66,7 @@ export default async function SitePropertyDetailPage({
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
-          href="/propiedades"
+          href="/"
           className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
           style={{ color: primaryColor }}
         >
