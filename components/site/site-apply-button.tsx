@@ -94,10 +94,12 @@ export function SiteApplyButton({ propertyId, subdomain, primaryColor, accentCol
   }
 
   // ── Guest: register / login ──────────────────────────────────────────────
-  const base       = typeof window !== 'undefined' ? window.location.origin : ''
+  // Auth pages live on the main app domain — must use absolute URLs so custom
+  // domains (e.g. loginaltaprop.cl) don't resolve them locally (404).
+  const appUrl     = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
   const returnPath = `/site/${subdomain}/propiedades/${propertyId}`
-  const registerUrl = `/registro-postulante?property=${propertyId}&redirect=${encodeURIComponent(returnPath)}`
-  const loginUrl    = `/login?redirect=${encodeURIComponent(returnPath)}`
+  const registerUrl = `${appUrl}/registro-postulante?property=${propertyId}&redirect=${encodeURIComponent(returnPath)}`
+  const loginUrl    = `${appUrl}/login?redirect=${encodeURIComponent(returnPath)}`
 
   return (
     <div className="space-y-2">
