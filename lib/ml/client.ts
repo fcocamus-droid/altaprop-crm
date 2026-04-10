@@ -53,17 +53,41 @@ export interface MLProperty {
 // ─── Category mapping ─────────────────────────────────────────────────────────
 
 const ML_CATEGORY_MAP: Record<string, string> = {
+  // Departamentos
   'arriendo_departamento': 'MLC157520',
-  'arriendo_casa': 'MLC157519',
-  'venta_departamento': 'MLC157521',
-  'venta_casa': 'MLC157518',
-  'arriendo_oficina': 'MLC157526',
-  'venta_oficina': 'MLC157527',
+  'venta_departamento':    'MLC157521',
+  // Casas
+  'arriendo_casa':         'MLC157519',
+  'venta_casa':            'MLC157518',
+  // Oficinas
+  'arriendo_oficina':      'MLC157526',
+  'venta_oficina':         'MLC157527',
+  // Locales comerciales
+  'arriendo_local':        'MLC157523',
+  'venta_local':           'MLC157524',
+  // Terrenos
+  'arriendo_terreno':      'MLC157528',
+  'venta_terreno':         'MLC157529',
+  // Bodegas
+  'arriendo_bodega':       'MLC157530',
+  'venta_bodega':          'MLC157531',
+  // Estacionamientos
+  'arriendo_estacionamiento': 'MLC157534',
+  'venta_estacionamiento':    'MLC157535',
 }
 
 function getCategoryId(operation: string, type: string): string {
-  const key = `${operation.toLowerCase()}_${type.toLowerCase()}`
-  return ML_CATEGORY_MAP[key] || 'MLC157520'
+  const op  = operation.toLowerCase().trim()
+  const typ = type.toLowerCase().trim()
+  // Direct match
+  const key = `${op}_${typ}`
+  if (ML_CATEGORY_MAP[key]) return ML_CATEGORY_MAP[key]
+  // Partial type match (e.g. "Local Comercial" → "local")
+  for (const [mapKey, catId] of Object.entries(ML_CATEGORY_MAP)) {
+    if (mapKey.startsWith(`${op}_`) && typ.includes(mapKey.split('_')[1])) return catId
+  }
+  // Default to arriendo_departamento as safest fallback
+  return 'MLC157520'
 }
 
 // ─── Chilean commune → ML city ID map ────────────────────────────────────────
@@ -323,12 +347,16 @@ export async function updateProperty(
   mlItemId: string,
   propertyData: Partial<MLProperty>
 ): Promise<{ id: string; status: string }> {
-  // Build partial update payload (exclude listing_type_id and category_id from updates)
+  // Build partial update payload (exclude listing_type_id and category_id — immutable after publish)
   const updates: Record<string, unknown> = {}
 
   if (propertyData.title) updates.title = propertyData.title
   if (propertyData.price != null) updates.price = propertyData.price
   if (propertyData.currency) updates.currency_id = propertyData.currency === 'UF' ? 'CLF' : 'CLP'
+
+  if (propertyData.description) {
+    updates.description = { plain_text: propertyData.description }
+  }
 
   if (propertyData.images) {
     const pictures = propertyData.images
@@ -336,6 +364,26 @@ export async function updateProperty(
       .map(img => ({ source: img.url }))
     if (pictures.length > 0) updates.pictures = pictures
   }
+
+  // Update mutable attributes (bedrooms, bathrooms, area, parking)
+  const attributes: Array<{ id: string; value_name?: string; value_struct?: { number: number; unit: string } }> = []
+  if (propertyData.bedrooms != null) {
+    attributes.push({ id: 'BEDROOMS', value_name: String(propertyData.bedrooms) })
+  }
+  if (propertyData.bathrooms != null) {
+    attributes.push({ id: 'FULL_BATHROOMS', value_name: String(propertyData.bathrooms) })
+  }
+  if (propertyData.parking != null) {
+    attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
+  }
+  if (propertyData.total_area != null) {
+    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: propertyData.total_area, unit: 'm²' } })
+    attributes.push({ id: 'LAND_AREA',   value_struct: { number: propertyData.total_area, unit: 'm²' } })
+  }
+  if (propertyData.covered_area != null) {
+    attributes.push({ id: 'COVERED_AREA', value_struct: { number: propertyData.covered_area, unit: 'm²' } })
+  }
+  if (attributes.length > 0) updates.attributes = attributes
 
   const res = await fetch(`${ML_API}/items/${mlItemId}`, {
     method: 'PUT',

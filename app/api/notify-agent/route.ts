@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       type: 'magiclink',
       email: agentUser.email,
       options: {
-        redirectTo: `https://www.loginaltaprop.cl/dashboard/propiedades/${propertyId}`,
+        redirectTo: `https://www.altaprop-app.cl/dashboard/propiedades/${propertyId}`,
       },
     })
 
@@ -127,7 +127,7 @@ function buildEmail(agentName: string, property: any, price: string, ownerName: 
       <p style="margin:4px 0;">✉️ ${ownerEmail}</p>
     </div>
     <div style="text-align:center;margin:30px 0;">
-      <a href="https://www.loginaltaprop.cl/dashboard/propiedades/${propertyId}" style="background:#1B2A4A;color:#fff;padding:14px 40px;text-decoration:none;border-radius:8px;font-weight:bold;">Ver Propiedad</a>
+      <a href="https://www.altaprop-app.cl/dashboard/propiedades/${propertyId}" style="background:#1B2A4A;color:#fff;padding:14px 40px;text-decoration:none;border-radius:8px;font-weight:bold;">Ver Propiedad</a>
     </div>
   </div>
   <div style="background:#f8f8f8;padding:20px;text-align:center;border-top:1px solid #eee;">
