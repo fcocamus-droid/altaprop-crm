@@ -4,10 +4,15 @@ import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPrice, formatDate } from '@/lib/utils'
-import { Bed, Bath, Maximize, MapPin, Calendar, MessageCircle, ArrowLeft, Phone } from 'lucide-react'
+import {
+  Bed, Bath, Maximize, MapPin, Calendar, MessageCircle,
+  ArrowLeft, Phone, Car, Package, CheckCircle2, Video,
+  LayoutGrid, Building2, Ruler,
+} from 'lucide-react'
 import Link from 'next/link'
 import { SiteVisitRequestButton } from '@/components/site/site-visit-request-button'
 import { SiteApplyButton } from '@/components/site/site-apply-button'
+import { SiteImageCarousel } from '@/components/site/site-image-carousel'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -38,6 +43,25 @@ export async function generateMetadata({
   }
 }
 
+const OPERATION_LABELS: Record<string, string> = {
+  arriendo: 'Arriendo',
+  arriendo_temporal: 'Arriendo Temporal',
+  venta: 'Venta',
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  departamento: 'Departamento', casa: 'Casa', casa_condominio: 'Casa en Condominio',
+  villa: 'Villa', quinta: 'Quinta', monoambiente: 'Monoambiente',
+  terreno: 'Terreno', terreno_comercial: 'Terreno Comercial', oficina: 'Oficina',
+  local: 'Local Comercial', bodega: 'Bodega', edificio: 'Edificio',
+  hotel: 'Hotel', nave_industrial: 'Nave Industrial',
+}
+
+const CONDITION_LABELS: Record<string, string> = {
+  nuevo: 'Nuevo', en_construccion: 'En Construcción', segunda_mano: 'Segunda Mano',
+  remodelada: 'Remodelada', en_planos: 'En Planos',
+}
+
 export default async function SitePropertyDetailPage({
   params,
 }: {
@@ -52,7 +76,8 @@ export default async function SitePropertyDetailPage({
   const primaryColor = subscriber.website_primary_color || '#1a2332'
   const accentColor  = subscriber.website_accent_color  || '#c9a84c'
 
-  const location = [property.address, property.sector, property.city].filter(Boolean).join(', ')
+  const location = [property.address, property.sector, property.city, property.region]
+    .filter(Boolean).join(', ')
 
   const waText = encodeURIComponent(
     `Hola! Me interesa la propiedad "${property.title}"${location ? ` en ${location}` : ''}. ¿Está disponible?`
@@ -61,8 +86,12 @@ export default async function SitePropertyDetailPage({
     ? `https://wa.me/${subscriber.website_whatsapp.replace(/\D/g, '')}?text=${waText}`
     : null
 
+  const carouselImages = (property.images || [])
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((img: any) => ({ url: img.url, alt: property.title }))
+
   return (
-    <div className="container py-8">
+    <div className="container py-8 max-w-6xl">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
@@ -78,77 +107,116 @@ export default async function SitePropertyDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image gallery */}
-          {property.images && property.images.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {property.images.map((img: any, i: number) => (
-                <div
-                  key={img.id}
-                  className={`relative overflow-hidden rounded-lg ${i === 0 ? 'col-span-2 row-span-2 aspect-[4/3]' : 'aspect-square'}`}
-                >
-                  <img src={img.url} alt={`${property.title} - ${i + 1}`} className="object-cover w-full h-full" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-              <p className="text-muted-foreground">Sin imágenes disponibles</p>
-            </div>
-          )}
 
-          {/* Details */}
+          {/* Image carousel */}
+          <SiteImageCarousel images={carouselImages} title={property.title} />
+
+          {/* Title & badges */}
           <div>
-            <div className="flex gap-2 mb-3">
+            <div className="flex flex-wrap gap-2 mb-3">
               <Badge style={{ background: accentColor, color: primaryColor }} className="font-semibold">
-                {property.operation === 'arriendo' ? 'Arriendo' : 'Venta'}
+                {OPERATION_LABELS[property.operation] || property.operation}
               </Badge>
-              <Badge variant="secondary" className="capitalize">{property.type}</Badge>
+              <Badge variant="secondary" className="capitalize">
+                {TYPE_LABELS[property.type] || property.type}
+              </Badge>
+              {property.condition && (
+                <Badge variant="outline">{CONDITION_LABELS[property.condition] || property.condition}</Badge>
+              )}
+              {property.exclusive && (
+                <Badge className="bg-amber-100 text-amber-800 border-amber-200">Exclusiva</Badge>
+              )}
             </div>
-            <h1 className="text-3xl font-bold mb-2">{property.title}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{property.title}</h1>
             {location && (
-              <p className="text-muted-foreground flex items-center gap-1 mb-4">
-                <MapPin className="h-4 w-4" />{location}
+              <p className="text-muted-foreground flex items-center gap-1 mb-1">
+                <MapPin className="h-4 w-4 flex-shrink-0" />{location}
               </p>
+            )}
+            {property.internal_code && (
+              <p className="text-xs text-muted-foreground">Ref: {property.internal_code}</p>
             )}
           </div>
 
-          {/* Features */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Key stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {property.bedrooms != null && (
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <Bed className="h-5 w-5 mx-auto mb-1" style={{ color: primaryColor }} />
-                  <p className="font-semibold">{property.bedrooms}</p>
-                  <p className="text-xs text-muted-foreground">Dormitorios</p>
-                </CardContent>
-              </Card>
+              <StatCard icon={<Bed className="h-5 w-5" />} value={property.bedrooms} label="Dormitorios" color={primaryColor} />
             )}
             {property.bathrooms != null && (
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <Bath className="h-5 w-5 mx-auto mb-1" style={{ color: primaryColor }} />
-                  <p className="font-semibold">{property.bathrooms}</p>
-                  <p className="text-xs text-muted-foreground">Baños</p>
-                </CardContent>
-              </Card>
+              <StatCard icon={<Bath className="h-5 w-5" />} value={property.bathrooms} label="Baños" color={primaryColor} />
             )}
             {property.sqm != null && (
-              <Card>
-                <CardContent className="pt-4 text-center">
-                  <Maximize className="h-5 w-5 mx-auto mb-1" style={{ color: primaryColor }} />
-                  <p className="font-semibold">{property.sqm} m²</p>
-                  <p className="text-xs text-muted-foreground">Superficie</p>
-                </CardContent>
-              </Card>
+              <StatCard icon={<Maximize className="h-5 w-5" />} value={`${property.sqm} m²`} label="Superficie" color={primaryColor} />
+            )}
+            {property.covered_sqm != null && (
+              <StatCard icon={<Ruler className="h-5 w-5" />} value={`${property.covered_sqm} m²`} label="Construida" color={primaryColor} />
+            )}
+            {property.terrace_sqm != null && (
+              <StatCard icon={<LayoutGrid className="h-5 w-5" />} value={`${property.terrace_sqm} m²`} label="Terraza/Logia" color={primaryColor} />
+            )}
+            {property.parking != null && property.parking > 0 && (
+              <StatCard icon={<Car className="h-5 w-5" />} value={property.parking} label="Estacionam." color={primaryColor} />
+            )}
+            {property.storage != null && property.storage > 0 && (
+              <StatCard icon={<Package className="h-5 w-5" />} value={property.storage} label="Bodega(s)" color={primaryColor} />
+            )}
+            {property.floor_level != null && (
+              <StatCard icon={<Building2 className="h-5 w-5" />} value={`Piso ${property.floor_level}`} label={property.floor_count ? `de ${property.floor_count}` : 'Piso'} color={primaryColor} />
             )}
           </div>
 
           {/* Description */}
           {property.description && (
             <Card>
-              <CardHeader><CardTitle>Descripción</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">Descripción</CardTitle></CardHeader>
               <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{property.description}</p>
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{property.description}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Amenities */}
+          {property.amenities && property.amenities.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Amenidades</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {property.amenities.map((a: string) => (
+                    <span key={a} className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border bg-muted/50">
+                      <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Video */}
+          {property.video_url && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Video className="h-4 w-4" /> Video
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg overflow-hidden aspect-video">
+                  <iframe src={property.video_url} className="w-full h-full" allowFullScreen title="Video propiedad" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Virtual tour */}
+          {property.virtual_tour_url && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Tour Virtual 360°</CardTitle></CardHeader>
+              <CardContent>
+                <div className="rounded-lg overflow-hidden aspect-video">
+                  <iframe src={property.virtual_tour_url} className="w-full h-full" allowFullScreen title="Tour virtual" />
+                </div>
               </CardContent>
             </Card>
           )}
@@ -157,15 +225,22 @@ export default async function SitePropertyDetailPage({
         {/* Sidebar */}
         <div>
           <div className="sticky top-20 space-y-4">
-            {/* Price + contact */}
+            {/* Price card */}
             <Card>
               <CardContent className="pt-6 space-y-4">
-                <p className="text-3xl font-bold" style={{ color: primaryColor }}>
-                  {formatPrice(property.price, property.currency)}
-                </p>
-                {property.operation === 'arriendo' && (
-                  <p className="text-sm text-muted-foreground -mt-2">mensual</p>
-                )}
+                <div>
+                  <p className="text-3xl font-bold" style={{ color: primaryColor }}>
+                    {formatPrice(property.price, property.currency)}
+                  </p>
+                  {(property.operation === 'arriendo' || property.operation === 'arriendo_temporal') && (
+                    <p className="text-sm text-muted-foreground">mensual</p>
+                  )}
+                  {property.common_expenses > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      + {formatPrice(property.common_expenses, 'CLP')} gastos comunes
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
@@ -214,7 +289,7 @@ export default async function SitePropertyDetailPage({
               </CardContent>
             </Card>
 
-            {/* Application module */}
+            {/* Apply */}
             <SiteApplyButton
               propertyId={property.id}
               subdomain={decodeURIComponent(params.subdomain)}
@@ -222,7 +297,7 @@ export default async function SitePropertyDetailPage({
               accentColor={accentColor}
             />
 
-            {/* Visit request module */}
+            {/* Visit */}
             <SiteVisitRequestButton
               propertyId={property.id}
               primaryColor={primaryColor}
@@ -232,5 +307,19 @@ export default async function SitePropertyDetailPage({
         </div>
       </div>
     </div>
+  )
+}
+
+function StatCard({ icon, value, label, color }: {
+  icon: React.ReactNode; value: string | number; label: string; color: string
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4 pb-3 text-center">
+        <div style={{ color }} className="flex justify-center mb-1">{icon}</div>
+        <p className="font-bold text-base">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </CardContent>
+    </Card>
   )
 }

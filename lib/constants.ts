@@ -45,23 +45,107 @@ export function canModifyUser(actorRole: string, targetRole: string): boolean {
 }
 
 export const PROPERTY_TYPES = [
-  { value: 'departamento', label: 'Departamento' },
-  { value: 'casa', label: 'Casa' },
-  { value: 'villa', label: 'Villa' },
-  { value: 'terreno', label: 'Terreno' },
-  { value: 'oficina', label: 'Oficina' },
-  { value: 'local', label: 'Local Comercial' },
+  { value: 'departamento',    label: 'Departamento' },
+  { value: 'casa',            label: 'Casa' },
+  { value: 'casa_condominio', label: 'Casa en Condominio' },
+  { value: 'villa',           label: 'Villa' },
+  { value: 'quinta',          label: 'Quinta' },
+  { value: 'monoambiente',    label: 'Monoambiente / Studio' },
+  { value: 'terreno',         label: 'Terreno' },
+  { value: 'terreno_comercial', label: 'Terreno Comercial' },
+  { value: 'oficina',         label: 'Oficina' },
+  { value: 'local',           label: 'Local Comercial' },
+  { value: 'bodega',          label: 'Bodega' },
+  { value: 'edificio',        label: 'Edificio' },
+  { value: 'hotel',           label: 'Hotel' },
+  { value: 'nave_industrial', label: 'Nave Industrial' },
 ] as const
 
 export const OPERATION_TYPES = [
-  { value: 'arriendo', label: 'Arriendo' },
-  { value: 'venta', label: 'Venta' },
+  { value: 'arriendo',          label: 'Arriendo' },
+  { value: 'arriendo_temporal', label: 'Arriendo Temporal' },
+  { value: 'venta',             label: 'Venta' },
 ] as const
 
 export const CURRENCIES = [
   { value: 'CLP', label: 'CLP ($)' },
-  { value: 'UF', label: 'UF' },
+  { value: 'UF',  label: 'UF' },
   { value: 'USD', label: 'USD (US$)' },
+] as const
+
+export const PROPERTY_CONDITIONS = [
+  { value: 'nuevo',           label: 'Nuevo / Listo' },
+  { value: 'en_construccion', label: 'En Construcción' },
+  { value: 'segunda_mano',    label: 'Segunda Mano' },
+  { value: 'remodelada',      label: 'Remodelada' },
+  { value: 'en_planos',       label: 'En Planos' },
+] as const
+
+export const PROPERTY_STYLES = [
+  { value: 'moderno',    label: 'Moderno' },
+  { value: 'minimalista', label: 'Minimalista' },
+  { value: 'clasico',    label: 'Clásico' },
+  { value: 'colonial',   label: 'Colonial' },
+  { value: 'villa',      label: 'Villa' },
+  { value: 'otro',       label: 'Otro' },
+] as const
+
+export const CHILE_REGIONS = [
+  'Región de Arica y Parinacota',
+  'Región de Tarapacá',
+  'Región de Antofagasta',
+  'Región de Atacama',
+  'Región de Coquimbo',
+  'Región de Valparaíso',
+  'Región Metropolitana de Santiago',
+  "Región del Libertador Gral. Bernardo O'Higgins",
+  'Región del Maule',
+  'Región de Ñuble',
+  'Región del Biobío',
+  'Región de La Araucanía',
+  'Región de Los Ríos',
+  'Región de Los Lagos',
+  'Región de Aysén',
+  'Región de Magallanes',
+] as const
+
+export const AMENITY_GROUPS = [
+  {
+    group: 'Áreas Comunes',
+    items: [
+      'Piscina', 'Gimnasio / GYM', 'Sala de Eventos', 'Juegos Infantiles',
+      'Casa Club', 'Quincho / BBQ', 'Sauna', 'Spa', 'Cine', 'Lobby',
+      'Salón Multiusos', 'Cowork',
+    ],
+  },
+  {
+    group: 'Exterior',
+    items: [
+      'Jardín', 'Terraza', 'Balcón', 'Patio', 'Gazebo',
+      'Estacionamiento Techado', 'Garaje', 'Cisterna',
+    ],
+  },
+  {
+    group: 'Interior',
+    items: [
+      'Amueblado', 'Cocina Equipada', 'Cocina con Desayunador', 'Cuarto de Servicio',
+      'Estudio', 'Family Room', 'Chimenea', 'Clósets Empotrados',
+    ],
+  },
+  {
+    group: 'Servicios',
+    items: [
+      'Ascensor', 'Portero', 'Portón Eléctrico', 'Vigilancia 24h',
+      'Cámaras de Seguridad', 'Gas Centralizado', 'Aire Acondicionado',
+      'Planta Eléctrica', 'Acceso Discapacitados',
+    ],
+  },
+  {
+    group: 'Políticas',
+    items: [
+      'Mascotas Permitidas', 'AirBnB Friendly', 'Uso Comercial',
+    ],
+  },
 ] as const
 
 export const PROPERTY_STATUSES = [

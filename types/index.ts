@@ -92,8 +92,29 @@ export interface Property {
   ml_poi_visible?: boolean | null
   // Subscriber website visibility
   website_visible?: boolean | null
-  // Extra area fields
-  covered_area?: number | null
+  // ── Enhanced fields (migration 031) ──────────────────────────────────────
+  private_name?: string | null
+  internal_code?: string | null
+  floor_count?: number | null
+  half_bathrooms?: number | null
+  condition?: string | null
+  year_built?: number | null
+  style?: string | null
+  covered_sqm?: number | null
+  terrace_sqm?: number | null
+  exclusive?: boolean | null
+  has_sign?: boolean | null
+  keys_count?: number | null
+  video_url?: string | null
+  virtual_tour_url?: string | null
+  region?: string | null
+  address2?: string | null
+  zip_code?: string | null
+  lat?: number | null
+  lng?: number | null
+  show_exact_location?: boolean | null
+  private_notes?: string | null
+  notify_email?: string | null
 }
 
 export interface PropertyImage {

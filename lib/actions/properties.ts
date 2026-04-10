@@ -37,9 +37,17 @@ export async function createProperty(formData: FormData) {
   // Use temp ID if images were uploaded from client
   const tempId = formData.get('temp_property_id') as string
 
-  // website_visible: read separately (not in propertySchema)
-  const websiteVisibleRaw = formData.get('website_visible')
-  const websiteVisible = websiteVisibleRaw !== null ? websiteVisibleRaw === 'true' : true
+  // Fields outside propertySchema (arrays / booleans handled separately)
+  const websiteVisible = (formData.get('website_visible') ?? 'true') === 'true'
+  const amenitiesRaw = formData.get('amenities_json') as string
+  const amenities: string[] = amenitiesRaw ? JSON.parse(amenitiesRaw) : []
+
+  // Delete images explicitly removed in the editor
+  const deletedImagesRaw = formData.get('deleted_image_ids') as string
+  const deletedIds: string[] = deletedImagesRaw ? JSON.parse(deletedImagesRaw) : []
+  if (deletedIds.length > 0) {
+    await supabase.from('property_images').delete().in('id', deletedIds)
+  }
 
   const { data, error } = await supabase
     .from('properties')
@@ -49,7 +57,7 @@ export async function createProperty(formData: FormData) {
       owner_id: profile.id,
       subscriber_id: profile.subscriber_id || profile.id,
       website_visible: websiteVisible,
-      // Auto-assign to the agent who created the property
+      amenities,
       ...(profile.role === ROLES.AGENTE ? { agent_id: profile.id } : {}),
     } as any)
     .select('id')
@@ -108,15 +116,20 @@ export async function updateProperty(id: string, formData: FormData) {
 
   const supabase = createClient()
 
-  // website_visible: read separately (not in propertySchema)
-  const websiteVisibleRaw = formData.get('website_visible')
-  const websiteVisibleUpdate = websiteVisibleRaw !== null
-    ? { website_visible: websiteVisibleRaw === 'true' }
-    : {}
+  const websiteVisible = (formData.get('website_visible') ?? 'true') === 'true'
+  const amenitiesRaw = formData.get('amenities_json') as string
+  const amenities: string[] = amenitiesRaw ? JSON.parse(amenitiesRaw) : []
+
+  // Delete images explicitly removed in the editor
+  const deletedImagesRaw = formData.get('deleted_image_ids') as string
+  const deletedIds: string[] = deletedImagesRaw ? JSON.parse(deletedImagesRaw) : []
+  if (deletedIds.length > 0) {
+    await supabase.from('property_images').delete().in('id', deletedIds)
+  }
 
   const { error } = await supabase
     .from('properties')
-    .update({ ...parsed.data, ...websiteVisibleUpdate } as any)
+    .update({ ...parsed.data, website_visible: websiteVisible, amenities } as any)
     .eq('id', id)
 
   if (error) return { error: error.message }
