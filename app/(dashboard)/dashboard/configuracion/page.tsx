@@ -9,10 +9,10 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { PageHeader } from '@/components/shared/page-header'
-import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark, Globe } from 'lucide-react'
+import { Loader2, Save, CheckCircle, Lock, Camera, User, Landmark } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
-import { MLConnectButton } from '@/components/portals/ml-connect-button'
+
 
 export default function ConfiguracionPage() {
   const { profile, loading: profileLoading } = useUser()
@@ -319,24 +319,7 @@ export default function ConfiguracionPage() {
           </div>
         )}
 
-        {/* PORTALES DE PUBLICACIÓN — visible for SUPERADMIN and SUPERADMINBOSS */}
-        {['SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Portales de Publicación
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Vincula tu cuenta de MercadoLibre para publicar tus propiedades en{' '}
-                <strong>MercadoLibre</strong> y <strong>Portal Inmobiliario</strong> con un solo clic.
-              </p>
-            </CardHeader>
-            <CardContent>
-              {profile && <MLConnectButton profile={profile} />}
-            </CardContent>
-          </Card>
-        )}
+        {/* PORTALES DE PUBLICACIÓN — moved to /dashboard/portales */}
 
         {/* BANK ACCOUNT CARD — visible for PROPIETARIO, POSTULANTE, SUPERADMIN, SUPERADMINBOSS */}
         {['PROPIETARIO', 'POSTULANTE', 'SUPERADMIN', 'SUPERADMINBOSS'].includes(profile?.role || '') && (
