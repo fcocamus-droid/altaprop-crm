@@ -244,20 +244,15 @@ function StatusPill({ active }: { active: boolean }) {
 
 // ─── Logo SVGs — fiel a cada marca ───────────────────────────────────────────
 
-/** MercadoLibre — zigzag "M" sobre fondo amarillo */
+/** MercadoLibre — logo oficial desde CDN */
 function MLLogoFull() {
   return (
-    <svg viewBox="0 0 56 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      {/* Característica ola doble de ML */}
-      <path
-        d="M6 28 L14 12 L22 28 L28 16 L34 28 L42 12 L50 28"
-        stroke="#333"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.1/mercadolibre/logo__large_plus.png"
+      alt="MercadoLibre"
+      className="h-7 w-auto object-contain"
+    />
   )
 }
 
