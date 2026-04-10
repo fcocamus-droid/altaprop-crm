@@ -29,7 +29,7 @@ export default function PortalesPage() {
         {/* ── Portal Inmobiliario ── */}
         <PortalCard
           logo={<PILogo />}
-          logoBg="bg-[#0070C0]"
+          logoBg="bg-white border-2 border-green-100"
           name="Portal Inmobiliario"
           description="Se publica automáticamente junto con MercadoLibre con un solo clic."
           badge={{ label: 'Incluido con ML', color: 'blue' }}
@@ -48,7 +48,7 @@ export default function PortalesPage() {
         {/* ── Yapo ── */}
         <PortalCard
           logo={<YapoLogo />}
-          logoBg="bg-[#FF6B00]"
+          logoBg="bg-[#F7941D]"
           name="Yapo"
           description="Portal de clasificados líder en Chile para arriendo y venta de propiedades."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -58,7 +58,7 @@ export default function PortalesPage() {
         {/* ── GoPlaceit ── */}
         <PortalCard
           logo={<GoPlaceitLogo />}
-          logoBg="bg-[#E53935]"
+          logoBg="bg-[#E8432D]"
           name="GoPlaceit"
           description="Plataforma inmobiliaria con búsqueda avanzada y datos de mercado en Chile."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -68,7 +68,7 @@ export default function PortalesPage() {
         {/* ── TocToc ── */}
         <PortalCard
           logo={<TocTocLogo />}
-          logoBg="bg-[#7C3AED]"
+          logoBg="bg-[#0A0A5C]"
           name="TocToc"
           description="Portal inmobiliario especializado en nuevos proyectos y propiedades usadas."
           badge={{ label: 'Próximamente', color: 'amber' }}
@@ -111,7 +111,7 @@ function MLCard({
       <div className="flex flex-col flex-1 p-5 gap-4">
         {/* Header row */}
         <div className="flex items-start justify-between">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFE600] shadow-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFE600] shadow-sm overflow-hidden">
             <MLLogoFull />
           </div>
           <StatusPill active={connected} />
@@ -242,51 +242,94 @@ function StatusPill({ active }: { active: boolean }) {
   )
 }
 
-// ─── Logo SVGs ────────────────────────────────────────────────────────────────
+// ─── Logo SVGs — fiel a cada marca ───────────────────────────────────────────
 
+/** MercadoLibre — zigzag "M" sobre fondo amarillo */
 function MLLogoFull() {
   return (
-    <svg viewBox="0 0 48 30" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-7 w-auto">
-      <path d="M10 8l5 10 5-10 5 10 5-10" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 56 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      {/* Característica ola doble de ML */}
+      <path
+        d="M6 28 L14 12 L22 28 L28 16 L34 28 L42 12 L50 28"
+        stroke="#333"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </svg>
   )
 }
 
+/** Portal Inmobiliario — casa sobre pin de mapa (azul + verde) */
 function PILogo() {
   return (
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      {/* House silhouette */}
-      <path d="M7 20L20 7L33 20" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M11 17V31H17V24H23V31H29V17" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <svg viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto">
+      {/* Pin/gota verde */}
+      <ellipse cx="24" cy="46" rx="7" ry="4" fill="#4CAF50" opacity="0.5" />
+      <path
+        d="M24 48 C24 48 8 34 8 22 C8 13.16 15.16 6 24 6 C32.84 6 40 13.16 40 22 C40 34 24 48 24 48Z"
+        fill="#4CAF50"
+      />
+      {/* Casa dentro del pin */}
+      <path d="M16 24 L24 16 L32 24" fill="white" />
+      <rect x="19" y="24" width="10" height="8" rx="1" fill="white" />
+      <rect x="22" y="27" width="4" height="5" rx="0.5" fill="#4CAF50" />
+      {/* Techo azul */}
+      <path d="M16 24 L24 16 L32 24" fill="#1565C0" />
     </svg>
   )
 }
 
+/** Yapo — cubo 3D isométrico naranja */
 function YapoLogo() {
   return (
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      <path d="M13 10L20 22V30M27 10L20 22" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      {/* Cara superior */}
+      <path d="M24 8 L40 17 L24 26 L8 17 Z" fill="white" fillOpacity="0.95" />
+      {/* Cara izquierda */}
+      <path d="M8 17 L8 33 L24 42 L24 26 Z" fill="white" fillOpacity="0.6" />
+      {/* Cara derecha */}
+      <path d="M40 17 L40 33 L24 42 L24 26 Z" fill="white" fillOpacity="0.8" />
     </svg>
   )
 }
 
+/** GoPlaceit — lupa con pin de ubicación dentro */
 function GoPlaceitLogo() {
   return (
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      <circle cx="20" cy="18" r="8" stroke="white" strokeWidth="2.5" fill="none" />
-      <path d="M20 26V34" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx="20" cy="18" r="3" fill="white" />
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      {/* Círculo de lupa */}
+      <circle cx="20" cy="20" r="12" stroke="white" strokeWidth="3.5" fill="none" />
+      {/* Mango de lupa */}
+      <line x1="29" y1="29" x2="41" y2="41" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+      {/* Pin dentro */}
+      <circle cx="20" cy="18" r="4" stroke="white" strokeWidth="2.5" fill="none" />
+      <path d="M20 22 L20 27" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   )
 }
 
+/** TocToc — dos "cometas" o tadpoles cyan sobre fondo oscuro */
 function TocTocLogo() {
   return (
-    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-      <rect x="8" y="8" width="10" height="10" rx="2" stroke="white" strokeWidth="2.5" fill="none" />
-      <rect x="22" y="8" width="10" height="10" rx="2" stroke="white" strokeWidth="2.5" fill="none" />
-      <rect x="8" y="22" width="10" height="10" rx="2" stroke="white" strokeWidth="2.5" fill="none" />
-      <rect x="22" y="22" width="10" height="10" rx="2" stroke="white" strokeWidth="2.5" fill="none" />
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      {/* Tadpole izquierdo */}
+      <circle cx="16" cy="14" r="5" fill="#00E5CC" />
+      <path
+        d="M16 19 C14 26 10 30 9 38"
+        stroke="#00E5CC"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      {/* Tadpole derecho */}
+      <circle cx="30" cy="22" r="5" fill="#00E5CC" />
+      <path
+        d="M30 27 C28 34 26 37 26 44"
+        stroke="#00E5CC"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }
