@@ -251,33 +251,34 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     { id: 'UNIT_NAME',        value_name: unitName },
     // POSSESSION_STATUS: "Entrega inmediata" (id 242413)
     { id: 'POSSESSION_STATUS', value_id: '242413', value_name: 'Entrega inmediata' },
-    // FACING: default Norte (id 242327) — actual orientation unknown without extra data
-    { id: 'FACING', value_id: '242327', value_name: 'N' },
+    // FACING: "NO" (NorOriente) — valid value_id 2730831; orientation data not captured in CRM
+    { id: 'FACING', value_id: '2730831', value_name: 'NO' },
   ]
 
-  // Numeric attributes — use value_name (string) for value_type:"number"
+  // Numeric attributes — value_name as string for value_type:"number"
   if (property.bedrooms != null) {
     attributes.push({ id: 'BEDROOMS', value_name: String(property.bedrooms) })
   }
   if (property.bathrooms != null) {
     attributes.push({ id: 'FULL_BATHROOMS', value_name: String(property.bathrooms) })
   }
-  // PARKING_LOTS is required; hint says "Si no tiene estacionamientos, indica 0"
+  // PARKING_LOTS is required; "Si no tiene estacionamientos, indica 0"
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
-  // Area attributes — TOTAL_AREA, COVERED_AREA, LAND_AREA are required for all
-  // real-estate classified categories. Use cross-fallbacks so they're always sent
-  // when at least one area value is available.
+  // Area attributes — ML requires TOTAL_AREA, COVERED_AREA, LAND_AREA as
+  // value_name strings with unit suffix, e.g. "94 m²"  (value_struct is NOT accepted).
+  // Use cross-fallbacks so all three are always sent when any area value exists.
   const effectiveTotalArea   = property.total_area   ?? property.covered_area
   const effectiveCoveredArea = property.covered_area ?? property.total_area
 
   if (effectiveTotalArea != null) {
-    attributes.push({ id: 'TOTAL_AREA', value_struct: { number: effectiveTotalArea, unit: 'm²' } })
-    // LAND_AREA is also required; for apartments/offices use total_area as proxy
-    attributes.push({ id: 'LAND_AREA',  value_struct: { number: effectiveTotalArea, unit: 'm²' } })
+    const areaStr = `${Math.round(Number(effectiveTotalArea))} m\u00b2`
+    attributes.push({ id: 'TOTAL_AREA',  value_name: areaStr })
+    // LAND_AREA also required; for apartments/offices use total_area as proxy
+    attributes.push({ id: 'LAND_AREA',   value_name: areaStr })
   }
   if (effectiveCoveredArea != null) {
-    attributes.push({ id: 'COVERED_AREA', value_struct: { number: effectiveCoveredArea, unit: 'm²' } })
+    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m\u00b2` })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────
@@ -382,11 +383,12 @@ export async function updateProperty(
     attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
   }
   if (propertyData.total_area != null) {
-    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: propertyData.total_area, unit: 'm²' } })
-    attributes.push({ id: 'LAND_AREA',   value_struct: { number: propertyData.total_area, unit: 'm²' } })
+    const areaStr = `${Math.round(Number(propertyData.total_area))} m\u00b2`
+    attributes.push({ id: 'TOTAL_AREA', value_name: areaStr })
+    attributes.push({ id: 'LAND_AREA',  value_name: areaStr })
   }
   if (propertyData.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_struct: { number: propertyData.covered_area, unit: 'm²' } })
+    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(propertyData.covered_area))} m\u00b2` })
   }
   if (attributes.length > 0) updates.attributes = attributes
 
