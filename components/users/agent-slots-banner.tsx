@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Users, Plus, CheckCircle2, Clock, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { requestExtraAgentSlot, EXTRA_AGENT_PRICE_USD } from '@/lib/actions/users'
+import { requestExtraAgentSlot } from '@/lib/actions/users'
+import { EXTRA_AGENT_PRICE_USD } from '@/lib/plan-features'
 
 const IVA = 1.19
 

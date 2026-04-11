@@ -1,5 +1,7 @@
 import { PLANS } from '@/lib/constants'
 
+export const EXTRA_AGENT_PRICE_USD = 25
+
 export function canImportProperties(plan: string | null): boolean {
   return !!plan && plan !== 'started'
 }

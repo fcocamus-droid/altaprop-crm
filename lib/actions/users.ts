@@ -254,8 +254,6 @@ export async function assignPropietarioAgent(
 
 // ─── Extra Agent Slot add-on ──────────────────────────────────────────────────
 
-export const EXTRA_AGENT_PRICE_USD = 25
-
 /**
  * Subscriber requests an extra agent slot ($25 USD + IVA/mes).
  * Creates a pending request that SUPERADMINBOSS can approve.
@@ -286,7 +284,7 @@ export async function requestExtraAgentSlot() {
     .insert({
       subscriber_id: subscriberId,
       slots_requested: 1,
-      price_usd: EXTRA_AGENT_PRICE_USD,
+      price_usd: 25,
       status: 'pending',
     })
 
