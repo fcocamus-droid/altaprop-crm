@@ -53,6 +53,18 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
           mlStatus={property.ml_status}
           mlListingType={property.ml_listing_type}
           subscriberConnected={subscriberConnected}
+          property={{
+            title: property.title,
+            price: property.price,
+            sqm: property.sqm,
+            covered_sqm: (property as any).covered_sqm,
+            bedrooms: property.bedrooms,
+            bathrooms: property.bathrooms,
+            city: property.city,
+            sector: property.sector,
+            address: property.address,
+            images: (property as any).images || [],
+          }}
         />
       )}
     </div>
