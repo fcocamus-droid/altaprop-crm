@@ -135,6 +135,37 @@ export async function updateUserRole(userId: string, newRole: string) {
   return { success: true }
 }
 
+export async function updateUser(
+  userId: string,
+  data: { full_name: string; phone: string }
+) {
+  const profile = await getUserProfile()
+  if (!profile || !isAdmin(profile.role)) {
+    return { error: 'No autorizado' }
+  }
+
+  const admin = createAdminClient()
+  const { data: targetUser } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single()
+
+  if (targetUser && !canModifyUser(profile.role, targetUser.role)) {
+    return { error: 'No tienes permiso para modificar este usuario' }
+  }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ full_name: data.full_name || null, phone: data.phone || null })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/usuarios')
+  return { success: true }
+}
+
 export async function deleteUser(userId: string) {
   const profile = await getUserProfile()
   if (!profile || !isAdmin(profile.role)) {

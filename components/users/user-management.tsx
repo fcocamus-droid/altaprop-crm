@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { createUser, updateUserRole, deleteUser } from '@/lib/actions/users'
+import { createUser, updateUserRole, updateUser, deleteUser } from '@/lib/actions/users'
 import { PasswordInput } from '@/components/ui/password-input'
 import { formatPhone } from '@/lib/validations/chilean-formats'
 import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
 import { getMaxAgents, getPlanName } from '@/lib/plan-features'
-import { Camera, Loader2 } from 'lucide-react'
+import { Camera, Loader2, Pencil, Check, X } from 'lucide-react'
 
 function getRoleColor(role: string) {
   return ROLE_CONFIG.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800'
@@ -45,6 +45,9 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
   const [success, setSuccess] = useState<string | null>(null)
   const [avatarLoading, setAvatarLoading] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '' })
+  const [editLoading, setEditLoading] = useState(false)
 
   const assignableRoles = getAllowedRolesForAdmin(currentUserRole)
 
@@ -107,6 +110,33 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
       setSuccess('Usuario eliminado')
     }
     setLoading(null)
+  }
+
+  const startEdit = (user: User) => {
+    setEditingId(user.id)
+    setEditForm({ full_name: user.full_name || '', phone: user.phone || '' })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm({ full_name: '', phone: '' })
+  }
+
+  const handleSaveEdit = async (userId: string) => {
+    setEditLoading(true)
+    setError(null)
+    const result = await updateUser(userId, editForm)
+    if (result.error) {
+      setError(result.error)
+    } else {
+      setUsers(prev => prev.map(u =>
+        u.id === userId ? { ...u, full_name: editForm.full_name, phone: editForm.phone } : u
+      ))
+      setSuccess('Usuario actualizado')
+      setTimeout(() => setSuccess(null), 3000)
+      setEditingId(null)
+    }
+    setEditLoading(false)
   }
 
   const handleAvatarUpload = async (userId: string, file: File) => {
@@ -293,6 +323,8 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
     const isLoading = loading === user.id
     const isProtected = !canModifyUser(currentUserRole, user.role)
 
+    const isEditing = editingId === user.id
+
     return (
       <Card key={user.id} className={`transition-all ${isLoading ? 'opacity-60' : ''} border-0 shadow-none`}>
         <CardContent className="p-4">
@@ -364,6 +396,20 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
                       {formatDate(user.created_at)}
                     </span>
 
+                    {/* Edit button */}
+                    {!isProtected && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => isEditing ? cancelEdit() : startEdit(user)}
+                        disabled={isLoading}
+                        className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                        title="Editar usuario"
+                      >
+                        {isEditing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                      </Button>
+                    )}
+
                     {!isCurrentUser && !isProtected && (
                       <Button
                         variant="outline"
@@ -379,6 +425,51 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
                     )}
                   </div>
                 </div>
+
+                {/* Inline edit panel */}
+                {isEditing && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Editar usuario</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor={`edit-name-${user.id}`} className="text-xs">Nombre completo</Label>
+                        <Input
+                          id={`edit-name-${user.id}`}
+                          value={editForm.full_name}
+                          onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                          placeholder="Nombre completo"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`edit-phone-${user.id}`} className="text-xs">Teléfono</Label>
+                        <Input
+                          id={`edit-phone-${user.id}`}
+                          value={editForm.phone}
+                          onChange={e => setEditForm(f => ({ ...f, phone: formatPhone(e.target.value) }))}
+                          placeholder="+56 9 1234 5678"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-3">
+                      <Button variant="outline" size="sm" onClick={cancelEdit} className="h-8 text-xs">
+                        Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveEdit(user.id)}
+                        disabled={editLoading}
+                        className="h-8 text-xs bg-navy hover:bg-navy/90 gap-1.5"
+                      >
+                        {editLoading
+                          ? <><Loader2 className="h-3 w-3 animate-spin" /> Guardando…</>
+                          : <><Check className="h-3 w-3" /> Guardar cambios</>
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )
