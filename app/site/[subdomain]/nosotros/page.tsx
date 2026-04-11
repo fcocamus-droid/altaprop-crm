@@ -1,8 +1,23 @@
 import { getSubscriberProfile } from '@/lib/queries/website'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+async function getNosotrosContent(subscriberId: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('profiles')
+      .select('website_nosotros_content')
+      .eq('id', subscriberId)
+      .single()
+    return (data as any)?.website_nosotros_content ?? null
+  } catch {
+    return null
+  }
+}
 
 export async function generateMetadata({
   params,
@@ -28,7 +43,7 @@ export default async function NosotrosPage({
   const primaryColor = subscriber.website_primary_color || '#1a2332'
   const accentColor  = subscriber.website_accent_color  || '#c9a84c'
   const companyName  = subscriber.full_name || 'Nosotros'
-  const content      = (subscriber as any).website_nosotros_content as string | null
+  const content      = await getNosotrosContent(subscriber.id)
 
   return (
     <div className="flex flex-col">
