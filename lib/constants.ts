@@ -32,9 +32,11 @@ export const ROLE_LABELS: Record<string, string> = Object.fromEntries(
   ROLE_CONFIG.map(r => [r.value, r.label])
 )
 
+const ASSIGNABLE_ROLE_IDS: string[] = [ROLES.SUPERADMIN, ROLES.AGENTE]
+
 export function getAllowedRolesForAdmin(adminRole: string) {
-  if (adminRole === ROLES.SUPERADMINBOSS) return ROLE_CONFIG
-  if (adminRole === ROLES.SUPERADMIN) return ROLE_CONFIG.filter(r => !ADMIN_ROLES.includes(r.value as UserRole))
+  if (adminRole === ROLES.SUPERADMINBOSS) return ROLE_CONFIG.filter(r => ASSIGNABLE_ROLE_IDS.includes(r.value))
+  if (adminRole === ROLES.SUPERADMIN) return ROLE_CONFIG.filter(r => r.value === ROLES.AGENTE)
   return []
 }
 
