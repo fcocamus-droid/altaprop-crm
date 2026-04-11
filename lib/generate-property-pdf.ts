@@ -1,5 +1,22 @@
 import { jsPDF } from 'jspdf'
 
+/** Strip emoji and non-latin characters that jsPDF/Helvetica can't render */
+function sanitize(text: string | null | undefined): string {
+  if (!text) return ''
+  return text
+    // Remove emoji (broad unicode ranges)
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    // Common emoji-like symbols
+    .replace(/[⚡🌟💫✨🎯🔥💎🏠🏡🏢🏣🏤🏥🏦🏧🏨🏩🏪🏫🏬🏭🏮🏯🏰]/g, '')
+    // Clean up multiple spaces/dashes left behind
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s*–\s*/g, ' - ')
+    .trim()
+}
+
 export interface PropertyPDFData {
   property: {
     title: string
@@ -120,12 +137,12 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
 
   // ── TITLE & PRICE ─────────────────────────────────────────────────────────
   doc.setTextColor(...NAVY); doc.setFontSize(16); doc.setFont('helvetica', 'bold')
-  const titleLines = doc.splitTextToSize(p.title, CW)
+  const titleLines = doc.splitTextToSize(sanitize(p.title), CW)
   doc.text(titleLines, ML, y)
   y += titleLines.length * 7
 
   // Location
-  const location = [p.address, p.sector, p.city, p.region].filter(Boolean).join(', ')
+  const location = [p.address, p.sector, p.city, p.region].filter(Boolean).map(sanitize).join(', ')
   if (location) {
     doc.setTextColor(...GRAY); doc.setFontSize(9); doc.setFont('helvetica', 'normal')
     doc.text(location, ML, y)
@@ -235,7 +252,7 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
     y += 12
 
     doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK)
-    const descLines = doc.splitTextToSize(p.description, CW - 4)
+    const descLines = doc.splitTextToSize(sanitize(p.description), CW - 4)
     const showLines = descLines.slice(0, 20)
     doc.text(showLines, ML + 2, y)
     y += showLines.length * 5 + 10
@@ -251,7 +268,7 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
     y += 12
 
     doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK)
-    const amenText = p.amenities.join('  ·  ')
+    const amenText = p.amenities.map(sanitize).join('  ·  ')
     const amenLines = doc.splitTextToSize(amenText, CW - 4)
     doc.text(amenLines.slice(0, 5), ML + 2, y)
     y += Math.min(amenLines.length, 5) * 5 + 10
@@ -264,8 +281,8 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
   doc.setTextColor(...GOLD); doc.setFontSize(8); doc.setFont('helvetica', 'bold')
   doc.text('AGENTE A CARGO', ML + 5, y + 8)
   doc.setTextColor(...WHITE); doc.setFontSize(12); doc.setFont('helvetica', 'bold')
-  doc.text(agent.name, ML + 5, y + 16)
-  const contactStr = [agent.phone, agent.email].filter(Boolean).join('   ·   ')
+  doc.text(sanitize(agent.name), ML + 5, y + 16)
+  const contactStr = [agent.phone, agent.email].filter(Boolean).map(sanitize).join('   ·   ')
   doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(200, 200, 200)
   doc.text(contactStr, ML + 5, y + 22)
   y += 34
@@ -279,7 +296,7 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
     doc.setDrawColor(...LGRAY); doc.setLineWidth(0.2)
     doc.line(0, H - 12, W, H - 12)
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(...GRAY)
-    doc.text(`${brand.name}  ·  altaprop-app.cl`, ML, H - 5)
+    doc.text(`${sanitize(brand.name)}  ·  altaprop-app.cl`, ML, H - 5)
     doc.text(`Página ${i} de ${totalPages}`, W - MR, H - 5, { align: 'right' })
   }
 
