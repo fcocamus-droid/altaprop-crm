@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty, updatePropertyWebsiteVisibility } from '@/lib/actions/properties'
 import { notifyAgentAssignment } from '@/lib/actions/agent-notify'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail, Globe, GlobeLock } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail, Globe, GlobeLock, Send } from 'lucide-react'
+import { SendFichaModal } from '@/components/properties/send-ficha-modal'
 
 function formatPrice(price: number, currency: string) {
   if (currency === 'UF') return `${price} UF`
@@ -109,6 +110,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
   const [notifyingAgent, setNotifyingAgent] = useState<string | null>(null)
   const [notifySuccess, setNotifySuccess] = useState<string | null>(null)
   const [togglingWeb, setTogglingWeb] = useState<string | null>(null)
+  const [sendFichaId, setSendFichaId] = useState<string | null>(null)
 
   const handleNotifyAgent = async (propertyId: string, agentId: string) => {
     setNotifyingAgent(propertyId)
@@ -365,6 +367,15 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                       : <GlobeLock className="h-3.5 w-3.5" />
                   }
                 </button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Enviar ficha por email"
+                  onClick={() => setSendFichaId(property.id)}
+                  className="border-navy/20 text-navy hover:bg-navy/5"
+                >
+                  <Send className="h-3 w-3" />
+                </Button>
                 <Button asChild variant="outline" size="sm">
                   <Link href={`/dashboard/propiedades/${property.id}`}>
                     <Pencil className="mr-2 h-3 w-3" />Editar
@@ -511,6 +522,19 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
           </CardContent>
         </Card>
       ))}
+
+      {/* Send Ficha Modal */}
+      {sendFichaId && (() => {
+        const prop = properties.find(p => p.id === sendFichaId)
+        if (!prop) return null
+        return (
+          <SendFichaModal
+            propertyId={sendFichaId}
+            propertyTitle={prop.title}
+            onClose={() => setSendFichaId(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
