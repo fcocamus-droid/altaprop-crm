@@ -213,9 +213,10 @@ function parseMlError(raw: string): string {
         // Extract minimum price from message: "The category MLC123 requires a minimum of price 376.1"
         const minMatch = c.message.match(/minimum of price ([\d.]+)/)
         if (minMatch) {
-          errors.push(`Precio mínimo requerido por MercadoLibre para esta categoría: $${minMatch[1]}. Ajusta el precio de la propiedad.`)
+          const min = Number(minMatch[1]).toLocaleString('es-CL')
+          errors.push(`El precio de la propiedad es demasiado bajo para MercadoLibre. El mínimo permitido para esta categoría es $${min} CLP. Edita la propiedad y actualiza el precio.`)
         } else {
-          errors.push(`Precio inválido para esta categoría en MercadoLibre. Revisa que el precio sea correcto.`)
+          errors.push(`El precio no es válido para esta categoría en MercadoLibre. Revisa que el precio esté en el rango correcto.`)
         }
       } else if (c.code === 'item.pictures.mandatory' || c.code?.includes('picture')) {
         errors.push('Se requiere al menos una imagen para publicar')
