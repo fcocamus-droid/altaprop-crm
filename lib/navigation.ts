@@ -12,7 +12,7 @@ export const menuItems = [
   { href: '/dashboard/mi-sitio', label: 'Mi Sitio Web', icon: Globe, roles: [ROLES.SUPERADMIN, ROLES.SUPERADMINBOSS] as UserRole[] },
   { href: '/dashboard/plan', label: 'Mi Plan', icon: CreditCard, roles: [ROLES.SUPERADMIN] as UserRole[] },
   { href: '/dashboard/suscriptores', label: 'Suscriptores', icon: Crown, roles: [ROLES.SUPERADMINBOSS] as UserRole[] },
-  { href: '/dashboard/usuarios', label: 'Usuarios', icon: Users, roles: ADMIN_ROLES },
+  { href: '/dashboard/usuarios', label: 'Agentes', icon: Users, roles: ADMIN_ROLES },
   { href: '/dashboard/portales', label: 'Portales', icon: LayoutGrid, roles: ADMIN_ROLES },
   { href: '/dashboard/configuracion', label: 'Configuracion', icon: Settings, roles: ALL_ROLE_VALUES },
 ]
