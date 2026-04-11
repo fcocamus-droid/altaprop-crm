@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { PropertyForm } from '@/components/properties/property-form'
 import { PropertyPortals } from '@/components/portals/property-portals'
 import { createClient } from '@/lib/supabase/server'
-import { ML_CITY_MAP } from '@/lib/ml/client'
+import { isMLCommune } from '@/lib/ml/communes'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Editar Propiedad' }
@@ -48,14 +48,10 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
       <PageHeader title="Editar Propiedad" description={property.title} />
       <PropertyForm property={property} />
       {canManagePortals && (() => {
-        // Check if sector or city is in the ML commune map
-        const normalize = (s: string) => s.toLowerCase().trim()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        const candidates = [property.sector, property.city]
-          .filter(Boolean)
-          .map(s => normalize(s!))
         const hasLocation = !!(property.sector || property.city || property.address)
-        const locationMapped = !hasLocation || candidates.some(c => ML_CITY_MAP[c] !== undefined)
+        const locationMapped = !hasLocation ||
+          isMLCommune(property.sector || '') ||
+          isMLCommune(property.city || '')
         return (
           <PropertyPortals
             propertyId={property.id}

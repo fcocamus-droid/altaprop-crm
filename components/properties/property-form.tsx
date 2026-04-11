@@ -13,6 +13,7 @@ import {
 } from '@/lib/constants'
 import { createProperty, updateProperty } from '@/lib/actions/properties'
 import { createClient } from '@/lib/supabase/client'
+import { ComunaSelector } from '@/components/properties/comuna-selector'
 import {
   Loader2, Upload, X, Globe, ChevronDown, ChevronUp,
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Maximize2,
@@ -580,7 +581,11 @@ export function PropertyForm({ property }: PropertyFormProps) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="Sector / Comuna">
-                    <Input name="sector" defaultValue={property?.sector || ''} placeholder="Las Condes" />
+                    <ComunaSelector
+                      name="sector"
+                      defaultValue={property?.sector || ''}
+                      placeholder="Buscar comuna (ej: Las Condes)"
+                    />
                   </Field>
                   <Field label="Código Postal">
                     <Input name="zip_code" defaultValue={property?.zip_code || ''} placeholder="7550000" />
