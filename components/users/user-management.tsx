@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { formatPhone } from '@/lib/validations/chilean-formats'
 import { ROLE_CONFIG, getAllowedRolesForAdmin, canModifyUser } from '@/lib/constants'
 import { getMaxAgents, getPlanName } from '@/lib/plan-features'
+import { Camera, Loader2 } from 'lucide-react'
 
 function getRoleColor(role: string) {
   return ROLE_CONFIG.find(r => r.value === role)?.color || 'bg-gray-100 text-gray-800'
@@ -33,6 +34,7 @@ interface User {
   plan: string | null
   subscriber_id: string | null
   created_at: string
+  avatar_url: string | null
 }
 
 export function UserManagement({ users: initialUsers, currentUserId, currentUserRole }: { users: User[]; currentUserId: string; currentUserRole: string }) {
@@ -41,6 +43,8 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [avatarLoading, setAvatarLoading] = useState<string | null>(null)
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const assignableRoles = getAllowedRolesForAdmin(currentUserRole)
 
@@ -103,6 +107,26 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
       setSuccess('Usuario eliminado')
     }
     setLoading(null)
+  }
+
+  const handleAvatarUpload = async (userId: string, file: File) => {
+    setAvatarLoading(userId)
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const res = await fetch(`/api/upload/avatar/${userId}`, { method: 'POST', body: formData })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Error al subir la foto')
+      } else {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, avatar_url: data.url } : u))
+        setSuccess('Foto actualizada correctamente')
+        setTimeout(() => setSuccess(null), 3000)
+      }
+    } catch {
+      setError('Error de conexión al subir la foto')
+    }
+    setAvatarLoading(null)
   }
 
   return (
@@ -274,11 +298,44 @@ export function UserManagement({ users: initialUsers, currentUserId, currentUser
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center flex-shrink-0">
+              {/* Avatar with upload on click */}
+              <div className="relative flex-shrink-0 group">
+                <button
+                  type="button"
+                  onClick={() => fileInputRefs.current[user.id]?.click()}
+                  className="w-11 h-11 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-1"
+                  title="Cambiar foto"
+                >
+                  {avatarLoading === user.id ? (
+                    <div className="w-full h-full bg-gold/20 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin text-navy" />
+                    </div>
+                  ) : user.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.full_name || ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gold/20 flex items-center justify-center">
                       <span className="font-semibold text-navy text-sm">
                         {user.full_name?.[0]?.toUpperCase() || '?'}
                       </span>
                     </div>
+                  )}
+                  {/* Camera overlay on hover */}
+                  <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Camera className="h-4 w-4 text-white" />
+                  </div>
+                </button>
+                <input
+                  ref={el => { fileInputRefs.current[user.id] = el }}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) handleAvatarUpload(user.id, file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
                     <div className="min-w-0">
                       <p className="font-medium truncate">
                         {user.full_name || 'Sin nombre'}
