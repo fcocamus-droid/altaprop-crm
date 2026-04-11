@@ -173,9 +173,9 @@ export const VISIT_STATUSES = [
 
 export const PLANS = [
   { id: 'started', name: 'Started', price: 19, agents: 1, trial: false, features: ['1 agente incluido', 'Hasta 5 propiedades', 'Postulaciones y visitas', 'Soporte por email'] },
-  { id: 'basico', name: 'Básico', price: 29, agents: 3, trial: true, trialDays: 7, features: ['3 agentes incluidos', 'Propiedades ilimitadas', 'Importar desde tu sitio web', 'Postulaciones y visitas', 'Soporte prioritario'] },
-  { id: 'pro', name: 'Pro', price: 49, agents: 5, trial: true, trialDays: 7, recommended: true, features: ['5 agentes incluidos', 'Todo lo del Básico', 'Reportes avanzados', 'Personalización de marca', 'Soporte 24/7'] },
-  { id: 'enterprise', name: 'Enterprise', price: 99, agents: 10, trial: true, trialDays: 7, features: ['10 agentes incluidos', 'Todo lo del Pro', 'API dedicada', 'Onboarding personalizado', 'Gerente de cuenta'] },
+  { id: 'basico', name: 'Básico', price: 49, agents: 3, trial: true, trialDays: 7, features: ['3 agentes incluidos', 'Propiedades ilimitadas', 'Importar desde tu sitio web', 'Postulaciones y visitas', 'Soporte prioritario'] },
+  { id: 'pro', name: 'Pro', price: 99, agents: 5, trial: true, trialDays: 7, recommended: true, features: ['5 agentes incluidos', 'Todo lo del Básico', 'Reportes avanzados', 'Personalización de marca', 'Soporte 24/7'] },
+  { id: 'enterprise', name: 'Enterprise', price: 149, agents: 10, trial: true, trialDays: 7, features: ['10 agentes incluidos', 'Todo lo del Pro', 'API dedicada', 'Onboarding personalizado', 'Gerente de cuenta'] },
 ] as const
 
 export type PlanId = (typeof PLANS)[number]['id']
