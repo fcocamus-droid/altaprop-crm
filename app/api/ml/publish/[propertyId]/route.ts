@@ -171,7 +171,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 function parseMlError(raw: string): string {
   // Try to extract JSON from the error message
   // Find last JSON object in the error string (multiline-safe)
-  const jsonStart = raw.lastIndexOf('{')
+  const jsonStart = raw.indexOf('{')
   const jsonMatch = jsonStart >= 0 ? [raw.slice(jsonStart)] : null
   if (!jsonMatch) return raw
 
@@ -210,7 +210,13 @@ function parseMlError(raw: string): string {
         const match = c.message.match(/Attribute: (\w+) was dropped/)
         if (match) droppedAttrs.push(FIELD_NAMES[match[1]] || match[1])
       } else if (c.code === 'item.price.invalid') {
-        errors.push(`Precio inválido: ${c.message.replace(/The category \w+ requires/, 'La categoría requiere')}`)
+        // Extract minimum price from message: "The category MLC123 requires a minimum of price 376.1"
+        const minMatch = c.message.match(/minimum of price ([\d.]+)/)
+        if (minMatch) {
+          errors.push(`Precio mínimo requerido por MercadoLibre para esta categoría: $${minMatch[1]}. Ajusta el precio de la propiedad.`)
+        } else {
+          errors.push(`Precio inválido para esta categoría en MercadoLibre. Revisa que el precio sea correcto.`)
+        }
       } else if (c.code === 'item.pictures.mandatory' || c.code?.includes('picture')) {
         errors.push('Se requiere al menos una imagen para publicar')
       } else if (c.type === 'error') {
