@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { propertySchema } from '@/lib/validations/property'
 import { isPropertyManager, ROLES } from '@/lib/constants'
+import { getEffectivePlan } from '@/lib/plan-features-server'
 
 /** Revalidates the subscriber's public site pages after a property change. */
 async function revalidateSubscriberSite(subscriberId: string) {
@@ -41,14 +42,18 @@ export async function createProperty(formData: FormData) {
   const supabase = createClient()
 
   // Enforce property limit for Started plan (5 properties max)
-  if (profile.role !== ROLES.SUPERADMINBOSS && profile.plan === 'started') {
-    const subscriberId = profile.subscriber_id || profile.id
-    const { count } = await supabase
-      .from('properties')
-      .select('id', { count: 'exact', head: true })
-      .eq('subscriber_id', subscriberId)
-    if ((count || 0) >= 5) {
-      return { error: 'Limite de propiedades alcanzado (5). Mejora tu plan para agregar mas.' }
+  // Use getEffectivePlan so AGENTEs inherit the subscriber's plan limit too
+  if (profile.role !== ROLES.SUPERADMINBOSS) {
+    const effectivePlan = await getEffectivePlan(profile)
+    if (effectivePlan === 'started') {
+      const subscriberId = profile.subscriber_id || profile.id
+      const { count } = await supabase
+        .from('properties')
+        .select('id', { count: 'exact', head: true })
+        .eq('subscriber_id', subscriberId)
+      if ((count || 0) >= 5) {
+        return { error: 'Límite de propiedades alcanzado (5). Mejora tu plan para agregar más.' }
+      }
     }
   }
 
