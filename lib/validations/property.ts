@@ -22,6 +22,7 @@ export const propertySchema = z.object({
   price: z.coerce.number().positive('El precio debe ser mayor a 0'),
   currency: z.enum(['CLP', 'UF', 'USD']).default('CLP'),
   common_expenses: z.coerce.number().int().min(0).optional(),
+  contribuciones: z.coerce.number().int().min(0).optional(),
 
   // ── Location ─────────────────────────────────────────────────────────────
   address: z.string().optional(),

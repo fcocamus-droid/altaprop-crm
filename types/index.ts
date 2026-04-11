@@ -71,6 +71,7 @@ export interface Property {
   bathrooms: number | null
   sqm: number | null
   common_expenses: number
+  contribuciones: number | null
   pets_allowed: boolean
   parking: number
   storage: number

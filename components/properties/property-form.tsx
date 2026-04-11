@@ -259,6 +259,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
   const [progress, setProgress]     = useState('')
   const [error, setError]           = useState('')
   const [websiteVisible, setWebsiteVisible] = useState(property?.website_visible !== false)
+  const [operation, setOperation]   = useState(property?.operation || '')
 
   // ── Amenities ─────────────────────────────────────────────────────────────
   const [amenities, setAmenities]   = useState<string[]>(property?.amenities || [])
@@ -427,10 +428,16 @@ export function PropertyForm({ property }: PropertyFormProps) {
                     </Select>
                   </Field>
                   <Field label="Operación *">
-                    <Select name="operation" defaultValue={property?.operation} required>
+                    <select
+                      name="operation"
+                      value={operation}
+                      onChange={e => setOperation(e.target.value)}
+                      required
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
                       <option value="">Seleccionar</option>
                       {OPERATION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </Select>
+                    </select>
                   </Field>
                   <Field label="Condición">
                     <Select name="condition" defaultValue={property?.condition || ''}>
@@ -528,6 +535,11 @@ export function PropertyForm({ property }: PropertyFormProps) {
                   <Field label="Gastos Comunes">
                     <NumberInput name="common_expenses" defaultValue={property?.common_expenses} placeholder="Mensual CLP" />
                   </Field>
+                  {operation === 'venta' && (
+                    <Field label="Contribuciones">
+                      <NumberInput name="contribuciones" defaultValue={property?.contribuciones} placeholder="Anual CLP" />
+                    </Field>
+                  )}
                 </div>
               </CardContent>
             </Card>
