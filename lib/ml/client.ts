@@ -93,7 +93,7 @@ function getCategoryId(operation: string, type: string): string {
 // ─── Chilean commune → ML city ID map ────────────────────────────────────────
 // IDs obtained from GET https://api.mercadolibre.com/states/{state_id}
 
-const ML_CITY_MAP: Record<string, { cityId: string; stateId: string }> = {
+export const ML_CITY_MAP: Record<string, { cityId: string; stateId: string }> = {
   // RM – Región Metropolitana
   'providencia':          { cityId: 'TUxDQ1BST2NhYjU3', stateId: 'CL-RM' },
   'las condes':           { cityId: 'TUxDQ0xBUzU2MTEz', stateId: 'CL-RM' },

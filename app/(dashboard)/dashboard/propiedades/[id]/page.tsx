@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/shared/page-header'
 import { PropertyForm } from '@/components/properties/property-form'
 import { PropertyPortals } from '@/components/portals/property-portals'
 import { createClient } from '@/lib/supabase/server'
+import { ML_CITY_MAP } from '@/lib/ml/client'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Editar Propiedad' }
@@ -46,27 +47,38 @@ export default async function EditarPropiedadPage({ params }: { params: { id: st
     <div className="space-y-6">
       <PageHeader title="Editar Propiedad" description={property.title} />
       <PropertyForm property={property} />
-      {canManagePortals && (
-        <PropertyPortals
-          propertyId={property.id}
-          mlItemId={property.ml_item_id}
-          mlStatus={property.ml_status}
-          mlListingType={property.ml_listing_type}
-          subscriberConnected={subscriberConnected}
-          property={{
-            title: property.title,
-            price: property.price,
-            sqm: property.sqm,
-            covered_sqm: (property as any).covered_sqm,
-            bedrooms: property.bedrooms,
-            bathrooms: property.bathrooms,
-            city: property.city,
-            sector: property.sector,
-            address: property.address,
-            images: (property as any).images || [],
-          }}
-        />
-      )}
+      {canManagePortals && (() => {
+        // Check if sector or city is in the ML commune map
+        const normalize = (s: string) => s.toLowerCase().trim()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        const candidates = [property.sector, property.city]
+          .filter(Boolean)
+          .map(s => normalize(s!))
+        const hasLocation = !!(property.sector || property.city || property.address)
+        const locationMapped = !hasLocation || candidates.some(c => ML_CITY_MAP[c] !== undefined)
+        return (
+          <PropertyPortals
+            propertyId={property.id}
+            mlItemId={property.ml_item_id}
+            mlStatus={property.ml_status}
+            mlListingType={property.ml_listing_type}
+            subscriberConnected={subscriberConnected}
+            property={{
+              title: property.title,
+              price: property.price,
+              sqm: property.sqm,
+              covered_sqm: (property as any).covered_sqm,
+              bedrooms: property.bedrooms,
+              bathrooms: property.bathrooms,
+              city: property.city,
+              sector: property.sector,
+              address: property.address,
+              images: (property as any).images || [],
+              locationMapped,
+            }}
+          />
+        )
+      })()}
     </div>
   )
 }

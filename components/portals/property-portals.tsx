@@ -25,6 +25,7 @@ interface PropertyPortalsProps {
     sector?: string | null
     address?: string | null
     images?: { url: string }[]
+    locationMapped?: boolean   // true if sector/city is in the ML commune map
   }
 }
 
@@ -68,6 +69,13 @@ function getValidationFields(property?: PropertyPortalsProps['property']): Valid
       label: 'Ubicación',
       ok: hasLocation,
       hint: 'Completa ciudad, sector o dirección',
+    },
+    {
+      label: 'Comuna reconocida por ML',
+      ok: property.locationMapped !== false,
+      hint: property.locationMapped === false
+        ? `La comuna "${property.sector || property.city}" no está en el listado de ML — escríbela exactamente como aparece en MercadoLibre (ej: "Las Condes", "Providencia", "Ñuñoa")`
+        : undefined,
     },
     {
       label: 'Al menos una foto',

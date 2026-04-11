@@ -197,31 +197,39 @@ function parseMlError(raw: string): string {
     const errors: string[] = []
     const missingAttrs: string[] = []
     const droppedAttrs: string[] = []
+    const unknownMessages: string[] = []
 
     for (const c of causes) {
-      if (!c.message) continue
       if (c.code === 'item.attributes.missing_required') {
-        const match = c.message.match(/\[([^\]]+)\]/)
+        const match = (c.message || '').match(/\[([^\]]+)\]/)
         if (match) {
           const ids = match[1].split(',').map((s: string) => s.trim())
           missingAttrs.push(...ids.map((id: string) => FIELD_NAMES[id] || id))
         }
       } else if (c.code === 'item.attribute.dropped') {
-        const match = c.message.match(/Attribute: (\w+) was dropped/)
+        const match = (c.message || '').match(/Attribute: (\w+) was dropped/)
         if (match) droppedAttrs.push(FIELD_NAMES[match[1]] || match[1])
       } else if (c.code === 'item.price.invalid') {
-        // Extract minimum price from message: "The category MLC123 requires a minimum of price 376.1"
-        const minMatch = c.message.match(/minimum of price ([\d.]+)/)
+        const minMatch = (c.message || '').match(/minimum of price ([\d.]+)/)
         if (minMatch) {
           const min = Number(minMatch[1]).toLocaleString('es-CL')
-          errors.push(`El precio de la propiedad es demasiado bajo para MercadoLibre. El mínimo permitido para esta categoría es $${min} CLP. Edita la propiedad y actualiza el precio.`)
+          errors.push(`Precio mínimo requerido para esta categoría: $${min} CLP — edita la propiedad y actualiza el precio`)
         } else {
-          errors.push(`El precio no es válido para esta categoría en MercadoLibre. Revisa que el precio esté en el rango correcto.`)
+          errors.push('El precio no es válido para esta categoría en MercadoLibre')
         }
       } else if (c.code === 'item.pictures.mandatory' || c.code?.includes('picture')) {
         errors.push('Se requiere al menos una imagen para publicar')
-      } else if (c.type === 'error') {
-        errors.push(c.message || c.code || '')
+      } else if (c.code === 'item.location.invalid' || c.code?.includes('location')) {
+        errors.push('La ubicación no es válida — asegúrate de que la comuna/ciudad esté correctamente escrita')
+      } else if (c.type === 'error' && c.message) {
+        // Translate common ML English messages to Spanish
+        const msg = c.message
+          .replace('is required', 'es requerido')
+          .replace('is invalid', 'no es válido')
+          .replace('is not allowed', 'no está permitido')
+          .replace('must be greater than', 'debe ser mayor que')
+          .replace('must be less than', 'debe ser menor que')
+        unknownMessages.push(msg)
       }
     }
 
@@ -230,12 +238,17 @@ function parseMlError(raw: string): string {
       parts.push(`Faltan campos requeridos: ${missingAttrs.join(', ')}`)
     }
     if (droppedAttrs.length > 0) {
-      parts.push(`Valores inválidos en: ${droppedAttrs.join(', ')} — revisa que la propiedad tenga estos datos completos`)
+      parts.push(`Valores inválidos en: ${droppedAttrs.join(', ')}`)
     }
     parts.push(...errors.filter(Boolean))
 
+    // If we still have no human-readable parts, show the raw ML messages (translated)
+    if (parts.length === 0 && unknownMessages.length > 0) {
+      parts.push(...unknownMessages)
+    }
+
     return parts.length > 0
-      ? parts.join('. ')
+      ? parts.join(' · ')
       : `Error de validación MercadoLibre (${parsed.status || 400}): revisa que la propiedad tenga todos los datos completos`
   } catch {
     return raw
