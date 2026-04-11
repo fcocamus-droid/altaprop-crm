@@ -111,21 +111,27 @@ export function PropertyPortals({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Portal logos row */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-lg border p-2 bg-[#FFE600]/10">
-            <div className="h-6 w-6 rounded bg-[#FFE600] flex items-center justify-center">
-              <MLLogoSmall />
-            </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border p-2 bg-muted/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://www.google.com/s2/favicons?domain=mercadolibre.cl&sz=32"
+              alt="MercadoLibre"
+              className="h-5 w-5 rounded object-contain"
+            />
             <span className="text-xs font-medium">MercadoLibre</span>
           </div>
-          <span className="text-xs text-muted-foreground">+</span>
-          <div className="flex items-center gap-2 rounded-lg border p-2 bg-blue-50">
-            <div className="h-6 w-6 rounded bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-[9px] font-bold">PI</span>
-            </div>
+          <span className="text-xs text-muted-foreground font-bold">+</span>
+          <div className="flex items-center gap-2 rounded-lg border p-2 bg-muted/40">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://www.google.com/s2/favicons?domain=portalinmobiliario.com&sz=32"
+              alt="Portal Inmobiliario"
+              className="h-5 w-5 rounded object-contain"
+            />
             <span className="text-xs font-medium">Portal Inmobiliario</span>
           </div>
-          <p className="text-xs text-muted-foreground ml-1">
+          <p className="text-xs text-muted-foreground">
             Se publican juntos automáticamente
           </p>
         </div>
@@ -311,10 +317,3 @@ export function PropertyPortals({
   )
 }
 
-function MLLogoSmall() {
-  return (
-    <svg viewBox="0 0 16 10" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3 w-auto">
-      <path d="M2 2l2.5 5L7 2l2.5 5L12 2" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
