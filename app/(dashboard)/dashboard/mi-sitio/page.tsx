@@ -7,7 +7,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Mi Sitio Web - Altaprop' }
 
-type TabParam = 'configuracion' | 'propiedades' | 'estadisticas'
+type TabParam = 'configuracion' | 'propiedades' | 'estadisticas' | 'nosotros'
 
 export default async function MiSitioPage({
   searchParams,
@@ -22,7 +22,7 @@ export default async function MiSitioPage({
     redirect('/dashboard')
   }
 
-  const validTabs: TabParam[] = ['configuracion', 'propiedades', 'estadisticas']
+  const validTabs: TabParam[] = ['configuracion', 'propiedades', 'estadisticas', 'nosotros']
   const tab = validTabs.includes(searchParams.tab as TabParam)
     ? (searchParams.tab as TabParam)
     : 'configuracion'

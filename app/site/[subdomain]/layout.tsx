@@ -67,6 +67,7 @@ export default async function SiteLayout({
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Inicio</Link>
             <Link href="/propiedades" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Propiedades</Link>
+            <Link href="/nosotros" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Nosotros</Link>
           </nav>
 
           {subscriber.website_whatsapp && (
@@ -101,9 +102,11 @@ export default async function SiteLayout({
               )}
             </div>
             <div>
-              <h4 className="font-semibold mb-4" style={{ color: accentColor }}>Propiedades</h4>
+              <h4 className="font-semibold mb-4" style={{ color: accentColor }}>Navegación</h4>
               <ul className="space-y-2 text-sm text-white/70">
-                <li><Link href="/propiedades" className="hover:text-white transition-colors">Ver todas</Link></li>
+                <li><Link href="/" className="hover:text-white transition-colors">Inicio</Link></li>
+                <li><Link href="/propiedades" className="hover:text-white transition-colors">Propiedades</Link></li>
+                <li><Link href="/nosotros" className="hover:text-white transition-colors">Nosotros</Link></li>
               </ul>
             </div>
             <div>

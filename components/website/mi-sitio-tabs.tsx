@@ -2,18 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { Settings, Home as HomeIcon, BarChart3, ExternalLink, Globe, AlertCircle } from 'lucide-react'
+import { Settings, Home as HomeIcon, BarChart3, ExternalLink, Globe, AlertCircle, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WebsiteConfigTab } from './website-config-tab'
 import { WebsitePropiedadesTab } from './website-propiedades-tab'
 import { WebsiteEstadisticasTab } from './website-estadisticas-tab'
+import { WebsiteNosotrosTab } from './website-nosotros-tab'
 
-type Tab = 'configuracion' | 'propiedades' | 'estadisticas'
+type Tab = 'configuracion' | 'propiedades' | 'estadisticas' | 'nosotros'
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { id: 'configuracion', label: 'Configuración',      icon: Settings },
-  { id: 'propiedades',   label: 'Propiedades',         icon: HomeIcon },
-  { id: 'estadisticas',  label: 'Estadísticas',        icon: BarChart3 },
+  { id: 'configuracion', label: 'Configuración', icon: Settings },
+  { id: 'propiedades',   label: 'Propiedades',   icon: HomeIcon },
+  { id: 'estadisticas',  label: 'Estadísticas',  icon: BarChart3 },
+  { id: 'nosotros',      label: 'Nosotros',       icon: Users },
 ]
 
 interface MiSitioTabsProps {
@@ -83,6 +85,7 @@ export function MiSitioTabs({ defaultTab = 'configuracion', websiteEnabled, webs
       {activeTab === 'configuracion' && <WebsiteConfigTab />}
       {activeTab === 'propiedades'   && <WebsitePropiedadesTab />}
       {activeTab === 'estadisticas'  && <WebsiteEstadisticasTab />}
+      {activeTab === 'nosotros'      && <WebsiteNosotrosTab />}
     </div>
   )
 }
