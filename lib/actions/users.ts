@@ -62,18 +62,30 @@ export async function createUser(data: {
     return { error: 'No tienes permiso para asignar este rol' }
   }
 
-  // Enforce max_agents limit for SUPERADMIN subscribers
+  // Enforce max_agents limit for SUPERADMIN subscribers (base plan + extra purchased slots)
   if (profile.role === ROLES.SUPERADMIN && data.role === 'AGENTE') {
-    const maxAgents = getMaxAgents(profile.plan)
     const subscriberId = profile.subscriber_id || profile.id
     const admin = createAdminClient()
+    // Fetch subscriber profile to get extra_agent_slots
+    const { data: subscriberProfile } = await admin
+      .from('profiles')
+      .select('plan, extra_agent_slots')
+      .eq('id', subscriberId)
+      .single()
+    const extraSlots = (subscriberProfile as any)?.extra_agent_slots ?? 0
+    const effectivePlan = (subscriberProfile as any)?.plan ?? profile.plan
+    const maxAgents = getMaxAgents(effectivePlan, extraSlots)
     const { count } = await admin
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .eq('subscriber_id', subscriberId)
       .eq('role', 'AGENTE')
     if ((count || 0) >= maxAgents) {
-      return { error: `Limite de agentes alcanzado (${maxAgents}). Mejora tu plan para agregar mas.` }
+      return {
+        error: `Límite de agentes alcanzado (${maxAgents}). Puedes contratar agentes adicionales por $25 USD + IVA/mes desde la página de Agentes.`,
+        limitReached: true,
+        maxAgents,
+      }
     }
   }
 
@@ -237,5 +249,96 @@ export async function assignPropietarioAgent(
   if (error) return { error: error.message }
 
   revalidatePath('/dashboard/base-propietarios')
+  return { success: true }
+}
+
+// ─── Extra Agent Slot add-on ──────────────────────────────────────────────────
+
+export const EXTRA_AGENT_PRICE_USD = 25
+
+/**
+ * Subscriber requests an extra agent slot ($25 USD + IVA/mes).
+ * Creates a pending request that SUPERADMINBOSS can approve.
+ */
+export async function requestExtraAgentSlot() {
+  const profile = await getUserProfile()
+  if (!profile || profile.role !== ROLES.SUPERADMIN) {
+    return { error: 'Solo los suscriptores pueden solicitar agentes adicionales' }
+  }
+
+  const subscriberId = profile.subscriber_id || profile.id
+  const admin = createAdminClient()
+
+  // Check there's no pending request already
+  const { data: existing } = await admin
+    .from('agent_slot_requests' as any)
+    .select('id, status')
+    .eq('subscriber_id', subscriberId)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existing) {
+    return { error: 'Ya tienes una solicitud de agente adicional pendiente de aprobación. Te contactaremos pronto.' }
+  }
+
+  const { error } = await admin
+    .from('agent_slot_requests' as any)
+    .insert({
+      subscriber_id: subscriberId,
+      slots_requested: 1,
+      price_usd: EXTRA_AGENT_PRICE_USD,
+      status: 'pending',
+    })
+
+  if (error) return { error: 'No se pudo registrar la solicitud. Intenta de nuevo.' }
+
+  revalidatePath('/dashboard/usuarios')
+  return { success: true }
+}
+
+/**
+ * SUPERADMINBOSS approves an agent slot request → increments extra_agent_slots on the subscriber.
+ */
+export async function approveAgentSlotRequest(requestId: string) {
+  const profile = await getUserProfile()
+  if (!profile || profile.role !== ROLES.SUPERADMINBOSS) {
+    return { error: 'No autorizado' }
+  }
+
+  const admin = createAdminClient()
+
+  const { data: request, error: fetchError } = await admin
+    .from('agent_slot_requests' as any)
+    .select('*')
+    .eq('id', requestId)
+    .eq('status', 'pending')
+    .single()
+
+  if (fetchError || !request) {
+    return { error: 'Solicitud no encontrada o ya procesada' }
+  }
+
+  const req = request as any
+
+  const { data: subProfile } = await admin
+    .from('profiles')
+    .select('extra_agent_slots')
+    .eq('id', req.subscriber_id)
+    .single()
+
+  const currentExtra = (subProfile as any)?.extra_agent_slots ?? 0
+
+  await admin
+    .from('profiles')
+    .update({ extra_agent_slots: currentExtra + req.slots_requested } as any)
+    .eq('id', req.subscriber_id)
+
+  await admin
+    .from('agent_slot_requests' as any)
+    .update({ status: 'approved', reviewed_by: profile.id, reviewed_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  revalidatePath('/dashboard/usuarios')
+  revalidatePath('/dashboard/suscriptores')
   return { success: true }
 }

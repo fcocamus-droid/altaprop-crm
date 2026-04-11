@@ -2,28 +2,83 @@ import { RoleGuard } from '@/components/auth/role-guard'
 import { getUsers } from '@/lib/actions/users'
 import { PageHeader } from '@/components/shared/page-header'
 import { UserManagement } from '@/components/users/user-management'
-import { ADMIN_ROLES } from '@/lib/constants'
+import { AgentSlotsBanner } from '@/components/users/agent-slots-banner'
+import { ADMIN_ROLES, ROLES } from '@/lib/constants'
+import { getMaxAgents, getPlanName } from '@/lib/plan-features'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 
-export const metadata: Metadata = { title: 'Usuarios - Altaprop' }
+export const metadata: Metadata = { title: 'Agentes - Altaprop' }
 
 export default async function UsuariosPage() {
   let users: any[] = []
   let currentUserId = ''
   let currentUserRole = 'SUPERADMIN'
+  let planName = ''
+  let usedAgents = 0
+  let maxAgents = 1
+  let extraSlots = 0
+  let hasPendingRequest = false
 
   try {
     const result = await getUsers()
     users = result.users
     currentUserId = result.profile?.id || ''
     currentUserRole = result.profile?.role || 'SUPERADMIN'
+
+    // Compute agent usage for the banner (only for SUPERADMIN subscribers)
+    if (result.profile?.role === ROLES.SUPERADMIN) {
+      const admin = createAdminClient()
+      const subscriberId = result.profile.subscriber_id || result.profile.id
+
+      // Fetch subscriber profile for plan + extra_agent_slots
+      const { data: subscriberProfile } = await admin
+        .from('profiles')
+        .select('plan, extra_agent_slots')
+        .eq('id', subscriberId)
+        .single()
+
+      const plan = (subscriberProfile as any)?.plan ?? result.profile.plan
+      extraSlots = (subscriberProfile as any)?.extra_agent_slots ?? 0
+      planName = getPlanName(plan)
+      maxAgents = getMaxAgents(plan, extraSlots)
+
+      // Count current agents
+      const { count } = await admin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('subscriber_id', subscriberId)
+        .eq('role', 'AGENTE')
+      usedAgents = count || 0
+
+      // Check for pending slot request
+      const { data: pendingReq } = await admin
+        .from('agent_slot_requests' as any)
+        .select('id')
+        .eq('subscriber_id', subscriberId)
+        .eq('status', 'pending')
+        .maybeSingle()
+      hasPendingRequest = !!pendingReq
+    }
   } catch {
     // Supabase may not be configured yet
   }
 
+  const isSuperAdmin = currentUserRole === ROLES.SUPERADMIN
+
   return (
     <RoleGuard allowedRoles={ADMIN_ROLES}>
-      <PageHeader title="Usuarios" description="Administra los usuarios de la plataforma" />
+      <PageHeader title="Agentes" description="Administra los agentes de tu equipo" />
+      {isSuperAdmin && (
+        <AgentSlotsBanner
+          planName={planName}
+          usedAgents={usedAgents}
+          maxAgents={maxAgents}
+          extraSlots={extraSlots}
+          hasPendingRequest={hasPendingRequest}
+          isSuperAdmin={isSuperAdmin}
+        />
+      )}
       <UserManagement users={users} currentUserId={currentUserId} currentUserRole={currentUserRole} />
     </RoleGuard>
   )

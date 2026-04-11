@@ -4,9 +4,10 @@ export function canImportProperties(plan: string | null): boolean {
   return !!plan && plan !== 'started'
 }
 
-export function getMaxAgents(plan: string | null): number {
+export function getMaxAgents(plan: string | null, extraSlots = 0): number {
   if (!plan) return 0
-  return PLANS.find(p => p.id === plan)?.agents || 1
+  const base = PLANS.find(p => p.id === plan)?.agents || 1
+  return base + extraSlots
 }
 
 export function getMonthlyApplicationLimit(plan: string | null): number | null {
