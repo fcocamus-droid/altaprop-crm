@@ -23,7 +23,7 @@ async function getProperty(propertyId: string, subscriberId: string) {
   const admin = createAdminClient()
   const { data } = await admin
     .from('properties')
-    .select('*, images:property_images(*)')
+    .select('*, images:property_images(*), agent:profiles!properties_agent_id_fkey(id, full_name, avatar_url, phone)')
     .eq('id', propertyId)
     .eq('subscriber_id', subscriberId)
     .single()
@@ -227,6 +227,17 @@ export default async function SitePropertyDetailPage({
         {/* Sidebar */}
         <div>
           <div className="sticky top-20 space-y-4">
+
+            {/* Agent card */}
+            {property.agent && (
+              <AgentCard
+                agent={property.agent}
+                primaryColor={primaryColor}
+                accentColor={accentColor}
+                waUrl={waUrl}
+              />
+            )}
+
             {/* Price card */}
             <Card>
               <CardContent className="pt-6 space-y-4">
@@ -309,6 +320,80 @@ export default async function SitePropertyDetailPage({
         </div>
       </div>
     </div>
+  )
+}
+
+function AgentCard({
+  agent,
+  primaryColor,
+  accentColor,
+  waUrl,
+}: {
+  agent: { id: string; full_name: string | null; avatar_url: string | null; phone: string | null }
+  primaryColor: string
+  accentColor: string
+  waUrl: string | null
+}) {
+  const name = agent.full_name || 'Agente'
+  const initials = name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+
+  return (
+    <Card className="overflow-hidden">
+      {/* Accent top bar */}
+      <div className="h-1.5 w-full" style={{ background: accentColor }} />
+      <CardContent className="pt-5 pb-5">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-4">
+          Agente a cargo
+        </p>
+        <div className="flex items-center gap-3 mb-4">
+          {agent.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={agent.avatar_url}
+              alt={name}
+              className="h-14 w-14 rounded-full object-cover ring-2 ring-offset-1 flex-shrink-0"
+              style={{ outlineColor: accentColor }}
+            />
+          ) : (
+            <div
+              className="h-14 w-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+              style={{ background: primaryColor }}
+            >
+              {initials}
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-[15px] leading-tight">{name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Agente Inmobiliario</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {agent.phone && (
+            <a
+              href={`tel:${agent.phone.replace(/\s/g, '')}`}
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold border transition-colors hover:opacity-90"
+              style={{ borderColor: primaryColor + '40', color: primaryColor }}
+            >
+              <Phone className="h-4 w-4" />
+              {agent.phone}
+            </a>
+          )}
+          {waUrl && (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+              style={{ background: '#25D366' }}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Contactar por WhatsApp
+            </a>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
