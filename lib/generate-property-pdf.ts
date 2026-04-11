@@ -1,19 +1,20 @@
 import { jsPDF } from 'jspdf'
 
-/** Strip emoji and non-latin characters that jsPDF/Helvetica can't render */
+/**
+ * Whitelist-based sanitizer: keeps ONLY characters that Helvetica (latin-1) can render.
+ * Allows: printable ASCII (0x20-0x7E), latin-1 supplement (0xA0-0xFF which covers all
+ * Spanish accents: á é í ó ú ñ ü Á É Í Ó Ú Ñ Ü ¿ ¡ etc.), tabs and newlines.
+ * Everything else (emojis, arrows, symbols, extended unicode) is stripped.
+ */
 function sanitize(text: string | null | undefined): string {
   if (!text) return ''
   return text
-    // Remove emoji (broad unicode ranges)
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
-    .replace(/[\u{2600}-\u{27BF}]/gu, '')
-    .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
-    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
-    // Common emoji-like symbols
-    .replace(/[⚡🌟💫✨🎯🔥💎🏠🏡🏢🏣🏤🏥🏦🏧🏨🏩🏪🏫🏬🏭🏮🏯🏰]/g, '')
-    // Clean up multiple spaces/dashes left behind
+    // Keep only latin-1 printable range + newlines/tabs
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, '')
+    // Collapse multiple spaces
     .replace(/[ \t]{2,}/g, ' ')
-    .replace(/\s*–\s*/g, ' - ')
+    // Collapse 3+ consecutive newlines into 2
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
@@ -244,18 +245,36 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
 
   // ── DESCRIPTION ───────────────────────────────────────────────────────────
   if (p.description) {
-    checkPage(30)
-    doc.setFillColor(...NAVY)
-    doc.rect(ML, y, CW, 9, 'F')
-    doc.setTextColor(...WHITE); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
-    doc.text('DESCRIPCIÓN', ML + 4, y + 6)
-    y += 12
+    const cleanDesc = sanitize(p.description)
+    if (cleanDesc) {
+      const lineH = 5.5
+      const padX = 5, padY = 5
+      const textW = CW - padX * 2
 
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK)
-    const descLines = doc.splitTextToSize(sanitize(p.description), CW - 4)
-    const showLines = descLines.slice(0, 20)
-    doc.text(showLines, ML + 2, y)
-    y += showLines.length * 5 + 10
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      const descLines = doc.splitTextToSize(cleanDesc, textW)
+      const maxLines = 30
+      const showLines: string[] = descLines.slice(0, maxLines)
+      const boxH = padY * 2 + showLines.length * lineH + 4
+
+      // Section header
+      checkPage(16 + boxH)
+      doc.setFillColor(...NAVY)
+      doc.rect(ML, y, CW, 9, 'F')
+      doc.setTextColor(...WHITE); doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      doc.text('DESCRIPCIÓN', ML + 4, y + 6)
+      y += 11
+
+      // Text box with light background
+      doc.setFillColor(250, 250, 252)
+      doc.setDrawColor(...LGRAY)
+      doc.rect(ML, y, CW, boxH, 'FD')
+
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...DARK)
+      doc.text(showLines, ML + padX, y + padY + lineH - 1, { lineHeightFactor: 1.4 })
+      y += boxH + 8
+    }
   }
 
   // ── AMENITIES ─────────────────────────────────────────────────────────────
