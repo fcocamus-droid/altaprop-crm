@@ -18,7 +18,7 @@ export default async function HomePage() {
               Tu CRM <span className="text-gold">Inmobiliario</span> en la nube
             </h1>
             <p className="text-lg md:text-xl text-navy-100 mb-8">
-              Gestiona propiedades, agentes, postulaciones y clientes desde un solo lugar. La plataforma que tu inmobiliaria necesita para crecer.
+              Gestiona propiedades, agentes, postulaciones, visitas y clientes desde un solo lugar. La plataforma que tu inmobiliaria necesita para crecer.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-gold text-navy hover:bg-gold-dark font-semibold">
