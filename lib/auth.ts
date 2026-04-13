@@ -41,5 +41,5 @@ export const getUserProfile = cache(async (): Promise<Profile | null> => {
     .single()
 
   if (!data) return null
-  return { ...data, email: user.email } as Profile
+  return { ...(data as unknown as Record<string, unknown>), email: user.email } as Profile
 })
