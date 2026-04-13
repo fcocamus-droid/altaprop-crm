@@ -764,7 +764,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
 
                       {/* ASSIGN EXISTING PROPERTY */}
                       {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (() => {
-                        const available = orgProperties.filter(op => op.owner_id !== p.id)
+                        const available = orgProperties.filter(op => !op.owner_id)
                         return (
                           <div className="pt-2 border-t space-y-2">
                             <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">

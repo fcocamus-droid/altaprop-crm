@@ -30,6 +30,7 @@ export async function GET() {
     let query = admin
       .from('properties')
       .select('id, title, address, city, sector, status, operation, price, currency, owner_id, images:property_images(url)')
+      .is('owner_id', null)   // only unowned properties
       .order('created_at', { ascending: false })
 
     if (subscriberId) {
