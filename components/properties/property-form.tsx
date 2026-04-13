@@ -536,7 +536,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
                     <NumberInput name="common_expenses" defaultValue={property?.common_expenses} placeholder="Mensual CLP" />
                   </Field>
                   {operation === 'venta' && (
-                    <Field label="Contribuciones">
+                    <Field label="Contribuciones trimestrales">
                       <NumberInput name="contribuciones" defaultValue={property?.contribuciones} placeholder="Anual CLP" />
                     </Field>
                   )}
