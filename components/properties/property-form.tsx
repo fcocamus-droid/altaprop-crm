@@ -537,7 +537,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
                   </Field>
                   {operation === 'venta' && (
                     <Field label="Contribuciones trimestrales">
-                      <NumberInput name="contribuciones" defaultValue={property?.contribuciones} placeholder="Anual CLP" />
+                      <NumberInput name="contribuciones" defaultValue={property?.contribuciones} placeholder="Trimestral CLP" />
                     </Field>
                   )}
                 </div>
