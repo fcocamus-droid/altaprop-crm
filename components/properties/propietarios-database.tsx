@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink } from 'lucide-react'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink, Trash2 } from 'lucide-react'
 import { finalizeProperty } from '@/lib/actions/properties'
 import { PasswordInput } from '@/components/ui/password-input'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
@@ -92,8 +92,11 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [filterAgent, setFilterAgent] = useState('all')
   const [finalizingProp, setFinalizingProp] = useState<string | null>(null) // prop id showing confirm panel
   const [finalizeLoading, setFinalizeLoading] = useState<string | null>(null)
-  const [removingProp, setRemovingProp] = useState<string | null>(null)    // prop id showing remove confirm
-  const [removeLoading, setRemoveLoading] = useState<string | null>(null)  // prop id being removed
+  const [removingProp, setRemovingProp] = useState<string | null>(null)        // prop id showing remove confirm
+  const [removeLoading, setRemoveLoading] = useState<string | null>(null)      // prop id being removed
+  const [deletingPropietario, setDeletingPropietario] = useState<string | null>(null) // propietario id showing delete confirm
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null)      // propietario id being deleted
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -232,6 +235,24 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
       if (Array.isArray(newData)) setPropietarios(newData)
     }
     setAddLoading(false)
+  }
+
+  async function handleDeletePropietario(propietarioId: string) {
+    setDeleteLoading(propietarioId)
+    setDeleteError(null)
+    const res = await fetch('/api/propietarios/delete', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propietarioId }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      setPropietarios(prev => prev.filter(p => p.id !== propietarioId))
+      setDeletingPropietario(null)
+    } else {
+      setDeleteError(data.error || 'Error al eliminar')
+    }
+    setDeleteLoading(null)
   }
 
   if (loading) {
@@ -682,8 +703,62 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                       )}
 
                       {p.properties.length === 0 && (
-                        <div className="pt-2 border-t text-center py-3">
-                          <p className="text-xs text-muted-foreground">Este propietario aún no ha publicado propiedades</p>
+                        <div className="pt-2 border-t space-y-3">
+                          <p className="text-xs text-muted-foreground text-center py-1">Este propietario aún no ha publicado propiedades</p>
+
+                          {/* DELETE PROPIETARIO — only when no properties */}
+                          {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
+                            deletingPropietario === p.id ? (
+                              <div className="rounded-xl border-2 border-red-200 bg-red-50 p-4 space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="font-semibold text-red-900 text-sm flex items-center gap-1.5">
+                                      <Trash2 className="h-4 w-4" />
+                                      Eliminar propietario
+                                    </p>
+                                    <p className="text-xs text-red-700 mt-0.5">
+                                      Se eliminará permanentemente a <strong>{p.full_name || p.email}</strong> del sistema. Esta acción no se puede deshacer.
+                                    </p>
+                                  </div>
+                                  <button onClick={() => { setDeletingPropietario(null); setDeleteError(null) }} className="text-red-400 hover:text-red-600 ml-2">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                {deleteError && (
+                                  <p className="text-xs text-red-700 bg-red-100 rounded px-3 py-2">{deleteError}</p>
+                                )}
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    disabled={deleteLoading === p.id}
+                                    className="bg-red-600 hover:bg-red-700 text-white gap-1.5 text-xs"
+                                    onClick={() => handleDeletePropietario(p.id)}
+                                  >
+                                    {deleteLoading === p.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <Trash2 className="h-3.5 w-3.5" />}
+                                    Confirmar eliminación
+                                  </Button>
+                                  <Button size="sm" variant="outline" disabled={deleteLoading === p.id}
+                                    onClick={() => { setDeletingPropietario(null); setDeleteError(null) }}>
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs gap-1.5 border-red-200 text-red-500 hover:border-red-400 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => { setDeletingPropietario(p.id); setDeleteError(null) }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Eliminar propietario
+                                </Button>
+                              </div>
+                            )
+                          )}
                         </div>
                       )}
 
