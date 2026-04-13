@@ -221,7 +221,7 @@ export function generatePropertyPDF(data: PropertyPDFData): Buffer {
   if (p.pets_allowed) details.push(['Mascotas', 'Permitidas'])
   if (p.exclusive) details.push(['Exclusiva', 'Sí'])
   if (p.common_expenses && p.operation !== 'venta') details.push(['Gastos Comunes', `$${p.common_expenses.toLocaleString('es-CL')} CLP/mes`])
-  if (p.contribuciones && p.operation === 'venta') details.push(['Contribuciones', `$${p.contribuciones.toLocaleString('es-CL')} CLP/año`])
+  if (p.contribuciones && p.operation === 'venta') details.push(['Contribuciones', `$${p.contribuciones.toLocaleString('es-CL')} CLP/trimestre`])
 
   const colW2 = CW / 2
   const rowH2 = 9
