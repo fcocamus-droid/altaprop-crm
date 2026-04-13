@@ -134,7 +134,7 @@ export function buildPropertyFichaEmail({ property: p, agent, recipientName, bra
       ${p.pets_allowed ? row('Mascotas permitidas', 'Sí') : ''}
       ${p.exclusive ? row('Exclusiva', 'Sí') : ''}
       ${p.common_expenses && p.operation !== 'venta' ? row('Gastos comunes', `$${p.common_expenses.toLocaleString('es-CL')} CLP/mes`) : ''}
-      ${p.contribuciones && p.operation === 'venta' ? row('Contribuciones', `$${p.contribuciones.toLocaleString('es-CL')} CLP/trimestre`) : ''}
+      ${p.contribuciones && p.operation === 'venta' ? row('Contribuciones', `$${p.contribuciones.toLocaleString('es-CL')} CLP/trimestral`) : ''}
     </table>`
 
   // Description
