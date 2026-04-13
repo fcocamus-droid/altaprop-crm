@@ -40,7 +40,6 @@ function LoginForm() {
     }
 
     router.push(redirectTo || '/dashboard')
-    router.refresh()
   }
 
   return (

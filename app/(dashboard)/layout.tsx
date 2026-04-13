@@ -17,13 +17,14 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
-  // Real-time trial expiry: if trialing but trial_ends_at has passed,
-  // update DB + send email immediately (before the daily cron fires)
+  // Real-time trial expiry: fire-and-forget so it never blocks page rendering.
+  // The cron job handles cleanup daily; this is just an immediate best-effort.
   let effectiveStatus = profile.subscription_status || 'none'
   if (effectiveStatus === 'trialing' && profile.trial_ends_at) {
     if (new Date(profile.trial_ends_at) < new Date()) {
-      await expireTrialIfNeeded(profile.id, profile.full_name, profile.plan)
       effectiveStatus = 'none'
+      // Non-blocking: update DB in background without delaying the page
+      void expireTrialIfNeeded(profile.id, profile.full_name, profile.plan)
     }
   }
 

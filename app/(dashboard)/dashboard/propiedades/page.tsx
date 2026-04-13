@@ -22,31 +22,38 @@ export default async function PropiedadesDashboardPage() {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
 
-  const effectivePlan = await getEffectivePlan(profile)
+  // ── Helper: build the agents query for this profile ───────────────────────
+  function fetchAgents() {
+    if (!isAdmin(profile!.role)) return Promise.resolve([])
+    const supabase = createClient()
+    const query = profile!.role === ROLES.SUPERADMIN
+      ? supabase.from('profiles').select('id, full_name')
+          .eq('subscriber_id', profile!.subscriber_id || profile!.id)
+          .in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
+      : supabase.from('profiles').select('id, full_name')
+          .in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
+    return query.then(({ data }) => data || [])
+  }
 
+  // ── Helper: fetch properties for this profile ─────────────────────────────
+  function fetchProperties() {
+    if (profile!.role === ROLES.SUPERADMINBOSS) return getAllProperties()
+    if (profile!.role === ROLES.SUPERADMIN) return getPropertiesBySubscriber(profile!.subscriber_id || profile!.id)
+    if (profile!.role === 'AGENTE') return getPropertiesByAgent(profile!.id)
+    return getPropertiesByOwner(profile!.id)
+  }
+
+  // ── Fetch everything in parallel ─────────────────────────────────────────
   let properties: any[] = []
-  let agents: { id: string; full_name: string | null }[] = []
-  try {
-    if (profile.role === ROLES.SUPERADMINBOSS) {
-      properties = await getAllProperties()
-    } else if (profile.role === ROLES.SUPERADMIN) {
-      properties = await getPropertiesBySubscriber(profile.subscriber_id || profile.id)
-    } else if (profile.role === 'AGENTE') {
-      properties = await getPropertiesByAgent(profile.id)
-    } else {
-      properties = await getPropertiesByOwner(profile.id)
-    }
+  let agents:     any[] = []
+  let effectivePlan: string | null = null
 
-    // Fetch agents for assignment (SUPERADMIN and SUPERADMINBOSS)
-    if (isAdmin(profile.role)) {
-      const supabase = createClient()
-      let agentQuery = supabase.from('profiles').select('id, full_name').in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
-      if (profile.role === ROLES.SUPERADMIN) {
-        agentQuery = supabase.from('profiles').select('id, full_name').eq('subscriber_id', profile.subscriber_id || profile.id).in('role', ['AGENTE', 'SUPERADMIN']).order('full_name')
-      }
-      const { data } = await agentQuery
-      agents = data || []
-    }
+  try {
+    ;[effectivePlan, properties, agents] = await Promise.all([
+      getEffectivePlan(profile),
+      fetchProperties(),
+      fetchAgents(),
+    ])
   } catch {
     // Supabase may not be configured yet
   }

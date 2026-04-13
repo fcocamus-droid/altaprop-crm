@@ -32,15 +32,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Use getSession() (reads cookie locally, no HTTP round-trip to auth server).
+  // This is sufficient for routing decisions; server components use getUser()
+  // for security-critical operations.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   // Protected routes - require auth
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith('/dashboard')
-  ) {
+  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', request.nextUrl.pathname)
@@ -48,37 +47,15 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Redirect logged-in users away from auth pages
-  if (
-    user &&
-    (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')
-  ) {
+  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
-  // Subscription paywall for SUPERADMIN users
-  if (
-    user &&
-    request.nextUrl.pathname.startsWith('/dashboard') &&
-    !request.nextUrl.pathname.startsWith('/dashboard/activar-plan') &&
-    !request.nextUrl.pathname.startsWith('/dashboard/plan')
-  ) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, subscription_status')
-      .eq('id', user.id)
-      .single()
-
-    if (
-      profile?.role === 'SUPERADMIN' &&
-      (!profile.subscription_status || profile.subscription_status === 'none' || profile.subscription_status === 'canceled')
-    ) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard/activar-plan'
-      return NextResponse.redirect(url)
-    }
-  }
+  // NOTE: Subscription paywall is handled in the dashboard layout (server component)
+  // which already fetches the full profile. Removing it here avoids a redundant
+  // DB query on every navigation.
 
   return supabaseResponse
 }
