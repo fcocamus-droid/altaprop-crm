@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatDate } from '@/lib/utils'
-import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink, Trash2 } from 'lucide-react'
+import { formatDate, formatDateTime } from '@/lib/utils'
+import { Textarea } from '@/components/ui/textarea'
+import { Search, Home, Phone, Mail, MapPin, Loader2, UserCheck, Building2, ExternalLink, Image as ImageIcon, Plus, Send, UserPlus, Copy, CheckCircle, X, LinkIcon, Key, Trophy, AlertCircle, Unlink, Trash2, ClipboardList } from 'lucide-react'
 import { finalizeProperty } from '@/lib/actions/properties'
 import { PasswordInput } from '@/components/ui/password-input'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
@@ -97,6 +98,14 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
   const [deletingPropietario, setDeletingPropietario] = useState<string | null>(null) // propietario id showing delete confirm
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)      // propietario id being deleted
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // Bitacora de gestion
+  interface BitacoraEntry { id: string; agent_id: string; agent_name: string; content: string; created_at: string }
+  const [bitacora, setBitacora] = useState<Record<string, BitacoraEntry[]>>({})
+  const [bitacoraLoaded, setBitacoraLoaded] = useState<Record<string, boolean>>({})
+  const [bitacoraLoading, setBitacoraLoading] = useState<string | null>(null)
+  const [bitacoraInput, setBitacoraInput] = useState<Record<string, string>>({})
+  const [bitacoraSubmitting, setBitacoraSubmitting] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/propietarios')
@@ -235,6 +244,46 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
       if (Array.isArray(newData)) setPropietarios(newData)
     }
     setAddLoading(false)
+  }
+
+  async function loadBitacora(propietarioId: string) {
+    if (bitacoraLoaded[propietarioId]) return
+    setBitacoraLoading(propietarioId)
+    const res = await fetch(`/api/propietarios/bitacora?propietarioId=${propietarioId}`)
+    const data = await res.json()
+    if (Array.isArray(data)) setBitacora(prev => ({ ...prev, [propietarioId]: data }))
+    setBitacoraLoaded(prev => ({ ...prev, [propietarioId]: true }))
+    setBitacoraLoading(null)
+  }
+
+  async function handleBitacoraSubmit(propietarioId: string) {
+    const content = (bitacoraInput[propietarioId] || '').trim()
+    if (!content) return
+    setBitacoraSubmitting(propietarioId)
+
+    // Optimistic entry
+    const tempId = `temp-${Date.now()}`
+    const tempEntry: BitacoraEntry = { id: tempId, agent_id: '', agent_name: '...', content, created_at: new Date().toISOString() }
+    setBitacora(prev => ({ ...prev, [propietarioId]: [tempEntry, ...(prev[propietarioId] || [])] }))
+    setBitacoraInput(prev => ({ ...prev, [propietarioId]: '' }))
+
+    const res = await fetch('/api/propietarios/bitacora', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propietarioId, content }),
+    })
+    const data = await res.json()
+    if (data.success && data.entry) {
+      setBitacora(prev => ({
+        ...prev,
+        [propietarioId]: (prev[propietarioId] || []).map(e => e.id === tempId ? data.entry : e),
+      }))
+    } else {
+      // Rollback
+      setBitacora(prev => ({ ...prev, [propietarioId]: (prev[propietarioId] || []).filter(e => e.id !== tempId) }))
+      setBitacoraInput(prev => ({ ...prev, [propietarioId]: content }))
+    }
+    setBitacoraSubmitting(null)
   }
 
   async function handleDeletePropietario(propietarioId: string) {
@@ -446,7 +495,7 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
             const isExpanded = expanded === p.id
             return (
               <Card key={p.id} className={`transition-all cursor-pointer ${isExpanded ? 'ring-2 ring-gold/30' : 'hover:shadow-md'}`}
-                onClick={() => { setExpanded(isExpanded ? null : p.id); if (!isExpanded) loadOrgProperties() }}>
+                onClick={() => { setExpanded(isExpanded ? null : p.id); if (!isExpanded) { loadOrgProperties(); loadBitacora(p.id) } }}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -856,6 +905,63 @@ export function PropietariosDatabase({ currentUserRole, subscribers, agents }: {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
                           <UserCheck className="h-4 w-4" />
                           Asignado a: <strong>{p.subscriber_name}</strong>
+                        </div>
+                      )}
+
+                      {/* BITACORA DE GESTION */}
+                      {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'AGENTE') && (
+                        <div className="pt-3 border-t space-y-3">
+                          <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                            <ClipboardList className="h-3 w-3" /> BITÁCORA DE GESTIÓN
+                          </p>
+
+                          {/* Input */}
+                          <div className="flex gap-2 items-start">
+                            <Textarea
+                              value={bitacoraInput[p.id] || ''}
+                              onChange={e => setBitacoraInput(prev => ({ ...prev, [p.id]: e.target.value }))}
+                              placeholder="Registrar acción o gestión... (Ctrl+Enter para enviar)"
+                              className="text-sm min-h-[60px] resize-none flex-1"
+                              maxLength={2000}
+                              disabled={bitacoraSubmitting === p.id}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleBitacoraSubmit(p.id)
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              className="shrink-0 bg-navy hover:bg-navy/90 h-9"
+                              disabled={!bitacoraInput[p.id]?.trim() || bitacoraSubmitting === p.id}
+                              onClick={() => handleBitacoraSubmit(p.id)}
+                            >
+                              {bitacoraSubmitting === p.id
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <Send className="h-3 w-3" />}
+                            </Button>
+                          </div>
+
+                          {/* Feed */}
+                          {bitacoraLoading === p.id ? (
+                            <div className="flex justify-center py-3">
+                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : (bitacora[p.id] || []).length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-1">Sin registros aún</p>
+                          ) : (
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                              {(bitacora[p.id] || []).map(entry => (
+                                <div key={entry.id} className="bg-muted/40 rounded-lg px-3 py-2.5 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] text-muted-foreground">{formatDateTime(entry.created_at)}</span>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-blue-50 text-blue-700 border-blue-200">
+                                      {entry.agent_name}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{entry.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
