@@ -19,9 +19,10 @@ interface PricingCardsProps {
   onSelect?: (planId: string, annual: boolean) => void
   mode?: 'landing' | 'dashboard'
   loading?: string | null
+  hasUsedTrial?: boolean // when true, hides trial badges and "Prueba Gratis" CTA
 }
 
-export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading }: PricingCardsProps) {
+export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading, hasUsedTrial = false }: PricingCardsProps) {
   const [annual, setAnnual] = useState(false)
 
   return (
@@ -125,7 +126,7 @@ export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading 
                   {plan.agents} {plan.agents === 1 ? 'agente' : 'agentes'} incluidos
                 </p>
 
-                {plan.trial && !annual && (
+                {plan.trial && !annual && !hasUsedTrial && (
                   <p className="text-xs text-gold font-medium mt-1">
                     {plan.trialDays} días de prueba gratis
                   </p>
@@ -156,7 +157,7 @@ export function PricingCards({ currentPlan, onSelect, mode = 'landing', loading 
                     }`}
                   >
                     <Link href={`/register?plan=${plan.id}&annual=${annual}`}>
-                      {!annual && plan.trial ? 'Prueba Gratis' : annual ? 'Suscribirse anual' : 'Comenzar'}
+                      {!annual && plan.trial && !hasUsedTrial ? 'Prueba Gratis' : annual ? 'Suscribirse anual' : 'Comenzar'}
                     </Link>
                   </Button>
                 ) : (

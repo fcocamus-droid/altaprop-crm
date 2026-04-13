@@ -100,6 +100,7 @@ export function SubscriptionGate({ planName, status, trialEndsAt }: Subscription
           onSelect={handleSelectPlan}
           mode="dashboard"
           loading={loading}
+          hasUsedTrial={true}
         />
       </div>
     </div>

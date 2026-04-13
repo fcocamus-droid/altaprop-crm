@@ -231,6 +231,7 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
           onSelect={handleSelectPlan}
           mode="dashboard"
           loading={loading}
+          hasUsedTrial={!!trialEndsAt || !['none'].includes(subscriptionStatus)}
         />
       </div>
     </div>

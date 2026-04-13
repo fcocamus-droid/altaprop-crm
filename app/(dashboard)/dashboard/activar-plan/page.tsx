@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PLANS } from '@/lib/constants'
@@ -10,7 +9,19 @@ import { signOut } from '@/lib/auth-actions'
 
 export default function ActivarPlanPage() {
   const [loading, setLoading] = useState<string | null>(null)
-  const router = useRouter()
+  const [hasUsedTrial, setHasUsedTrial] = useState(false)
+
+  useEffect(() => {
+    // Check if the user has already used their trial
+    fetch('/api/auth/profile-status')
+      .then(r => r.json())
+      .then(data => {
+        if (data.trialEndsAt || (data.subscriptionStatus && data.subscriptionStatus !== 'none')) {
+          setHasUsedTrial(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   async function handleSelectPlan(planId: string) {
     setLoading(planId)
@@ -70,7 +81,7 @@ export default function ActivarPlanPage() {
                   <span className="text-muted-foreground text-sm"> USD/mes</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{plan.agents} {plan.agents === 1 ? 'agente' : 'agentes'}</p>
-                {plan.trial && <p className="text-xs text-gold font-medium">{plan.trialDays} dias gratis</p>}
+                {plan.trial && !hasUsedTrial && <p className="text-xs text-gold font-medium">{plan.trialDays} dias gratis</p>}
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
                 <ul className="space-y-2 flex-1 mb-4">
@@ -86,10 +97,10 @@ export default function ActivarPlanPage() {
                   disabled={loading === plan.id}
                   className={`w-full ${isRecommended ? 'bg-gold text-navy hover:bg-gold/90' : 'bg-navy hover:bg-navy/90'}`}
                 >
-                  {loading === plan.id ? 'Procesando...' : plan.trial ? (
+                  {loading === plan.id ? 'Procesando...' : plan.trial && !hasUsedTrial ? (
                     <><Zap className="mr-2 h-4 w-4" />Prueba Gratis</>
                   ) : (
-                    <><CreditCard className="mr-2 h-4 w-4" />Pagar ${plan.price}</>
+                    <><CreditCard className="mr-2 h-4 w-4" />Suscribirse</>
                   )}
                 </Button>
               </CardContent>
