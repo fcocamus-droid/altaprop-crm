@@ -1,5 +1,13 @@
 import { z } from 'zod'
 
+// z.coerce.boolean() uses Boolean() which makes Boolean("false") === true.
+// This transformer correctly maps the hidden-input strings "true"/"false"
+// sent by BoolToggle components, while still accepting real booleans.
+const boolToggle = z.preprocess(
+  (v) => v === 'true' ? true : v === 'false' ? false : v,
+  z.boolean()
+).optional()
+
 export const propertySchema = z.object({
   // ── Core ─────────────────────────────────────────────────────────────────
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -33,7 +41,7 @@ export const propertySchema = z.object({
   zip_code: z.string().optional(),
   lat: z.coerce.number().optional(),
   lng: z.coerce.number().optional(),
-  show_exact_location: z.coerce.boolean().optional(),
+  show_exact_location: boolToggle,
 
   // ── Unit details ─────────────────────────────────────────────────────────
   bedrooms: z.coerce.number().int().min(0).optional(),
@@ -54,10 +62,11 @@ export const propertySchema = z.object({
   condition: z.string().optional(),
   year_built: z.coerce.number().int().min(1800).max(2100).optional(),
   style: z.string().optional(),
-  furnished: z.coerce.boolean().optional(),
-  pets_allowed: z.coerce.boolean().optional(),
-  exclusive: z.coerce.boolean().optional(),
-  has_sign: z.coerce.boolean().optional(),
+  featured: boolToggle,
+  furnished: boolToggle,
+  pets_allowed: boolToggle,
+  exclusive: boolToggle,
+  has_sign: boolToggle,
 
   // ── Multimedia ───────────────────────────────────────────────────────────
   video_url: z.string().url().optional().or(z.literal('')),
