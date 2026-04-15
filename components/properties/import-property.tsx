@@ -16,7 +16,10 @@ interface ScrapedData {
   type: string
   bedrooms: number
   bathrooms: number
+  half_bathrooms?: number
   sqm: number
+  covered_sqm?: number | null
+  terrace_sqm?: number | null
   address: string
   city: string
   sector: string
@@ -27,8 +30,14 @@ interface ScrapedData {
   parking?: number
   storage?: number
   floor_level?: number | null
+  floor_count?: number | null
   furnished?: boolean
+  year_built?: number | null
+  condition?: string
   amenities?: string[]
+  virtual_tour_url?: string
+  video_url?: string
+  internal_code?: string
 }
 
 export function ImportProperty() {
@@ -86,7 +95,37 @@ export function ImportProperty() {
     setStep('publishing')
     setError('')
 
-    const result = await importProperty(data)
+    const result = await importProperty({
+      title: data.title,
+      description: data.description,
+      type: data.type,
+      operation: data.operation,
+      price: data.price,
+      currency: data.currency,
+      address: data.address,
+      city: data.city,
+      sector: data.sector,
+      bedrooms: data.bedrooms,
+      bathrooms: data.bathrooms,
+      half_bathrooms: data.half_bathrooms,
+      sqm: data.sqm,
+      covered_sqm: data.covered_sqm,
+      terrace_sqm: data.terrace_sqm,
+      images: data.images,
+      common_expenses: data.common_expenses,
+      pets_allowed: data.pets_allowed,
+      parking: data.parking,
+      storage: data.storage,
+      floor_level: data.floor_level,
+      floor_count: data.floor_count,
+      furnished: data.furnished,
+      year_built: data.year_built,
+      condition: data.condition,
+      amenities: data.amenities,
+      virtual_tour_url: data.virtual_tour_url,
+      video_url: data.video_url,
+      internal_code: data.internal_code,
+    })
 
     if (result.error) {
       setError(result.error)
@@ -96,8 +135,12 @@ export function ImportProperty() {
 
     setStep('done')
     setTimeout(() => {
-      window.location.reload()
-    }, 1000)
+      if (result.propertyId) {
+        router.push(`/dashboard/propiedades/${result.propertyId}`)
+      } else {
+        router.push('/dashboard/propiedades')
+      }
+    }, 800)
   }
 
   const handleEditField = (field: keyof ScrapedData, value: any) => {
@@ -166,7 +209,7 @@ export function ImportProperty() {
                   Cancelar
                 </Button>
                 <Button onClick={handlePublish} className="bg-green-600 hover:bg-green-700 text-white" size="sm">
-                  Publicar Propiedad
+                  Importar y Editar
                 </Button>
               </div>
             </div>
@@ -191,6 +234,7 @@ export function ImportProperty() {
                   className="w-full border rounded-md px-3 py-2 text-sm"
                 >
                   <option value="arriendo">Arriendo</option>
+                  <option value="arriendo_temporal">Arriendo Temporal</option>
                   <option value="venta">Venta</option>
                 </select>
               </div>
@@ -204,9 +248,18 @@ export function ImportProperty() {
                 >
                   <option value="departamento">Departamento</option>
                   <option value="casa">Casa</option>
-                  <option value="oficina">Oficina</option>
-                  <option value="local">Local</option>
+                  <option value="casa_condominio">Casa en Condominio</option>
+                  <option value="villa">Villa</option>
+                  <option value="quinta">Quinta</option>
+                  <option value="monoambiente">Monoambiente</option>
                   <option value="terreno">Terreno</option>
+                  <option value="terreno_comercial">Terreno Comercial</option>
+                  <option value="oficina">Oficina</option>
+                  <option value="local">Local Comercial</option>
+                  <option value="bodega">Bodega</option>
+                  <option value="edificio">Edificio</option>
+                  <option value="hotel">Hotel</option>
+                  <option value="nave_industrial">Nave Industrial</option>
                 </select>
               </div>
 
@@ -239,8 +292,23 @@ export function ImportProperty() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-sm">Superficie (m²)</Label>
+                <Label className="text-sm">Superficie Total (m²)</Label>
                 <Input type="number" value={data.sqm} onChange={(e) => handleEditField('sqm', Number(e.target.value))} />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Superficie Útil/Cubierta (m²)</Label>
+                <Input type="number" value={data.covered_sqm ?? ''} onChange={(e) => handleEditField('covered_sqm', e.target.value ? Number(e.target.value) : null)} placeholder="Opcional" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Terraza (m²)</Label>
+                <Input type="number" value={data.terrace_sqm ?? ''} onChange={(e) => handleEditField('terrace_sqm', e.target.value ? Number(e.target.value) : null)} placeholder="Opcional" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Baños de Servicio</Label>
+                <Input type="number" value={data.half_bathrooms ?? 0} onChange={(e) => handleEditField('half_bathrooms', Number(e.target.value))} />
               </div>
 
               <div className="space-y-1">
@@ -275,7 +343,22 @@ export function ImportProperty() {
 
               <div className="space-y-1">
                 <Label className="text-sm">Piso</Label>
-                <Input type="number" value={data.floor_level || ''} onChange={(e) => handleEditField('floor_level', e.target.value ? Number(e.target.value) : null)} />
+                <Input type="number" value={data.floor_level ?? ''} onChange={(e) => handleEditField('floor_level', e.target.value ? Number(e.target.value) : null)} placeholder="Opcional" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">N° Pisos del Edificio</Label>
+                <Input type="number" value={data.floor_count ?? ''} onChange={(e) => handleEditField('floor_count', e.target.value ? Number(e.target.value) : null)} placeholder="Opcional" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Año de Construcción</Label>
+                <Input type="number" value={data.year_built ?? ''} onChange={(e) => handleEditField('year_built', e.target.value ? Number(e.target.value) : null)} placeholder="Ej: 2010" />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Estado</Label>
+                <Input value={data.condition ?? ''} onChange={(e) => handleEditField('condition', e.target.value)} placeholder="Ej: Nuevo, Usado, En construcción" />
               </div>
 
               <div className="flex items-center gap-4">
@@ -367,7 +450,7 @@ export function ImportProperty() {
                 Cancelar
               </Button>
               <Button onClick={handlePublish} className="bg-green-600 hover:bg-green-700 text-white">
-                Publicar Propiedad
+                Importar y Editar
               </Button>
             </div>
           </CardContent>
@@ -393,8 +476,8 @@ export function ImportProperty() {
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             </div>
-            <p className="text-xl font-semibold text-green-700">Propiedad publicada exitosamente</p>
-            <p className="text-sm text-muted-foreground mt-1">Puedes importar otra propiedad...</p>
+            <p className="text-xl font-semibold text-green-700">Propiedad importada exitosamente</p>
+            <p className="text-sm text-muted-foreground mt-1">Redirigiendo al editor...</p>
           </CardContent>
         </Card>
       )}
@@ -417,11 +500,24 @@ function extractFromUrl(url: string): ScrapedData {
     type: 'departamento',
     bedrooms: 0,
     bathrooms: 0,
+    half_bathrooms: 0,
     sqm: 0,
+    covered_sqm: null,
+    terrace_sqm: null,
     address: '',
     city: '',
     sector: '',
     description: '',
     images: [],
+    common_expenses: 0,
+    pets_allowed: false,
+    parking: 0,
+    storage: 0,
+    floor_level: null,
+    floor_count: null,
+    furnished: false,
+    year_built: null,
+    condition: '',
+    amenities: [],
   }
 }

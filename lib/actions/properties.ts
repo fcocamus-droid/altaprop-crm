@@ -263,18 +263,34 @@ export async function updatePropertyAgent(propertyId: string, agentId: string | 
 
 export async function importProperty(propertyData: {
   title: string
-  description: string
+  description?: string
   type: string
   operation: string
   price: number
   currency: string
-  address: string
-  city: string
-  sector: string
-  bedrooms: number
-  bathrooms: number
-  sqm: number
+  address?: string
+  city?: string
+  sector?: string
+  bedrooms?: number
+  bathrooms?: number
+  half_bathrooms?: number
+  sqm?: number
+  covered_sqm?: number | null
+  terrace_sqm?: number | null
   images: string[]
+  common_expenses?: number
+  pets_allowed?: boolean
+  parking?: number
+  storage?: number
+  floor_level?: number | null
+  floor_count?: number | null
+  furnished?: boolean
+  year_built?: number | null
+  condition?: string
+  amenities?: string[]
+  virtual_tour_url?: string
+  video_url?: string
+  internal_code?: string
 }) {
   const profile = await getUserProfile()
   if (!profile || !isPropertyManager(profile.role)) {
@@ -287,7 +303,7 @@ export async function importProperty(propertyData: {
     .from('properties')
     .insert({
       title: propertyData.title,
-      description: propertyData.description,
+      description: propertyData.description || '',
       type: propertyData.type || 'departamento',
       operation: propertyData.operation || 'arriendo',
       price: propertyData.price || 0,
@@ -295,24 +311,40 @@ export async function importProperty(propertyData: {
       address: propertyData.address || '',
       city: propertyData.city || '',
       sector: propertyData.sector || '',
-      bedrooms: propertyData.bedrooms || 0,
-      bathrooms: propertyData.bathrooms || 0,
-      sqm: propertyData.sqm || 0,
+      bedrooms: propertyData.bedrooms ?? 0,
+      bathrooms: propertyData.bathrooms ?? 0,
+      half_bathrooms: propertyData.half_bathrooms ?? 0,
+      sqm: propertyData.sqm ?? 0,
+      covered_sqm: propertyData.covered_sqm ?? null,
+      terrace_sqm: propertyData.terrace_sqm ?? null,
+      common_expenses: propertyData.common_expenses ?? 0,
+      pets_allowed: propertyData.pets_allowed ?? false,
+      parking: propertyData.parking ?? 0,
+      storage: propertyData.storage ?? 0,
+      floor_level: propertyData.floor_level ?? null,
+      floor_count: propertyData.floor_count ?? null,
+      furnished: propertyData.furnished ?? false,
+      year_built: propertyData.year_built ?? null,
+      condition: propertyData.condition || '',
+      amenities: propertyData.amenities ?? [],
+      virtual_tour_url: propertyData.virtual_tour_url || '',
+      video_url: propertyData.video_url || '',
+      internal_code: propertyData.internal_code || '',
       owner_id: profile.id,
       subscriber_id: profile.subscriber_id || profile.id,
       status: 'available',
       featured: false,
       // Auto-assign to the agent who imported the property
       ...(profile.role === ROLES.AGENTE ? { agent_id: profile.id } : {}),
-    })
+    } as any)
     .select('id')
     .single()
 
   if (error) return { error: error.message }
 
-  // Save image URLs (external URLs from Portal Inmobiliario)
+  // Save image URLs (up to 20 external URLs from the source site)
   if (propertyData.images?.length > 0) {
-    const imageRecords = propertyData.images.slice(0, 10).map((url, i) => ({
+    const imageRecords = propertyData.images.slice(0, 20).map((url, i) => ({
       property_id: data.id,
       url,
       order: i,

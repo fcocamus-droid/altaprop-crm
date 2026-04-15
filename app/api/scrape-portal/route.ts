@@ -113,18 +113,24 @@ async function scrapeGenericSite(url: string) {
       type,
       bedrooms: extractNumber(html, /(\d+)\s*(?:dormitorio|habitaci|bedroom|dorm)/i),
       bathrooms: extractNumber(html, /(\d+)\s*(?:ba[nñ]o|bathroom)/i),
-      sqm: extractNumber(html, /(\d+(?:[.,]\d+)?)\s*(?:m[²2]|mt2|metros?\s*cuadrados?|sup(?:erficie)?)/i),
+      half_bathrooms: extractNumber(html, /(\d+)\s*(?:medio\s*ba[nñ]o|half\s*bath)/i),
+      sqm: extractNumber(html, /(\d+(?:[.,]\d+)?)\s*(?:m[²2]|mt2|metros?\s*cuadrados?|sup(?:erficie)?\s*total)/i),
+      covered_sqm: extractNumber(html, /(\d+(?:[.,]\d+)?)\s*(?:m[²2]|mt2).*?(?:útil|construid|cubierta)/i) || null,
+      terrace_sqm: extractNumber(html, /(\d+(?:[.,]\d+)?)\s*(?:m[²2]|mt2).*?(?:terraza|balcón|balcon)/i) || null,
       address: cleanText(address),
       city: cleanText(city),
       sector: '',
-      description: cleanText(description).substring(0, 500),
+      description: cleanText(description).substring(0, 3000),
       images: cloudFrontImages.length > 0 ? deduplicateByFilename(cloudFrontImages).slice(0, 20) : images,
       common_expenses: 0,
       pets_allowed: false,
-      parking: 0,
-      storage: 0,
-      floor_level: null,
-      furnished: false,
+      parking: extractNumber(html, /(\d+)\s*(?:estacionamiento|parking|garaje)/i),
+      storage: extractNumber(html, /(\d+)\s*(?:bodega|storage)/i),
+      floor_level: extractNumber(html, /piso\s*(\d+)/i) || null,
+      floor_count: null,
+      furnished: lowerText.includes('amoblad') || lowerText.includes('furnished'),
+      year_built: null,
+      condition: '',
       amenities: [],
     })
   } catch {
@@ -327,21 +333,94 @@ async function scrapePortalInmobiliario(url: string) {
     const data = await res.json()
     const attrs = data.attributes || []
     const getAttr = (id: string) => attrs.find((a: any) => a.id === id)?.value_name || ''
+    const getAttrNum = (id: string): number | null => {
+      const v = getAttr(id)
+      const n = parseFloat(v)
+      return isNaN(n) ? null : n
+    }
 
-    const result = {
+    // ── Currency ──────────────────────────────────────────────────────────
+    const currency = data.currency_id === 'CLF' ? 'UF' : data.currency_id === 'USD' ? 'USD' : 'CLP'
+
+    // ── Operation (multi-signal, most reliable first) ─────────────────────
+    const titleLower = (data.title || '').toLowerCase()
+    const permalinkLower = (data.permalink || '').toLowerCase()
+    let operation = 'venta'
+    if (
+      titleLower.includes('arriendo temporal') ||
+      titleLower.includes('alquiler temporal') ||
+      titleLower.includes('temporada') ||
+      permalinkLower.includes('arriendo-temporal')
+    ) {
+      operation = 'arriendo_temporal'
+    } else if (
+      titleLower.includes('arriendo') ||
+      titleLower.includes('alquiler') ||
+      permalinkLower.includes('arriendo') ||
+      permalinkLower.includes('alquiler') ||
+      data.sub_type_values?.some((s: any) => typeof s.id === 'string' && (s.id.includes('rent') || s.id.includes('alquiler')))
+    ) {
+      operation = 'arriendo'
+    }
+
+    // ── Surfaces ──────────────────────────────────────────────────────────
+    const totalArea = getAttrNum('TOTAL_AREA')
+    const coveredArea = getAttrNum('COVERED_AREA')
+    const terraceArea = getAttrNum('TERRACE_AREA') || getAttrNum('BALCONY_AREA')
+    // sqm = total, covered_sqm = covered
+    const sqm = totalArea || coveredArea || 0
+    const covered_sqm = coveredArea !== sqm ? coveredArea : null
+
+    // ── Year built ────────────────────────────────────────────────────────
+    let year_built: number | null = getAttrNum('CONSTRUCTION_YEAR')
+    if (!year_built) {
+      const ageStr = getAttr('PROPERTY_AGE')
+      const ageNum = parseInt(ageStr)
+      if (!isNaN(ageNum) && ageNum > 0 && ageNum < 200) {
+        year_built = new Date().getFullYear() - ageNum
+      }
+    }
+
+    // ── Boolean attributes ────────────────────────────────────────────────
+    const furnishedVal = getAttr('FURNISHED')
+    const furnished = furnishedVal === 'Sí' || furnishedVal === 'Si' || furnishedVal === '1' || furnishedVal === 'true'
+    const petsVal = getAttr('IS_SUITABLE_FOR_PETS')
+    const pets_allowed = petsVal === 'Sí' || petsVal === 'Si' || petsVal === '1' || petsVal === 'true'
+
+    // ── Numeric attributes ────────────────────────────────────────────────
+    const parking = getAttrNum('PARKING_LOTS') ?? 0
+    const storage = getAttrNum('WAREHOUSES') ?? 0
+    const floor_level = getAttrNum('UNIT_FLOOR')
+    const floor_count = getAttrNum('FLOORS')
+    const half_bathrooms = getAttrNum('HALF_BATHROOMS') ?? 0
+    const common_expenses = getAttrNum('MAINTENANCE_FEE') ?? 0
+
+    const result: Record<string, unknown> = {
       title: data.title || '',
       price: data.price || 0,
-      currency: data.currency_id === 'CLF' ? 'UF' : 'CLP',
-      operation: data.title?.toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
+      currency,
+      operation,
       type: mapType(getAttr('PROPERTY_TYPE')),
       bedrooms: parseInt(getAttr('BEDROOMS')) || 0,
       bathrooms: parseInt(getAttr('FULL_BATHROOMS') || getAttr('BATHROOMS')) || 0,
-      sqm: parseFloat(getAttr('COVERED_AREA') || getAttr('TOTAL_AREA')) || 0,
+      half_bathrooms,
+      sqm,
+      covered_sqm,
+      terrace_sqm: terraceArea,
+      parking,
+      storage,
+      floor_level,
+      floor_count,
+      furnished,
+      pets_allowed,
+      common_expenses,
+      year_built,
       address: data.location?.address_line || '',
       city: data.location?.city?.name || '',
       sector: data.location?.neighborhood?.name || '',
       description: '',
-      images: (data.pictures || []).map((p: any) => p.secure_url || p.url),
+      images: (data.pictures || []).map((p: any) => p.secure_url || p.url).slice(0, 20),
+      amenities: [],
     }
 
     try {
@@ -406,20 +485,44 @@ function cleanText(text: string): string {
 }
 
 function detectPropertyType(text: string): string {
-  if (text.includes('departamento') || text.includes('depto')) return 'departamento'
-  if (text.includes('casa')) return 'casa'
-  if (text.includes('oficina')) return 'oficina'
+  if (text.includes('nave industrial') || text.includes('nave')) return 'nave_industrial'
+  if (text.includes('monoambiente') || text.includes('studio')) return 'monoambiente'
+  if (text.includes('condominio')) return 'casa_condominio'
+  if (text.includes('villa')) return 'villa'
+  if (text.includes('quinta')) return 'quinta'
+  if (text.includes('departamento') || text.includes('depto') || text.includes('apartment')) return 'departamento'
+  if (text.includes('bodega') || text.includes('warehouse')) return 'bodega'
+  if (text.includes('hotel')) return 'hotel'
+  if (text.includes('edificio') || text.includes('building')) return 'edificio'
+  if (text.includes('oficina') || text.includes('office')) return 'oficina'
+  if (text.includes('local comercial')) return 'local'
   if (text.includes('local')) return 'local'
-  if (text.includes('terreno') || text.includes('parcela')) return 'terreno'
+  if (text.includes('terreno comercial')) return 'terreno_comercial'
+  if (text.includes('terreno') || text.includes('parcela') || text.includes('land')) return 'terreno'
+  if (text.includes('casa')) return 'casa'
   return 'departamento'
 }
 
 function mapType(type: string): string {
   const map: Record<string, string> = {
-    'Departamento': 'departamento', 'Casa': 'casa', 'Oficina': 'oficina',
-    'Local comercial': 'local', 'Terreno': 'terreno', 'Parcela': 'terreno',
+    'Departamento': 'departamento',
+    'Casa': 'casa',
+    'Casa en condominio': 'casa_condominio',
+    'Villa': 'villa',
+    'Quinta': 'quinta',
+    'Monoambiente': 'monoambiente',
+    'Terreno': 'terreno',
+    'Terreno comercial': 'terreno_comercial',
+    'Oficina': 'oficina',
+    'Local comercial': 'local',
+    'Bodega': 'bodega',
+    'Edificio': 'edificio',
+    'Hotel': 'hotel',
+    'Nave industrial': 'nave_industrial',
+    'Parcela': 'terreno',
+    'Local': 'local',
   }
-  return map[type] || 'departamento'
+  return map[type] || detectPropertyType(type.toLowerCase())
 }
 
 function resolveUrl(src: string, baseUrl: string): string {
@@ -476,15 +579,27 @@ function parseAlterEstateProperty(prop: any) {
   if (currRent === 'CLF' || currRent === 'UF') currency = 'UF'
   else if (currRent === 'USD') currency = 'USD'
 
+  // Detect operation from listing_type array (AlterEstate format)
+  let finalOperation = operation
+  if (listingTypes.some((l: any) =>
+    l.listing?.toLowerCase().includes('temporal') ||
+    l.listing?.toLowerCase().includes('vacacional')
+  )) {
+    finalOperation = 'arriendo_temporal'
+  }
+
   return {
     title: prop.name || prop.title || '',
     price: prop.rent_price || prop.sale_price || prop.price || 0,
     currency,
-    operation,
+    operation: finalOperation,
     type,
     bedrooms: prop.room || prop.bedroom || prop.bedrooms || 0,
     bathrooms: prop.bathroom || prop.bathrooms || 0,
+    half_bathrooms: prop.half_bathroom || prop.half_bathrooms || 0,
     sqm: prop.property_area || prop.total_surface || prop.usable_surface || 0,
+    covered_sqm: prop.covered_surface || prop.built_area || prop.covered_area || null,
+    terrace_sqm: prop.terrace_area || prop.terrace || null,
     address: prop.address || '',
     city: prop.city || '',
     sector: typeof prop.sector === 'string' ? prop.sector : (prop.sector?.name || prop.commune || ''),
@@ -492,11 +607,16 @@ function parseAlterEstateProperty(prop: any) {
     images: images.slice(0, 20),
     common_expenses: prop.maintenance_fee || prop.common_expenses || 0,
     pets_allowed: prop.pets_allowed || false,
-    parking: prop.parkinglot || prop.parking || 0,
-    storage: prop.cellar || prop.storage || 0,
-    floor_level: prop.floor_level || null,
+    parking: prop.parkinglot || prop.parking_lots || prop.parking || 0,
+    storage: prop.cellar || prop.warehouse || prop.storage || 0,
+    floor_level: prop.floor_level || prop.floor || null,
+    floor_count: prop.floors || prop.floor_count || null,
     furnished: prop.furnished || false,
-    amenities: prop.amenities || [],
+    year_built: prop.year_built || prop.construction_year || null,
+    condition: prop.condition || prop.property_condition || '',
+    amenities: Array.isArray(prop.amenities) ? prop.amenities.map((a: any) =>
+      typeof a === 'string' ? a : (a.name || a.label || '')
+    ).filter(Boolean) : [],
   }
 }
 
