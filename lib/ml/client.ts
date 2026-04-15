@@ -291,13 +291,14 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   ]
 
   // Numeric attributes — value_name as string for value_type:"number"
-  if (property.bedrooms != null) {
+  // ML requires values > 0 for BEDROOMS and FULL_BATHROOMS; omit if 0 or null.
+  if (property.bedrooms != null && property.bedrooms > 0) {
     attributes.push({ id: 'BEDROOMS', value_name: String(property.bedrooms) })
   }
-  if (property.bathrooms != null) {
+  if (property.bathrooms != null && property.bathrooms > 0) {
     attributes.push({ id: 'FULL_BATHROOMS', value_name: String(property.bathrooms) })
   }
-  // PARKING_LOTS is required; "Si no tiene estacionamientos, indica 0"
+  // PARKING_LOTS accepts 0 (no parking is a valid state)
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
   // Area attributes — value_type "number_unit": ML expects "640 m²" format (number + unit).

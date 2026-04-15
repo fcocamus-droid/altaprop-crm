@@ -243,12 +243,22 @@ function parseMlError(raw: string): string {
       // Catch-all: translate any remaining ML message to Spanish
       errors.push(
         msg
-          .replace(/is required/gi,          'es requerido')
-          .replace(/is invalid/gi,           'no es válido')
-          .replace(/is not allowed/gi,       'no está permitido')
-          .replace(/must be greater than/gi, 'debe ser mayor que')
-          .replace(/must be less than/gi,    'debe ser menor que')
-          .replace(/not found/gi,            'no encontrado')
+          // Full-phrase translations (before word-level ones)
+          .replace(/number must be greater than 0/gi, 'El valor debe ser mayor que 0')
+          .replace(/number must be greater than/gi,   'El valor debe ser mayor que')
+          .replace(/number must be less than/gi,      'El valor debe ser menor que')
+          .replace(/value must be greater than 0/gi,  'El valor debe ser mayor que 0')
+          // Word-level translations
+          .replace(/\bNumber\b/g,                'El número')
+          .replace(/is required/gi,              'es requerido')
+          .replace(/is invalid/gi,               'no es válido')
+          .replace(/is not allowed/gi,           'no está permitido')
+          .replace(/must be greater than/gi,     'debe ser mayor que')
+          .replace(/must be less than/gi,        'debe ser menor que')
+          .replace(/not found/gi,                'no encontrado')
+          .replace(/\battribute\b/gi,            'atributo')
+          .replace(/\bfield\b/gi,                'campo')
+          .replace(/\bvalue\b/gi,                'valor')
       )
     }
   }
