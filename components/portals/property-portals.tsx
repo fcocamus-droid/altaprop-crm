@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, ExternalLink, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
 
 interface PropertyPortalsProps {
   propertyId: string
@@ -102,13 +102,9 @@ export function PropertyPortals({
 }: PropertyPortalsProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [selectedListingType, setSelectedListingType] = useState(mlListingType || 'silver')
+  const [selectedListingType] = useState(mlListingType || 'silver')
   const [currentStatus, setCurrentStatus] = useState(mlStatus)
   const [currentItemId, setCurrentItemId] = useState(mlItemId)
-
-  const validationFields = getValidationFields(property)
-  const missingFields = validationFields.filter(f => !f.ok)
-  const canPublish = missingFields.length === 0
 
   const mlPermalink = currentItemId
     ? `https://inmueble.mercadolibre.cl/${currentItemId}`
@@ -353,77 +349,15 @@ export function PropertyPortals({
 
             {/* NOT published yet (or closed) */}
             {(!currentStatus || currentStatus === 'closed') && (
-              <div className="space-y-4">
-
-                {/* Validation checklist — always show when property data is available */}
-                {validationFields.length > 0 && (
-                  <div className={`rounded-lg border p-3 space-y-2 ${
-                    canPublish
-                      ? 'border-green-200 bg-green-50'
-                      : 'border-orange-200 bg-orange-50'
-                  }`}>
-                    <p className={`text-xs font-semibold ${canPublish ? 'text-green-800' : 'text-orange-800'}`}>
-                      {canPublish
-                        ? '✓ Propiedad lista para publicar'
-                        : 'Completa estos campos antes de publicar'}
-                    </p>
-                    <ul className="space-y-1">
-                      {validationFields.map(field => (
-                        <li key={field.label} className="flex items-start gap-2">
-                          {field.ok ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 flex-shrink-0" />
-                          ) : (
-                            <XCircle className="h-3.5 w-3.5 text-orange-500 mt-0.5 flex-shrink-0" />
-                          )}
-                          <span className={`text-xs ${field.ok ? 'text-green-700' : 'text-orange-800 font-medium'}`}>
-                            {field.label}
-                            {!field.ok && field.hint && (
-                              <span className="font-normal text-orange-600"> — {field.hint}</span>
-                            )}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Tipo de publicación</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {LISTING_TYPES.map(lt => (
-                      <button
-                        key={lt.value}
-                        type="button"
-                        onClick={() => setSelectedListingType(lt.value)}
-                        className={`rounded-lg border p-2 text-left transition-colors ${
-                          selectedListingType === lt.value
-                            ? 'border-navy bg-navy/5 ring-1 ring-navy'
-                            : 'border-border hover:border-navy/50'
-                        }`}
-                      >
-                        <p className="text-xs font-semibold">{lt.label}</p>
-                        <p className="text-[10px] text-muted-foreground">{lt.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handlePublish}
-                  disabled={loading || !canPublish}
-                  className="w-full sm:w-auto"
-                  title={!canPublish ? 'Completa todos los campos requeridos antes de publicar' : undefined}
-                >
-                  {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
-                  Publicar en portales
-                </Button>
-                {!canPublish && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Faltan {missingFields.length} campo{missingFields.length > 1 ? 's' : ''} requerido{missingFields.length > 1 ? 's' : ''}.
-                    Edita la propiedad y guarda los cambios.
-                  </p>
-                )}
-              </div>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                {loading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
+                Publicar en portales
+              </Button>
             )}
           </>
         )}
