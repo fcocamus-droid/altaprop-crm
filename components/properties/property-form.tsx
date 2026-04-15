@@ -284,30 +284,37 @@ export function PropertyForm({ property }: PropertyFormProps) {
     })
   }
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    setNewImages(prev => {
-      const combined = [...prev, ...files]
-      const total = existingImages.length + combined.length
-      if (total > MAX_IMAGES) {
-        setError(`Máximo ${MAX_IMAGES} imágenes en total`)
-        return combined.slice(0, MAX_IMAGES - existingImages.length)
-      }
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    // Capture input reference before async work (synthetic event may get recycled)
+    const input = e.target
+    const files = Array.from(input.files || [])
+    if (!files.length) return
+
+    const available = MAX_IMAGES - existingImages.length - newImages.length
+    const toAdd = files.slice(0, available)
+
+    if (existingImages.length + newImages.length + files.length > MAX_IMAGES) {
+      setError(`Máximo ${MAX_IMAGES} imágenes en total`)
+    } else {
       setError('')
-      return combined
-    })
-    // Read each file as base64 data URL (stable, no blob URL issues)
-    const filesToRead = files.slice(0, MAX_IMAGES - existingImages.length - newImages.length)
-    const promises = filesToRead.map(file => new Promise<string>(resolve => {
-      const reader = new FileReader()
-      reader.onload = ev => resolve(ev.target?.result as string ?? '')
-      reader.onerror = () => resolve('')
-      reader.readAsDataURL(file)
-    }))
-    Promise.all(promises).then(previews => {
-      setNewImagePreviews(prev => [...prev, ...previews])
-    })
-    e.target.value = ''
+    }
+
+    // Read ALL files to base64 FIRST — then update both states atomically.
+    // This prevents the race condition where newImages grows before
+    // newImagePreviews is ready, resulting in src="" (broken images).
+    const previews = await Promise.all(
+      toAdd.map(file => new Promise<string>(resolve => {
+        const reader = new FileReader()
+        reader.onload = ev => resolve((ev.target?.result as string) ?? '')
+        reader.onerror = () => resolve('')
+        reader.readAsDataURL(file)
+      }))
+    )
+
+    // Both states update together — indices always stay in sync
+    setNewImages(prev => [...prev, ...toAdd])
+    setNewImagePreviews(prev => [...prev, ...previews])
+    input.value = ''
   }
 
   function removeExistingImage(img: PropertyImage) {
