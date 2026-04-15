@@ -300,17 +300,16 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   // PARKING_LOTS is required; "Si no tiene estacionamientos, indica 0"
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
-  // Area attributes — value_type "number_unit": send plain number string as value_name.
-  // ML infers the unit (m²) from the attribute's allowed_units definition.
+  // Area attributes — value_type "number_unit": ML expects "640 m²" format (number + unit).
   // LAND_AREA is a hidden internal attribute (tags.hidden=true) — must NOT be sent.
   const effectiveTotalArea   = property.total_area   ?? property.covered_area
   const effectiveCoveredArea = property.covered_area ?? property.total_area
 
   if (effectiveTotalArea != null) {
-    attributes.push({ id: 'TOTAL_AREA', value_name: String(Math.round(Number(effectiveTotalArea))) })
+    attributes.push({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(effectiveTotalArea))} m²` })
   }
   if (effectiveCoveredArea != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: String(Math.round(Number(effectiveCoveredArea))) })
+    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m²` })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────
@@ -489,10 +488,10 @@ export async function updateProperty(
     attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
   }
   if (propertyData.total_area != null) {
-    attributes.push({ id: 'TOTAL_AREA', value_name: String(Math.round(Number(propertyData.total_area))) })
+    attributes.push({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(propertyData.total_area))} m²` })
   }
   if (propertyData.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: String(Math.round(Number(propertyData.covered_area))) })
+    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(propertyData.covered_area))} m²` })
   }
   if (attributes.length > 0) updates.attributes = attributes
 
