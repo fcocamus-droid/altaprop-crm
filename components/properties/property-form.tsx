@@ -189,8 +189,6 @@ function AmenitiesPanel({
   selected: string[]
   onChange: (v: string[]) => void
 }) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-
   const toggle = (item: string) => {
     onChange(
       selected.includes(item) ? selected.filter(s => s !== item) : [...selected, item]
@@ -198,52 +196,35 @@ function AmenitiesPanel({
   }
 
   return (
-    <div className="space-y-3">
-      {AMENITY_GROUPS.map(group => {
-        const isOpen = expanded[group.group] !== false // default open
-        return (
-          <div key={group.group} className="border rounded-lg overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setExpanded(p => ({ ...p, [group.group]: !isOpen }))}
-              className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-medium"
-            >
-              <span>{group.group}</span>
-              <div className="flex items-center gap-2">
-                {group.items.filter(i => selected.includes(i)).length > 0 && (
-                  <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                    {group.items.filter(i => selected.includes(i)).length}
-                  </span>
-                )}
-                {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </button>
-            {isOpen && (
-              <div className="p-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                {group.items.map(item => {
-                  const checked = selected.includes(item)
-                  return (
-                    <label
-                      key={item}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer text-sm transition-colors ${
-                        checked ? 'bg-primary/10 border-primary text-primary font-medium' : 'border-muted hover:bg-muted/50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggle(item)}
-                        className="h-3.5 w-3.5 accent-primary"
-                      />
-                      {item}
-                    </label>
-                  )
-                })}
-              </div>
-            )}
+    <div className="space-y-5">
+      {AMENITY_GROUPS.map(group => (
+        <div key={group.group}>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            {group.group}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-3">
+            {group.items.map(item => {
+              const active = selected.includes(item)
+              return (
+                <div key={item} className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggle(item)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 ${
+                      active ? 'bg-primary' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform shadow-sm ${
+                      active ? 'translate-x-4.5' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                  <span className="text-sm leading-tight">{item}</span>
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        </div>
+      ))}
     </div>
   )
 }
