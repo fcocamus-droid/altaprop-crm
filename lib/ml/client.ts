@@ -399,8 +399,8 @@ async function prepareMLPictures(
   const validImages = images.filter(img => img.url).slice(0, MAX_PICTURES)
 
   // Upload all images in parallel to avoid sequential timeout on large sets
-  const results = await Promise.all(
-    validImages.map(async (img) => {
+  const results: Array<Record<string, string>> = await Promise.all(
+    validImages.map(async (img): Promise<Record<string, string>> => {
       const mlPictureId = await uploadPictureToML(accessToken, img.url)
       return mlPictureId
         ? { id: mlPictureId }
