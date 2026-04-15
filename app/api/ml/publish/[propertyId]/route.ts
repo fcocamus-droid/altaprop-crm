@@ -134,16 +134,30 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       address: property.address,
       city: property.city,
       sector: property.sector,
+      // Rooms & parking
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
+      half_bathrooms: property.half_bathrooms,
       parking: property.parking,
+      // Areas
       total_area: totalArea,
       covered_area: coveredArea,
-      // Additional required attributes for residential categories
+      terrace_sqm: property.terrace_sqm,
+      // Required residential attributes
       storage: property.storage,
       common_expenses: property.common_expenses,
       furnished: property.furnished,
       pets_allowed: property.pets_allowed,
+      // Building metadata
+      floor_level: property.floor_level,
+      floor_count: property.floor_count,
+      year_built: property.year_built,
+      internal_code: property.internal_code,
+      // Multimedia
+      virtual_tour_url: property.virtual_tour_url,
+      video_url: property.video_url,
+      // Amenities (maps to ML boolean attributes)
+      amenities: property.amenities,
       images,
       ml_listing_type: listingType,
     }
@@ -382,13 +396,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       sector: property.sector,
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
+      half_bathrooms: property.half_bathrooms,
       parking: property.parking,
       total_area: property.sqm ?? null,
       covered_area: (property as any).covered_sqm ?? property.sqm ?? null,
+      terrace_sqm: property.terrace_sqm,
       storage: property.storage,
       common_expenses: property.common_expenses,
       furnished: property.furnished,
       pets_allowed: property.pets_allowed,
+      floor_level: property.floor_level,
+      floor_count: property.floor_count,
+      year_built: property.year_built,
+      internal_code: property.internal_code,
+      virtual_tour_url: property.virtual_tour_url,
+      video_url: property.video_url,
+      amenities: property.amenities,
       images,
     }
 

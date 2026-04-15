@@ -43,14 +43,22 @@ export interface MLProperty {
   sector: string | null
   bedrooms: number | null
   bathrooms: number | null
+  half_bathrooms?: number | null   // → HAS_HALF_BATH (boolean)
   parking: number | null
   total_area: number | null
   covered_area: number | null
-  // Extra CRM fields mapped to ML required attributes
+  terrace_sqm?: number | null      // → BALCONY_AREA (m²)
   storage?: number | null          // → WAREHOUSES
   common_expenses?: number | null  // → MAINTENANCE_FEE (CLP)
   furnished?: boolean | null       // → FURNISHED
   pets_allowed?: boolean | null    // → IS_SUITABLE_FOR_PETS
+  floor_level?: number | null      // → UNIT_FLOOR
+  floor_count?: number | null      // → FLOORS
+  year_built?: number | null       // → PROPERTY_AGE (computed: current year − year_built)
+  internal_code?: string | null    // → PROPERTY_CODE (preferred over id slice)
+  virtual_tour_url?: string | null // → WITH_VIRTUAL_TOUR (boolean)
+  video_url?: string | null        // → appended to description
+  amenities?: string[]             // → ML boolean attributes + description fallback
   images?: Array<{ url: string }>
   ml_listing_type?: string | null
 }
@@ -258,6 +266,58 @@ export async function refreshTokenIfNeeded(
   return data.access_token
 }
 
+// ─── Amenity string → ML boolean attribute ID ─────────────────────────────────
+// Keys are lowercase/normalized CRM amenity names from AMENITY_GROUPS in constants.ts
+const AMENITY_ML_MAP: Record<string, string> = {
+  // Áreas Comunes
+  'piscina':                    'HAS_SWIMMING_POOL',
+  'gimnasio / gym':             'HAS_GYM',
+  'gimnasio':                   'HAS_GYM',
+  'sala de eventos':            'HAS_PARTY_ROOM',
+  'juegos infantiles':          'HAS_PLAYGROUND',
+  'casa club':                  'HAS_MULTIPURPOSE_ROOM',
+  'salón multiusos':            'HAS_MULTIPURPOSE_ROOM',
+  'quincho / bbq':              'HAS_GRILL',
+  'quincho':                    'HAS_GRILL',
+  'sauna':                      'HAS_SAUNA',
+  'spa':                        'HAS_SAUNA',         // closest available attribute
+  'cine':                       'HAS_CINEMA_HALL',
+  'lobby':                      'HAS_FRONT_DESK',
+  'cowork':                     'HAS_BUSINESS_CENTER',
+  // Exterior
+  'jardín':                     'HAS_GARDEN',
+  'jardin':                     'HAS_GARDEN',
+  'terraza':                    'HAS_TERRACE',
+  'balcón':                     'HAS_BALCONY',
+  'balcon':                     'HAS_BALCONY',
+  'patio':                      'HAS_PATIO',
+  'cisterna':                   'HAS_CISTERN',
+  // Interior
+  'amueblado':                  'FURNISHED',         // duplicate with field, last write wins
+  'cocina equipada':            'HAS_KITCHEN',
+  'cocina con desayunador':     'HAS_BREAKFAST_BAR',
+  'cuarto de servicio':         'HAS_MAID_ROOM',
+  'estudio':                    'HAS_STUDY',
+  'family room':                'HAS_LIVING_ROOM',
+  'chimenea':                   'HAS_INDOOR_FIREPLACE',
+  'clósets empotrados':         'HAS_CLOSETS',
+  'closets empotrados':         'HAS_CLOSETS',
+  // Servicios
+  'ascensor':                   'HAS_LIFT',
+  'portero':                    'HAS_FRONT_DESK',
+  'vigilancia 24h':             'HAS_SECURITY',
+  'cámaras de seguridad':       'HAS_SECURITY',
+  'camaras de seguridad':       'HAS_SECURITY',
+  'gas centralizado':           'HAS_NATURAL_GAS',
+  'aire acondicionado':         'HAS_AIR_CONDITIONING',
+  'planta eléctrica':           'HAS_ELECTRIC_GENERATOR',
+  'planta electrica':           'HAS_ELECTRIC_GENERATOR',
+  'acceso discapacitados':      'WHEELCHAIR_RAMP',
+  // Políticas
+  'mascotas permitidas':        'IS_SUITABLE_FOR_PETS', // duplicate with field
+  'uso comercial':              'PROFESSIONAL_USE_ALLOWED',
+}
+
 // ─── Payload builder ──────────────────────────────────────────────────────────
 
 export function buildMLPayload(property: MLProperty): Record<string, unknown> {
@@ -272,80 +332,110 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     'CLP'
   const listingTypeId = property.ml_listing_type || 'silver'
 
+  // ─── Use a Map so duplicate attribute IDs are deduplicated automatically ────
+  type MLAttr = { id: string; value_name?: string; value_id?: string }
+  const attrMap = new Map<string, MLAttr>()
+  const set    = (a: MLAttr) => attrMap.set(a.id, a)           // overwrite always
+  const setIf  = (a: MLAttr) => { if (!attrMap.has(a.id)) attrMap.set(a.id, a) } // only if absent
+
+  // ─── Portal Inmobiliario cross-posting ──────────────────────────────────────
+  set({ id: 'CMG_SITE', value_name: 'POI' })
+
+  // ─── Required project-level attributes ─────────────────────────────────────
+  const addressDisplay = [property.address, property.sector].filter(Boolean).join(', ')
+  const developmentName = (addressDisplay || property.title).slice(0, 80)
+  const propertyCode = (property.internal_code || property.id).slice(0, 36)
+  const modelName = property.title.slice(0, 60)
+  const unitName = (property.internal_code || property.id).slice(-6)
+
+  set({ id: 'PROPERTY_CODE',    value_name: propertyCode })
+  set({ id: 'MODEL_NAME',       value_name: modelName })
+  set({ id: 'DEVELOPMENT_NAME', value_name: developmentName })
+  set({ id: 'UNIT_NAME',        value_name: unitName })
+  // POSSESSION_STATUS: "Entrega inmediata" (id 242413) — existing property, ready to occupy
+  set({ id: 'POSSESSION_STATUS', value_id: '242413', value_name: 'Entrega inmediata' })
+
+  // ─── Numeric room attributes ────────────────────────────────────────────────
+  // ML requires values > 0 for BEDROOMS / FULL_BATHROOMS; omit if 0 or null
+  if (property.bedrooms != null && property.bedrooms > 0)
+    set({ id: 'BEDROOMS',       value_name: String(property.bedrooms) })
+  if (property.bathrooms != null && property.bathrooms > 0)
+    set({ id: 'FULL_BATHROOMS', value_name: String(property.bathrooms) })
+  // PARKING_LOTS accepts 0 (no parking is a valid state)
+  set({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
+  // WAREHOUSES: bodega units (0 if none)
+  set({ id: 'WAREHOUSES', value_name: String(property.storage ?? 0) })
+
+  // ─── Half bathroom (Baño de visitas) ────────────────────────────────────────
+  if (property.half_bathrooms != null && property.half_bathrooms > 0)
+    set({ id: 'HAS_HALF_BATH', value_name: 'Sí' })
+
+  // ─── Area attributes — number_unit: "640 m²" format ────────────────────────
+  // LAND_AREA has tags.hidden=true → must NOT be sent
+  const effectiveTotalArea   = property.total_area   ?? property.covered_area
+  const effectiveCoveredArea = property.covered_area ?? property.total_area
+
+  if (effectiveTotalArea != null)
+    set({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(effectiveTotalArea))} m²` })
+  if (effectiveCoveredArea != null)
+    set({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m²` })
+  if (property.terrace_sqm != null && property.terrace_sqm > 0)
+    set({ id: 'BALCONY_AREA', value_name: `${Math.round(Number(property.terrace_sqm))} m²` })
+
+  // ─── Required boolean / fee attributes ─────────────────────────────────────
+  const maintenanceFee = Math.round(Number(property.common_expenses ?? 0))
+  set({ id: 'MAINTENANCE_FEE', value_name: `${maintenanceFee} CLP` })
+
+  const isFurnished = property.furnished === true
+  set({ id: 'FURNISHED',          value_id: isFurnished ? '242085' : '242084', value_name: isFurnished ? 'Sí' : 'No' })
+
+  const allowsPets = property.pets_allowed === true
+  set({ id: 'IS_SUITABLE_FOR_PETS', value_id: allowsPets ? '242085' : '242084', value_name: allowsPets ? 'Sí' : 'No' })
+
+  // ─── Structural / building attributes (optional) ────────────────────────────
+  if (property.floor_level != null)
+    set({ id: 'UNIT_FLOOR', value_name: String(property.floor_level) })
+  if (property.floor_count != null)
+    set({ id: 'FLOORS', value_name: String(property.floor_count) })
+  if (property.year_built != null) {
+    const age = new Date().getFullYear() - property.year_built
+    if (age >= 0)
+      set({ id: 'PROPERTY_AGE', value_name: `${age} años` })
+  }
+  if (property.virtual_tour_url)
+    set({ id: 'WITH_VIRTUAL_TOUR', value_name: 'Sí' })
+
+  // ─── Amenities → ML boolean attributes ──────────────────────────────────────
+  // Only set to "Sí" when present; never send "No" for optional amenities.
+  // Uses setIf so explicit field values (FURNISHED, IS_SUITABLE_FOR_PETS) are not overwritten.
+  const unmappedAmenities: string[] = []
+  for (const amenity of (property.amenities || [])) {
+    const key = amenity.toLowerCase().trim()
+    const mlAttrId = AMENITY_ML_MAP[key]
+    if (mlAttrId) {
+      setIf({ id: mlAttrId, value_name: 'Sí' })
+    } else {
+      unmappedAmenities.push(amenity)
+    }
+  }
+
+  // ─── Description — enrich with unmapped amenities + video URL ───────────────
+  const descParts: string[] = []
+  if (property.description?.trim()) descParts.push(property.description.trim())
+
+  if (unmappedAmenities.length > 0)
+    descParts.push(`Amenidades: ${unmappedAmenities.join(', ')}`)
+
+  if (property.video_url?.trim())
+    descParts.push(`Video: ${property.video_url.trim()}`)
+
+  const finalDescription = descParts.join('\n\n')
+
+  // ─── Build final payload ────────────────────────────────────────────────────
   const pictures = (property.images || [])
     .filter(img => img.url)
     .map(img => ({ source: img.url }))
 
-  // Derive sensible defaults for required project-level attributes
-  const addressDisplay = [property.address, property.sector].filter(Boolean).join(', ')
-  const developmentName = (addressDisplay || property.title).slice(0, 80)
-  const propertyCode = property.id.slice(0, 36)
-  const modelName = property.title.slice(0, 60)
-  const unitName = property.id.slice(-6)
-
-  const attributes: Array<{
-    id: string
-    value_name?: string
-    value_id?: string
-    value_struct?: { number: number; unit: string }
-  }> = [
-    // Portal Inmobiliario cross-posting
-    { id: 'CMG_SITE', value_name: 'POI' },
-
-    // Required project-level attributes (MLC classified real estate)
-    { id: 'PROPERTY_CODE',    value_name: propertyCode },
-    { id: 'MODEL_NAME',       value_name: modelName },
-    { id: 'DEVELOPMENT_NAME', value_name: developmentName },
-    { id: 'UNIT_NAME',        value_name: unitName },
-    // POSSESSION_STATUS: "Entrega inmediata" (id 242413)
-    { id: 'POSSESSION_STATUS', value_id: '242413', value_name: 'Entrega inmediata' },
-    // FACING intentionally omitted — optional attribute; CRM does not capture orientation
-  ]
-
-  // Numeric attributes — value_name as string for value_type:"number"
-  // ML requires values > 0 for BEDROOMS and FULL_BATHROOMS; omit if 0 or null.
-  if (property.bedrooms != null && property.bedrooms > 0) {
-    attributes.push({ id: 'BEDROOMS', value_name: String(property.bedrooms) })
-  }
-  if (property.bathrooms != null && property.bathrooms > 0) {
-    attributes.push({ id: 'FULL_BATHROOMS', value_name: String(property.bathrooms) })
-  }
-  // PARKING_LOTS accepts 0 (no parking is a valid state)
-  attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
-
-  // Area attributes — value_type "number_unit": ML expects "640 m²" format (number + unit).
-  // LAND_AREA is a hidden internal attribute (tags.hidden=true) — must NOT be sent.
-  const effectiveTotalArea   = property.total_area   ?? property.covered_area
-  const effectiveCoveredArea = property.covered_area ?? property.total_area
-
-  if (effectiveTotalArea != null) {
-    attributes.push({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(effectiveTotalArea))} m²` })
-  }
-  if (effectiveCoveredArea != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m²` })
-  }
-
-  // ─── Additional required attributes (residential categories) ──────────────
-  // WAREHOUSES: number of storage/bodega units (0 if none)
-  attributes.push({ id: 'WAREHOUSES', value_name: String(property.storage ?? 0) })
-
-  // MAINTENANCE_FEE: gastos comunes in CLP (0 if none; always CLP regardless of listing currency)
-  const maintenanceFee = Math.round(Number(property.common_expenses ?? 0))
-  attributes.push({ id: 'MAINTENANCE_FEE', value_name: `${maintenanceFee} CLP` })
-
-  // FURNISHED: boolean — value_id 242085=Sí, 242084=No
-  {
-    const isFurnished = property.furnished === true
-    attributes.push({ id: 'FURNISHED', value_id: isFurnished ? '242085' : '242084', value_name: isFurnished ? 'Sí' : 'No' })
-  }
-
-  // IS_SUITABLE_FOR_PETS: boolean — value_id 242085=Sí, 242084=No
-  {
-    const allowsPets = property.pets_allowed === true
-    attributes.push({ id: 'IS_SUITABLE_FOR_PETS', value_id: allowsPets ? '242085' : '242084', value_name: allowsPets ? 'Sí' : 'No' })
-  }
-
-  // ─── Location ──────────────────────────────────────────────────────────────
   const locationParts = [property.address, property.sector, property.city].filter(Boolean)
   const mlLocation = resolveMLLocation(property.city, property.sector)
 
@@ -357,9 +447,8 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     available_quantity: 1,
     buying_mode: 'classified',
     listing_type_id: listingTypeId,
-    // MLC157521 and all classified real-estate categories only accept 'new'
     condition: 'new',
-    attributes,
+    attributes: Array.from(attrMap.values()),
   }
 
   if (locationParts.length > 0) {
@@ -371,18 +460,12 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
         country: { id: 'CL' },
       }
     } else {
-      // Fallback: address_line only (may still fail geo validation for unknown communes)
       payload.location = { address_line: locationParts.join(', ') }
     }
   }
 
-  if (pictures.length > 0) {
-    payload.pictures = pictures
-  }
-
-  if (property.description) {
-    payload.description = { plain_text: property.description }
-  }
+  if (pictures.length > 0) payload.pictures = pictures
+  if (finalDescription)    payload.description = { plain_text: finalDescription }
 
   return payload
 }
