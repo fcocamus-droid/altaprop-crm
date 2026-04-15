@@ -345,8 +345,8 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
       parking: property.parking,
-      total_area: property.sqm,
-      covered_area: property.covered_area ?? property.sqm,
+      total_area: property.sqm ?? null,
+      covered_area: (property as any).covered_sqm ?? property.sqm ?? null,
       images,
     }
 

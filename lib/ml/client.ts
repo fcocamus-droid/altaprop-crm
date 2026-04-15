@@ -54,38 +54,60 @@ export interface MLProperty {
 
 const ML_CATEGORY_MAP: Record<string, string> = {
   // Departamentos
-  'arriendo_departamento': 'MLC157520',
-  'venta_departamento':    'MLC157521',
+  'arriendo_departamento':   'MLC157520',
+  'venta_departamento':      'MLC157521',
+  // Monoambiente → departamento
+  'arriendo_monoambiente':   'MLC157520',
+  'venta_monoambiente':      'MLC157521',
   // Casas
-  'arriendo_casa':         'MLC157519',
-  'venta_casa':            'MLC157518',
+  'arriendo_casa':           'MLC157519',
+  'venta_casa':              'MLC157518',
+  // Casa en condominio, villa, quinta → casa
+  'arriendo_casa_condominio':'MLC157519',
+  'venta_casa_condominio':   'MLC157518',
+  'arriendo_villa':          'MLC157519',
+  'venta_villa':             'MLC157518',
+  'arriendo_quinta':         'MLC157519',
+  'venta_quinta':            'MLC157518',
   // Oficinas
-  'arriendo_oficina':      'MLC157526',
-  'venta_oficina':         'MLC157527',
+  'arriendo_oficina':        'MLC157526',
+  'venta_oficina':           'MLC157527',
   // Locales comerciales
-  'arriendo_local':        'MLC157523',
-  'venta_local':           'MLC157524',
+  'arriendo_local':          'MLC157523',
+  'venta_local':             'MLC157524',
   // Terrenos
-  'arriendo_terreno':      'MLC157528',
-  'venta_terreno':         'MLC157529',
-  // Bodegas
-  'arriendo_bodega':       'MLC157530',
-  'venta_bodega':          'MLC157531',
+  'arriendo_terreno':        'MLC157528',
+  'venta_terreno':           'MLC157529',
+  // Bodegas y naves industriales
+  'arriendo_bodega':         'MLC157530',
+  'venta_bodega':            'MLC157531',
+  'arriendo_nave_industrial':'MLC157530',
+  'venta_nave_industrial':   'MLC157531',
   // Estacionamientos
-  'arriendo_estacionamiento': 'MLC157534',
-  'venta_estacionamiento':    'MLC157535',
+  'arriendo_estacionamiento':'MLC157534',
+  'venta_estacionamiento':   'MLC157535',
+  // Edificio y hotel → local comercial (categoría comercial más amplia)
+  'arriendo_edificio':       'MLC157523',
+  'venta_edificio':          'MLC157524',
+  'arriendo_hotel':          'MLC157523',
+  'venta_hotel':             'MLC157524',
 }
 
 function getCategoryId(operation: string, type: string): string {
-  const op  = operation.toLowerCase().trim()
-  const typ = type.toLowerCase().trim()
+  // Normalise operation: arriendo_temporal → arriendo (ML has no separate temp rental category)
+  const rawOp = operation.toLowerCase().trim()
+  const op  = rawOp === 'arriendo_temporal' ? 'arriendo' : rawOp
+  const typ = type.toLowerCase().trim().replace(/\s+/g, '_')
+
   // Direct match
   const key = `${op}_${typ}`
   if (ML_CATEGORY_MAP[key]) return ML_CATEGORY_MAP[key]
-  // Partial type match (e.g. "Local Comercial" → "local")
+
+  // Partial type match — e.g. "local_comercial" → "local"
   for (const [mapKey, catId] of Object.entries(ML_CATEGORY_MAP)) {
-    if (mapKey.startsWith(`${op}_`) && typ.includes(mapKey.split('_')[1])) return catId
+    if (mapKey.startsWith(`${op}_`) && typ.startsWith(mapKey.split(`${op}_`)[1])) return catId
   }
+
   // Default to arriendo_departamento as safest fallback
   return 'MLC157520'
 }
