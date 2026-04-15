@@ -92,6 +92,14 @@ export async function GET() {
       if (agentData) agentData.forEach(a => agentMap.set(a.id, a.full_name || 'Sin nombre'))
     }
 
+    // Get subscriber names
+    const subscriberIds = profiles.map(p => p.subscriber_id).filter(Boolean)
+    const subscriberMap = new Map<string, string>()
+    if (subscriberIds.length > 0) {
+      const { data: subData } = await admin.from('profiles').select('id, full_name').in('id', subscriberIds)
+      if (subData) subData.forEach(s => subscriberMap.set(s.id, s.full_name || 'Sin nombre'))
+    }
+
     const propietarios = profiles.map(p => {
       const meta = metaMap.get(p.id) || {}
       return {
@@ -109,7 +117,7 @@ export async function GET() {
         property_sector: meta.property_sector || '',
         property_type: meta.property_type || '',
         property_operation: meta.property_operation || '',
-        subscriber_name: '',
+        subscriber_name: p.subscriber_id ? subscriberMap.get(p.subscriber_id) || '' : '',
         properties: propertiesByOwner.get(p.id) || [],
       }
     })
