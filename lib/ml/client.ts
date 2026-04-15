@@ -53,33 +53,35 @@ export interface MLProperty {
 // ─── Category mapping ─────────────────────────────────────────────────────────
 
 // Category IDs verified from GET https://api.mercadolibre.com/categories/{id} (MLC = Chile)
+// Residential & office categories have a 3rd level: "Propiedades usadas" (existing) vs "Proyectos" (new construction).
+// We default to "Propiedades usadas" since the CRM publishes existing properties.
 const ML_CATEGORY_MAP: Record<string, string> = {
-  // ── Departamentos (MLC1472) ──────────────────────────────────────────────────
-  'arriendo_departamento':             'MLC6407',
-  'arriendo_temporal_departamento':    'MLC116367',
-  'venta_departamento':                'MLC1480',
+  // ── Departamentos → leaf "Propiedades usadas" ────────────────────────────────
+  'arriendo_departamento':             'MLC183186', // Deptos > Arriendo > Prop. usadas
+  'arriendo_temporal_departamento':    'MLC116367',  // Deptos > Arriendo Temporal (leaf)
+  'venta_departamento':                'MLC157522',  // Deptos > Venta > Prop. usadas
   // Monoambiente → departamento
-  'arriendo_monoambiente':             'MLC6407',
+  'arriendo_monoambiente':             'MLC183186',
   'arriendo_temporal_monoambiente':    'MLC116367',
-  'venta_monoambiente':                'MLC1480',
-  // ── Casas (MLC1466) ──────────────────────────────────────────────────────────
-  'arriendo_casa':                     'MLC6406',
-  'arriendo_temporal_casa':            'MLC116364',
-  'venta_casa':                        'MLC5628',
+  'venta_monoambiente':                'MLC157522',
+  // ── Casas → leaf "Propiedades usadas" ───────────────────────────────────────
+  'arriendo_casa':                     'MLC183184',  // Casas > Arriendo > Prop. usadas
+  'arriendo_temporal_casa':            'MLC116364',  // Casas > Arriendo Temporal (leaf)
+  'venta_casa':                        'MLC157520',  // Casas > Venta > Prop. usadas
   // Casa en condominio, villa, quinta → casa
-  'arriendo_casa_condominio':          'MLC6406',
+  'arriendo_casa_condominio':          'MLC183184',
   'arriendo_temporal_casa_condominio': 'MLC116364',
-  'venta_casa_condominio':             'MLC5628',
-  'arriendo_villa':                    'MLC6406',
+  'venta_casa_condominio':             'MLC157520',
+  'arriendo_villa':                    'MLC183184',
   'arriendo_temporal_villa':           'MLC116364',
-  'venta_villa':                       'MLC5628',
-  'arriendo_quinta':                   'MLC6406',
+  'venta_villa':                       'MLC157520',
+  'arriendo_quinta':                   'MLC183184',
   'arriendo_temporal_quinta':          'MLC116364',
-  'venta_quinta':                      'MLC5628',
-  // ── Oficinas (MLC1478) ───────────────────────────────────────────────────────
-  'arriendo_oficina':                  'MLC6409',
-  'venta_oficina':                     'MLC1474',
-  // ── Locales comerciales (MLC50610) ───────────────────────────────────────────
+  'venta_quinta':                      'MLC157520',
+  // ── Oficinas → leaf "Propiedades usadas" ────────────────────────────────────
+  'arriendo_oficina':                  'MLC183187',  // Oficinas > Arriendo > Prop. usadas
+  'venta_oficina':                     'MLC157413',  // Oficinas > Venta > Prop. usadas
+  // ── Locales comerciales (leaf, no sub-levels) ────────────────────────────────
   'arriendo_local':                    'MLC50611',
   'venta_local':                       'MLC50612',
   // Edificio y hotel → local comercial
@@ -87,16 +89,16 @@ const ML_CATEGORY_MAP: Record<string, string> = {
   'venta_edificio':                    'MLC50612',
   'arriendo_hotel':                    'MLC50611',
   'venta_hotel':                       'MLC50612',
-  // ── Terrenos (MLC152992) ─────────────────────────────────────────────────────
+  // ── Terrenos (leaf) ──────────────────────────────────────────────────────────
   'arriendo_terreno':                  'MLC152994',
   'venta_terreno':                     'MLC152993',
-  // ── Bodegas (MLC50564) ───────────────────────────────────────────────────────
+  // ── Bodegas (leaf) ───────────────────────────────────────────────────────────
   'arriendo_bodega':                   'MLC50565',
   'venta_bodega':                      'MLC50566',
-  // ── Industriales / Naves (MLC50617) ──────────────────────────────────────────
+  // ── Industriales / Naves (leaf) ──────────────────────────────────────────────
   'arriendo_nave_industrial':          'MLC50618',
   'venta_nave_industrial':             'MLC50619',
-  // ── Estacionamientos (MLC50620) ──────────────────────────────────────────────
+  // ── Estacionamientos (leaf) ──────────────────────────────────────────────────
   'arriendo_estacionamiento':          'MLC50621',
   'venta_estacionamiento':             'MLC50622',
 }
@@ -298,20 +300,19 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   // PARKING_LOTS is required; "Si no tiene estacionamientos, indica 0"
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
-  // Area attributes — ML requires TOTAL_AREA, COVERED_AREA, LAND_AREA as
-  // value_name strings with unit suffix, e.g. "94 m²"  (value_struct is NOT accepted).
+  // Area attributes — value_type is "number_unit", ML requires value_struct format.
   // Use cross-fallbacks so all three are always sent when any area value exists.
   const effectiveTotalArea   = property.total_area   ?? property.covered_area
   const effectiveCoveredArea = property.covered_area ?? property.total_area
 
   if (effectiveTotalArea != null) {
-    const areaStr = `${Math.round(Number(effectiveTotalArea))} m\u00b2`
-    attributes.push({ id: 'TOTAL_AREA',  value_name: areaStr })
-    // LAND_AREA also required; for apartments/offices use total_area as proxy
-    attributes.push({ id: 'LAND_AREA',   value_name: areaStr })
+    const n = Math.round(Number(effectiveTotalArea))
+    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: n, unit: 'm²' } })
+    // LAND_AREA required — for apartments/offices use total_area as proxy
+    attributes.push({ id: 'LAND_AREA',   value_struct: { number: n, unit: 'm²' } })
   }
   if (effectiveCoveredArea != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m\u00b2` })
+    attributes.push({ id: 'COVERED_AREA', value_struct: { number: Math.round(Number(effectiveCoveredArea)), unit: 'm²' } })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────
@@ -490,12 +491,12 @@ export async function updateProperty(
     attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
   }
   if (propertyData.total_area != null) {
-    const areaStr = `${Math.round(Number(propertyData.total_area))} m\u00b2`
-    attributes.push({ id: 'TOTAL_AREA', value_name: areaStr })
-    attributes.push({ id: 'LAND_AREA',  value_name: areaStr })
+    const n = Math.round(Number(propertyData.total_area))
+    attributes.push({ id: 'TOTAL_AREA', value_struct: { number: n, unit: 'm²' } })
+    attributes.push({ id: 'LAND_AREA',  value_struct: { number: n, unit: 'm²' } })
   }
   if (propertyData.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(propertyData.covered_area))} m\u00b2` })
+    attributes.push({ id: 'COVERED_AREA', value_struct: { number: Math.round(Number(propertyData.covered_area)), unit: 'm²' } })
   }
   if (attributes.length > 0) updates.attributes = attributes
 
