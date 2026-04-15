@@ -273,8 +273,7 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     { id: 'UNIT_NAME',        value_name: unitName },
     // POSSESSION_STATUS: "Entrega inmediata" (id 242413)
     { id: 'POSSESSION_STATUS', value_id: '242413', value_name: 'Entrega inmediata' },
-    // FACING: "NO" (NorOriente) — valid value_id 2730831; orientation data not captured in CRM
-    { id: 'FACING', value_id: '2730831', value_name: 'NO' },
+    // FACING intentionally omitted — optional attribute; CRM does not capture orientation
   ]
 
   // Numeric attributes — value_name as string for value_type:"number"

@@ -161,7 +161,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     })
   } catch (err: unknown) {
     const raw = err instanceof Error ? err.message : 'Error inesperado'
-    console.error('ML publish error:', raw)
+    console.error('[ML publish] raw error:', raw)
     return NextResponse.json({ error: parseMlError(raw) }, { status: 500 })
   }
 }
@@ -169,90 +169,103 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 // ─── Parse ML validation errors into friendly Spanish messages ────────────────
 
 function parseMlError(raw: string): string {
-  // Try to extract JSON from the error message
-  // Find last JSON object in the error string (multiline-safe)
   const jsonStart = raw.indexOf('{')
-  const jsonMatch = jsonStart >= 0 ? [raw.slice(jsonStart)] : null
-  if (!jsonMatch) return raw
+  if (jsonStart < 0) return raw
 
+  let parsed: Record<string, unknown>
   try {
-    const parsed = JSON.parse(jsonMatch[0])
-    const causes: Array<{ type?: string; code?: string; message?: string }> = parsed.cause || []
-
-    const FIELD_NAMES: Record<string, string> = {
-      TOTAL_AREA:      'Superficie total (m²)',
-      COVERED_AREA:    'Superficie útil (m²)',
-      LAND_AREA:       'Superficie de terreno (m²)',
-      BEDROOMS:        'Dormitorios',
-      FULL_BATHROOMS:  'Baños',
-      PARKING_LOTS:    'Estacionamientos',
-      FACING:          'Orientación',
-      PROPERTY_CODE:   'Código de propiedad',
-      MODEL_NAME:      'Nombre del modelo',
-      DEVELOPMENT_NAME:'Nombre del proyecto',
-      UNIT_NAME:       'Nombre de unidad',
-      POSSESSION_STATUS:'Estado del proyecto',
-    }
-
-    const errors: string[] = []
-    const missingAttrs: string[] = []
-    const droppedAttrs: string[] = []
-    const unknownMessages: string[] = []
-
-    for (const c of causes) {
-      if (c.code === 'item.attributes.missing_required') {
-        const match = (c.message || '').match(/\[([^\]]+)\]/)
-        if (match) {
-          const ids = match[1].split(',').map((s: string) => s.trim())
-          missingAttrs.push(...ids.map((id: string) => FIELD_NAMES[id] || id))
-        }
-      } else if (c.code === 'item.attribute.dropped') {
-        const match = (c.message || '').match(/Attribute: (\w+) was dropped/)
-        if (match) droppedAttrs.push(FIELD_NAMES[match[1]] || match[1])
-      } else if (c.code === 'item.price.invalid') {
-        const minMatch = (c.message || '').match(/minimum of price ([\d.]+)/)
-        if (minMatch) {
-          const min = Number(minMatch[1]).toLocaleString('es-CL')
-          errors.push(`Precio mínimo requerido para esta categoría: $${min} CLP — edita la propiedad y actualiza el precio`)
-        } else {
-          errors.push('El precio no es válido para esta categoría en MercadoLibre')
-        }
-      } else if (c.code === 'item.pictures.mandatory' || c.code?.includes('picture')) {
-        errors.push('Se requiere al menos una imagen para publicar')
-      } else if (c.code === 'item.location.invalid' || c.code?.includes('location')) {
-        errors.push('La ubicación no es válida — asegúrate de que la comuna/ciudad esté correctamente escrita')
-      } else if (c.type === 'error' && c.message) {
-        // Translate common ML English messages to Spanish
-        const msg = c.message
-          .replace('is required', 'es requerido')
-          .replace('is invalid', 'no es válido')
-          .replace('is not allowed', 'no está permitido')
-          .replace('must be greater than', 'debe ser mayor que')
-          .replace('must be less than', 'debe ser menor que')
-        unknownMessages.push(msg)
-      }
-    }
-
-    const parts: string[] = []
-    if (missingAttrs.length > 0) {
-      parts.push(`Faltan campos requeridos: ${missingAttrs.join(', ')}`)
-    }
-    if (droppedAttrs.length > 0) {
-      parts.push(`Valores inválidos en: ${droppedAttrs.join(', ')}`)
-    }
-    parts.push(...errors.filter(Boolean))
-
-    // If we still have no human-readable parts, show the raw ML messages (translated)
-    if (parts.length === 0 && unknownMessages.length > 0) {
-      parts.push(...unknownMessages)
-    }
-
-    return parts.length > 0
-      ? parts.join(' · ')
-      : `Error de validación MercadoLibre (${parsed.status || 400}): revisa que la propiedad tenga todos los datos completos`
+    parsed = JSON.parse(raw.slice(jsonStart))
   } catch {
     return raw
   }
+
+  const causes: Array<{ type?: string; code?: string; message?: string }> =
+    (parsed.cause as typeof causes) || []
+
+  const FIELD_NAMES: Record<string, string> = {
+    TOTAL_AREA:       'Superficie total (m²)',
+    COVERED_AREA:     'Superficie útil (m²)',
+    LAND_AREA:        'Superficie de terreno (m²)',
+    BEDROOMS:         'Dormitorios',
+    FULL_BATHROOMS:   'Baños',
+    PARKING_LOTS:     'Estacionamientos',
+    FACING:           'Orientación',
+    PROPERTY_CODE:    'Código de propiedad',
+    MODEL_NAME:       'Nombre del modelo',
+    DEVELOPMENT_NAME: 'Nombre del proyecto',
+    UNIT_NAME:        'Nombre de unidad',
+    POSSESSION_STATUS:'Estado del proyecto',
+  }
+
+  const errors: string[] = []
+  const missingAttrs: string[] = []
+  const droppedAttrs: string[] = []
+
+  for (const c of causes) {
+    const code = c.code || ''
+    const msg  = c.message || ''
+
+    if (code === 'item.attributes.missing_required') {
+      // ML format: "The following attributes are required: [BEDROOMS, FULL_BATHROOMS]"
+      const match = msg.match(/\[([^\]]+)\]/)
+      if (match) {
+        match[1].split(',').map(s => s.trim()).forEach(id => {
+          missingAttrs.push(FIELD_NAMES[id] || id)
+        })
+      } else if (msg) {
+        missingAttrs.push(msg)
+      }
+
+    } else if (code === 'item.attribute.dropped' || code.includes('attribute.dropped')) {
+      // ML formats: "Attribute: FACING was dropped", "FACING was dropped because ..."
+      const attrMatch = msg.match(/(?:Attribute[:\s]+)?([A-Z_]+)\s+(?:was\s+)?dropped/i)
+      if (attrMatch) {
+        droppedAttrs.push(FIELD_NAMES[attrMatch[1]] || attrMatch[1])
+      } else if (msg) {
+        droppedAttrs.push(msg)
+      }
+
+    } else if (code === 'item.price.invalid' || code.includes('price')) {
+      const minMatch = msg.match(/minimum of price ([\d.]+)/)
+      if (minMatch) {
+        errors.push(`Precio mínimo: $${Number(minMatch[1]).toLocaleString('es-CL')} CLP — actualiza el precio de la propiedad`)
+      } else {
+        errors.push(`Precio inválido para esta categoría en MercadoLibre${msg ? ` — ${msg}` : ''}`)
+      }
+
+    } else if (code.includes('picture') || code.includes('image')) {
+      errors.push('Se requiere al menos una imagen para publicar')
+
+    } else if (code.includes('location')) {
+      errors.push('Ubicación inválida — asegúrate de que la comuna/ciudad esté escrita correctamente (ej: "Las Condes", "Providencia")')
+
+    } else if (msg) {
+      // Catch-all: translate any remaining ML message to Spanish
+      errors.push(
+        msg
+          .replace(/is required/gi,          'es requerido')
+          .replace(/is invalid/gi,           'no es válido')
+          .replace(/is not allowed/gi,       'no está permitido')
+          .replace(/must be greater than/gi, 'debe ser mayor que')
+          .replace(/must be less than/gi,    'debe ser menor que')
+          .replace(/not found/gi,            'no encontrado')
+      )
+    }
+  }
+
+  const parts: string[] = []
+  if (missingAttrs.length > 0) parts.push(`Faltan campos requeridos en MercadoLibre: ${missingAttrs.join(', ')}`)
+  if (droppedAttrs.length > 0) parts.push(`Valores inválidos rechazados por ML: ${droppedAttrs.join(', ')}`)
+  parts.push(...errors)
+
+  if (parts.length > 0) return parts.join(' · ')
+
+  // Last resort: expose raw ML error message + status so it's actionable
+  const mlMsg = (parsed.message as string) || (parsed.error as string) || ''
+  const status = parsed.status as number | undefined
+  return mlMsg
+    ? `MercadoLibre (${status ?? 400}): ${mlMsg}`
+    : `Error de publicación MercadoLibre (${status ?? 400}) — revisa los logs de Vercel para el detalle`
 }
 
 // ─── PUT: Update existing ML listing ─────────────────────────────────────────
