@@ -257,7 +257,14 @@ export async function refreshTokenIfNeeded(
 
 export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   const categoryId = getCategoryId(property.operation, property.type)
-  const currencyId = property.currency === 'UF' ? 'CLF' : 'CLP'
+  // Currency mapping:
+  //   UF  → CLF  (MercadoLibre uses ISO 4217 code CLF for Unidades de Fomento)
+  //   USD → USD  (accepted for commercial properties; ML will validate)
+  //   CLP → CLP  (default)
+  const currencyId =
+    property.currency === 'UF'  ? 'CLF' :
+    property.currency === 'USD' ? 'USD' :
+    'CLP'
   const listingTypeId = property.ml_listing_type || 'silver'
 
   const pictures = (property.images || [])

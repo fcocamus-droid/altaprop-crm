@@ -47,6 +47,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 // ─── POST: Publish property to ML ────────────────────────────────────────────
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
+  let propertyCurrency = 'CLP' // captured below; used in catch for error messages
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -67,6 +68,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (propError || !property) {
       return NextResponse.json({ error: 'Propiedad no encontrada' }, { status: 404 })
     }
+
+    // Capture currency for error messages in catch block
+    propertyCurrency = property.currency || 'CLP'
 
     // Determine whose ML tokens to use: subscriber's profile
     const subscriberId = property.subscriber_id
@@ -162,13 +166,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   } catch (err: unknown) {
     const raw = err instanceof Error ? err.message : 'Error inesperado'
     console.error('[ML publish] raw error:', raw)
-    return NextResponse.json({ error: parseMlError(raw) }, { status: 500 })
+    return NextResponse.json({ error: parseMlError(raw, propertyCurrency) }, { status: 500 })
   }
 }
 
 // ─── Parse ML validation errors into friendly Spanish messages ────────────────
 
-function parseMlError(raw: string): string {
+function parseMlError(raw: string, currency = 'CLP'): string {
   const jsonStart = raw.indexOf('{')
   if (jsonStart < 0) return raw
 
@@ -228,7 +232,13 @@ function parseMlError(raw: string): string {
     } else if (code === 'item.price.invalid' || code.includes('price')) {
       const minMatch = msg.match(/minimum of price ([\d.]+)/)
       if (minMatch) {
-        errors.push(`Precio mínimo: $${Number(minMatch[1]).toLocaleString('es-CL')} CLP — actualiza el precio de la propiedad`)
+        const minValue = Number(minMatch[1])
+        const currencyLabel = currency === 'UF' ? 'UF' : currency === 'USD' ? 'USD' : 'CLP'
+        const formatted =
+          currencyLabel === 'CLP'
+            ? `$${minValue.toLocaleString('es-CL')} CLP`
+            : `${minValue.toLocaleString('es-CL')} ${currencyLabel}`
+        errors.push(`Precio mínimo requerido: ${formatted} — actualiza el precio de la propiedad`)
       } else {
         errors.push(`Precio inválido para esta categoría en MercadoLibre${msg ? ` — ${msg}` : ''}`)
       }
