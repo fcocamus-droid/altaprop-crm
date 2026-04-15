@@ -320,7 +320,7 @@ const AMENITY_ML_MAP: Record<string, string> = {
 
 // ─── Payload builder ──────────────────────────────────────────────────────────
 
-export function buildMLPayload(property: MLProperty): Record<string, unknown> {
+export function buildMLPayload(property: MLProperty): { payload: Record<string, unknown>; unmappedAmenities: string[] } {
   const categoryId = getCategoryId(property.operation, property.type)
   // Currency mapping:
   //   UF  → CLF  (MercadoLibre uses ISO 4217 code CLF for Unidades de Fomento)
@@ -419,19 +419,11 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
     }
   }
 
-  // ─── Description — enrich with unmapped amenities + video URL ───────────────
-  const descParts: string[] = []
-  if (property.description?.trim()) descParts.push(property.description.trim())
-
-  if (unmappedAmenities.length > 0)
-    descParts.push(`Amenidades: ${unmappedAmenities.join(', ')}`)
-
-  if (property.video_url?.trim())
-    descParts.push(`Video: ${property.video_url.trim()}`)
-
-  const finalDescription = descParts.join('\n\n')
-
   // ─── Build final payload ────────────────────────────────────────────────────
+  // NOTE: description is intentionally excluded here.
+  // For ML classified real-estate listings, description MUST be posted separately
+  // via POST /items/{id}/description after the item is created (see publishProperty).
+  // Including it in the main body causes ML to silently ignore it.
   const pictures = (property.images || [])
     .filter(img => img.url)
     .map(img => ({ source: img.url }))
@@ -465,9 +457,61 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   }
 
   if (pictures.length > 0) payload.pictures = pictures
-  if (finalDescription)    payload.description = { plain_text: finalDescription }
 
-  return payload
+  // Return unmapped amenities alongside payload so callers can include them in description
+  return { payload, unmappedAmenities }
+}
+
+// ─── Build enriched description ───────────────────────────────────────────────
+/**
+ * Combines CRM description + unmapped amenities + video URL into a single
+ * plain-text string for the ML /items/{id}/description endpoint.
+ */
+export function buildEnrichedDescription(
+  property: Pick<MLProperty, 'description' | 'video_url' | 'amenities'>
+): string {
+  // Compute which amenities don't have a native ML attribute
+  const unmapped = (property.amenities || []).filter(
+    a => !AMENITY_ML_MAP[a.toLowerCase().trim()]
+  )
+
+  const parts: string[] = []
+  if (property.description?.trim()) parts.push(property.description.trim())
+  if (unmapped.length > 0)          parts.push(`Amenidades: ${unmapped.join(', ')}`)
+  if (property.video_url?.trim())   parts.push(`Video: ${property.video_url.trim()}`)
+
+  return parts.join('\n\n')
+}
+
+// ─── Post / update item description (separate ML endpoint) ────────────────────
+/**
+ * ML classified real-estate items require description to be posted separately.
+ * Use POST for new items, PUT for existing ones (both accept the same body).
+ * Failures are logged but do NOT abort the publish flow — the item is already live.
+ */
+async function syncItemDescription(
+  accessToken: string,
+  mlItemId: string,
+  plainText: string,
+  method: 'POST' | 'PUT' = 'POST'
+): Promise<void> {
+  if (!plainText.trim()) return
+  try {
+    const res = await fetch(`${ML_API}/items/${mlItemId}/description`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ plain_text: plainText }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      console.warn(`[ML description ${method}] non-fatal error (${res.status}):`, err)
+    }
+  } catch (err) {
+    console.warn('[ML description] network error (non-fatal):', err)
+  }
 }
 
 // ─── Picture pre-upload ───────────────────────────────────────────────────────
@@ -531,7 +575,7 @@ export async function publishProperty(
   accessToken: string,
   propertyData: MLProperty
 ): Promise<{ id: string; permalink: string; status: string }> {
-  const payload = buildMLPayload(propertyData)
+  const { payload } = buildMLPayload(propertyData)
 
   // Pre-upload images to ML so they're hosted on ML servers before the item is created.
   // This avoids the "processing-image" placeholder caused by ML failing to fetch
@@ -557,18 +601,23 @@ export async function publishProperty(
   // ML may return HTTP 402 (Payment Required) but still create the item.
   // If the response contains an `id`, the item was created — treat as success
   // with status "payment_required" so the UI can guide the user to activate.
-  if (!res.ok) {
-    if (data?.id) {
-      return {
-        id: data.id,
-        permalink: data.permalink || '',
-        status: data.status || 'payment_required',
-      }
-    }
+  if (!res.ok && !data?.id) {
     throw new Error(`ML publish failed (${res.status}): ${JSON.stringify(data)}`)
   }
 
-  return { id: data.id, permalink: data.permalink || '', status: data.status || 'active' }
+  const itemId: string = data.id
+  const result = {
+    id: itemId,
+    permalink: data.permalink || '',
+    status: data.status || (res.ok ? 'active' : 'payment_required'),
+  }
+
+  // Post description separately — ML classified listings require this as a
+  // distinct API call; including it in the item body is silently ignored.
+  const descriptionText = buildEnrichedDescription(propertyData)
+  await syncItemDescription(accessToken, itemId, descriptionText, 'POST')
+
+  return result
 }
 
 export async function updateProperty(
@@ -581,34 +630,31 @@ export async function updateProperty(
 
   if (propertyData.title) updates.title = propertyData.title
   if (propertyData.price != null) updates.price = propertyData.price
-  if (propertyData.currency) updates.currency_id = propertyData.currency === 'UF' ? 'CLF' : 'CLP'
-
-  if (propertyData.description) {
-    updates.description = { plain_text: propertyData.description }
+  if (propertyData.currency) {
+    updates.currency_id =
+      propertyData.currency === 'UF'  ? 'CLF' :
+      propertyData.currency === 'USD' ? 'USD' :
+      'CLP'
   }
+
+  // NOTE: description is NOT included here — it must be updated via a separate
+  // PUT /items/{id}/description call (see syncItemDescription below).
 
   if (propertyData.images && propertyData.images.length > 0) {
     const mlPictures = await prepareMLPictures(accessToken, propertyData.images)
     if (mlPictures.length > 0) updates.pictures = mlPictures
   }
 
-  // Update mutable attributes (bedrooms, bathrooms, area, parking)
-  const attributes: Array<{ id: string; value_name?: string; value_struct?: { number: number; unit: string } }> = []
-  if (propertyData.bedrooms != null) {
-    attributes.push({ id: 'BEDROOMS', value_name: String(propertyData.bedrooms) })
-  }
-  if (propertyData.bathrooms != null) {
-    attributes.push({ id: 'FULL_BATHROOMS', value_name: String(propertyData.bathrooms) })
-  }
-  if (propertyData.parking != null) {
-    attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
-  }
-  if (propertyData.total_area != null) {
-    attributes.push({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(propertyData.total_area))} m²` })
-  }
-  if (propertyData.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(propertyData.covered_area))} m²` })
-  }
+  // Update mutable attributes
+  const attributes: Array<{ id: string; value_name?: string }> = []
+  if (propertyData.bedrooms  != null && propertyData.bedrooms  > 0) attributes.push({ id: 'BEDROOMS',       value_name: String(propertyData.bedrooms) })
+  if (propertyData.bathrooms != null && propertyData.bathrooms > 0) attributes.push({ id: 'FULL_BATHROOMS', value_name: String(propertyData.bathrooms) })
+  if (propertyData.parking   != null) attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
+  if (propertyData.storage   != null) attributes.push({ id: 'WAREHOUSES',   value_name: String(propertyData.storage) })
+  if (propertyData.total_area   != null) attributes.push({ id: 'TOTAL_AREA',   value_name: `${Math.round(Number(propertyData.total_area))} m²` })
+  if (propertyData.covered_area != null) attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(propertyData.covered_area))} m²` })
+  if (propertyData.terrace_sqm  != null && propertyData.terrace_sqm > 0) attributes.push({ id: 'BALCONY_AREA', value_name: `${Math.round(Number(propertyData.terrace_sqm))} m²` })
+  if (propertyData.common_expenses != null) attributes.push({ id: 'MAINTENANCE_FEE', value_name: `${Math.round(Number(propertyData.common_expenses))} CLP` })
   if (attributes.length > 0) updates.attributes = attributes
 
   const res = await fetch(`${ML_API}/items/${mlItemId}`, {
@@ -625,7 +671,13 @@ export async function updateProperty(
     throw new Error(`ML update failed (${res.status}): ${err}`)
   }
 
-  return res.json()
+  const result = await res.json()
+
+  // Sync description separately via PUT /items/{id}/description
+  const descriptionText = buildEnrichedDescription(propertyData as MLProperty)
+  await syncItemDescription(accessToken, mlItemId, descriptionText, 'PUT')
+
+  return result
 }
 
 export async function pauseProperty(
