@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -252,13 +252,35 @@ export function PropertyForm({ property }: PropertyFormProps) {
   // ── Images — new (selected files) ────────────────────────────────────────
   const [newImages, setNewImages]   = useState<File[]>([])
 
+  // ── Stable preview URLs (created once per File, never on re-render) ───────
+  // URL.createObjectURL() called in render creates a new URL on every render,
+  // causing the browser to constantly reload images and leaking blob URLs.
+  const previewCache = useRef(new Map<File, string>())
+
+  function getPreview(file: File): string {
+    if (!previewCache.current.has(file)) {
+      previewCache.current.set(file, URL.createObjectURL(file))
+    }
+    return previewCache.current.get(file)!
+  }
+
+  function revokePreview(file: File) {
+    const url = previewCache.current.get(file)
+    if (url) { URL.revokeObjectURL(url); previewCache.current.delete(file) }
+  }
+
+  // Revoke all blob URLs on unmount to free memory
+  useEffect(() => {
+    return () => { previewCache.current.forEach(url => URL.revokeObjectURL(url)) }
+  }, [])
+
   // ── Lightbox ──────────────────────────────────────────────────────────────
   const [lightbox, setLightbox]     = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
 
   // All images for lightbox (existing + new previews)
   const allLightboxImages = [
     ...existingImages.map(img => ({ src: img.url, alt: '' })),
-    ...newImages.map(f => ({ src: URL.createObjectURL(f), alt: f.name })),
+    ...newImages.map(f => ({ src: getPreview(f), alt: f.name })),
   ]
 
   // ── Image handlers ────────────────────────────────────────────────────────
@@ -302,7 +324,10 @@ export function PropertyForm({ property }: PropertyFormProps) {
   }
 
   function removeNewImage(index: number) {
-    setNewImages(prev => prev.filter((_, i) => i !== index))
+    setNewImages(prev => {
+      revokePreview(prev[index])
+      return prev.filter((_, i) => i !== index)
+    })
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -691,7 +716,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
                       {newImages.map((file, i) => (
                         <div key={i} className="group relative aspect-square rounded-lg overflow-hidden bg-muted border border-dashed border-primary/40">
                           <img
-                            src={URL.createObjectURL(file)}
+                            src={getPreview(file)}
                             alt=""
                             className="object-cover w-full h-full cursor-zoom-in"
                             onClick={() => setLightbox({ open: true, index: existingImages.length + i })}
