@@ -300,19 +300,17 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   // PARKING_LOTS is required; "Si no tiene estacionamientos, indica 0"
   attributes.push({ id: 'PARKING_LOTS', value_name: String(property.parking ?? 0) })
 
-  // Area attributes — value_type is "number_unit", ML requires value_struct format.
-  // Use cross-fallbacks so all three are always sent when any area value exists.
+  // Area attributes — value_type "number_unit": send plain number string as value_name.
+  // ML infers the unit (m²) from the attribute's allowed_units definition.
+  // LAND_AREA is a hidden internal attribute (tags.hidden=true) — must NOT be sent.
   const effectiveTotalArea   = property.total_area   ?? property.covered_area
   const effectiveCoveredArea = property.covered_area ?? property.total_area
 
   if (effectiveTotalArea != null) {
-    const n = Math.round(Number(effectiveTotalArea))
-    attributes.push({ id: 'TOTAL_AREA',  value_struct: { number: n, unit: 'm²' } })
-    // LAND_AREA required — for apartments/offices use total_area as proxy
-    attributes.push({ id: 'LAND_AREA',   value_struct: { number: n, unit: 'm²' } })
+    attributes.push({ id: 'TOTAL_AREA', value_name: String(Math.round(Number(effectiveTotalArea))) })
   }
   if (effectiveCoveredArea != null) {
-    attributes.push({ id: 'COVERED_AREA', value_struct: { number: Math.round(Number(effectiveCoveredArea)), unit: 'm²' } })
+    attributes.push({ id: 'COVERED_AREA', value_name: String(Math.round(Number(effectiveCoveredArea))) })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────
@@ -491,12 +489,10 @@ export async function updateProperty(
     attributes.push({ id: 'PARKING_LOTS', value_name: String(propertyData.parking) })
   }
   if (propertyData.total_area != null) {
-    const n = Math.round(Number(propertyData.total_area))
-    attributes.push({ id: 'TOTAL_AREA', value_struct: { number: n, unit: 'm²' } })
-    attributes.push({ id: 'LAND_AREA',  value_struct: { number: n, unit: 'm²' } })
+    attributes.push({ id: 'TOTAL_AREA', value_name: String(Math.round(Number(propertyData.total_area))) })
   }
   if (propertyData.covered_area != null) {
-    attributes.push({ id: 'COVERED_AREA', value_struct: { number: Math.round(Number(propertyData.covered_area)), unit: 'm²' } })
+    attributes.push({ id: 'COVERED_AREA', value_name: String(Math.round(Number(propertyData.covered_area))) })
   }
   if (attributes.length > 0) updates.attributes = attributes
 
