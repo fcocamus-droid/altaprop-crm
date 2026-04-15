@@ -139,6 +139,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       parking: property.parking,
       total_area: totalArea,
       covered_area: coveredArea,
+      // Additional required attributes for residential categories
+      storage: property.storage,
+      common_expenses: property.common_expenses,
+      furnished: property.furnished,
+      pets_allowed: property.pets_allowed,
       images,
       ml_listing_type: listingType,
     }
@@ -380,6 +385,10 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       parking: property.parking,
       total_area: property.sqm ?? null,
       covered_area: (property as any).covered_sqm ?? property.sqm ?? null,
+      storage: property.storage,
+      common_expenses: property.common_expenses,
+      furnished: property.furnished,
+      pets_allowed: property.pets_allowed,
       images,
     }
 

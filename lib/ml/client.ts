@@ -46,6 +46,11 @@ export interface MLProperty {
   parking: number | null
   total_area: number | null
   covered_area: number | null
+  // Extra CRM fields mapped to ML required attributes
+  storage?: number | null          // → WAREHOUSES
+  common_expenses?: number | null  // → MAINTENANCE_FEE (CLP)
+  furnished?: boolean | null       // → FURNISHED
+  pets_allowed?: boolean | null    // → IS_SUITABLE_FOR_PETS
   images?: Array<{ url: string }>
   ml_listing_type?: string | null
 }
@@ -318,6 +323,26 @@ export function buildMLPayload(property: MLProperty): Record<string, unknown> {
   }
   if (effectiveCoveredArea != null) {
     attributes.push({ id: 'COVERED_AREA', value_name: `${Math.round(Number(effectiveCoveredArea))} m²` })
+  }
+
+  // ─── Additional required attributes (residential categories) ──────────────
+  // WAREHOUSES: number of storage/bodega units (0 if none)
+  attributes.push({ id: 'WAREHOUSES', value_name: String(property.storage ?? 0) })
+
+  // MAINTENANCE_FEE: gastos comunes in CLP (0 if none; always CLP regardless of listing currency)
+  const maintenanceFee = Math.round(Number(property.common_expenses ?? 0))
+  attributes.push({ id: 'MAINTENANCE_FEE', value_name: `${maintenanceFee} CLP` })
+
+  // FURNISHED: boolean — value_id 242085=Sí, 242084=No
+  {
+    const isFurnished = property.furnished === true
+    attributes.push({ id: 'FURNISHED', value_id: isFurnished ? '242085' : '242084', value_name: isFurnished ? 'Sí' : 'No' })
+  }
+
+  // IS_SUITABLE_FOR_PETS: boolean — value_id 242085=Sí, 242084=No
+  {
+    const allowsPets = property.pets_allowed === true
+    attributes.push({ id: 'IS_SUITABLE_FOR_PETS', value_id: allowsPets ? '242085' : '242084', value_name: allowsPets ? 'Sí' : 'No' })
   }
 
   // ─── Location ──────────────────────────────────────────────────────────────
