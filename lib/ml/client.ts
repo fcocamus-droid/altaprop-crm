@@ -387,25 +387,26 @@ async function uploadPictureToML(
 }
 
 /**
- * Pre-uploads all property images to ML and returns ML picture ID objects.
+ * Pre-uploads all property images to ML in parallel and returns ML picture ID objects.
  * Falls back to source URLs for any images that fail to upload.
+ * Caps at 24 images (ML Chile limit is 30; we leave a buffer).
  */
 async function prepareMLPictures(
   accessToken: string,
   images: Array<{ url: string }>
 ): Promise<Array<Record<string, string>>> {
-  const results: Array<Record<string, string>> = []
+  const MAX_PICTURES = 24
+  const validImages = images.filter(img => img.url).slice(0, MAX_PICTURES)
 
-  for (const img of images) {
-    if (!img.url) continue
-    const mlPictureId = await uploadPictureToML(accessToken, img.url)
-    if (mlPictureId) {
-      results.push({ id: mlPictureId })
-    } else {
-      // Fallback: pass the URL directly — ML will attempt to fetch it
-      results.push({ source: img.url })
-    }
-  }
+  // Upload all images in parallel to avoid sequential timeout on large sets
+  const results = await Promise.all(
+    validImages.map(async (img) => {
+      const mlPictureId = await uploadPictureToML(accessToken, img.url)
+      return mlPictureId
+        ? { id: mlPictureId }
+        : { source: img.url } // fallback: ML fetches URL directly
+    })
+  )
 
   return results
 }
