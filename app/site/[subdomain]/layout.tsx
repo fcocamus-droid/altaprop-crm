@@ -52,10 +52,10 @@ export default async function SiteLayout({
 
       {/* Header */}
       <header className="sticky top-0 z-50 shadow-sm" style={{ background: primaryColor }}>
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-20 items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             {subscriber.avatar_url ? (
-              <img src={subscriber.avatar_url} alt={companyName} className="h-9 w-auto max-w-[140px] object-contain rounded" />
+              <img src={subscriber.avatar_url} alt={companyName} className="h-14 w-auto max-w-[200px] object-contain rounded" />
             ) : (
               <div className="flex items-center gap-2">
                 <Building2 className="h-7 w-7" style={{ color: accentColor }} />
@@ -93,7 +93,7 @@ export default async function SiteLayout({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               {subscriber.avatar_url ? (
-                <img src={subscriber.avatar_url} alt={companyName} className="h-10 w-auto max-w-[160px] object-contain mb-4 rounded" />
+                <img src={subscriber.avatar_url} alt={companyName} className="h-14 w-auto max-w-[200px] object-contain mb-4 rounded" />
               ) : (
                 <p className="text-lg font-bold mb-4" style={{ color: accentColor }}>{companyName}</p>
               )}
