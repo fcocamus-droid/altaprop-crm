@@ -27,7 +27,17 @@ async function getProperty(propertyId: string, subscriberId: string) {
     .eq('id', propertyId)
     .eq('subscriber_id', subscriberId)
     .single()
-  return data
+
+  if (!data) return data
+
+  // Fetch agent email from auth.users (not stored in profiles)
+  let agentEmail: string | null = null
+  if (data.agent?.id) {
+    const { data: authUser } = await admin.auth.admin.getUserById(data.agent.id)
+    agentEmail = authUser?.user?.email ?? null
+  }
+
+  return { ...data, agentEmail }
 }
 
 export async function generateMetadata({
@@ -284,12 +294,12 @@ export default async function SitePropertyDetailPage({
                   </a>
                 )}
 
-                {subscriber.email && (
+                {(property.agentEmail || subscriber.email) && (
                   <a
-                    href={`mailto:${subscriber.email}?subject=Consulta por: ${property.title}`}
+                    href={`mailto:${property.agentEmail || subscriber.email}?subject=Consulta por: ${property.title}`}
                     className="flex items-center justify-center gap-2 w-full py-2 text-sm text-center text-muted-foreground hover:underline"
                   >
-                    {subscriber.email}
+                    {property.agentEmail || subscriber.email}
                   </a>
                 )}
 
