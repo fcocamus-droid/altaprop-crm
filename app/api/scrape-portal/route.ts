@@ -423,13 +423,74 @@ async function scrapePortalInmobiliario(url: string) {
       amenities: [],
     }
 
+    // ── Description: ML API endpoint ─────────────────────────────────────
+    let description = ''
     try {
       const descRes = await fetch(`https://api.mercadolibre.com/items/${itemId}/description`)
       if (descRes.ok) {
         const d = await descRes.json()
-        result.description = d.plain_text || d.text || ''
+        // plain_text is the clean version; text may have HTML — strip it
+        const plainText = (d.plain_text || '').trim()
+        const htmlStripped = (d.text || '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          .replace(/\s+/g, ' ')
+          .trim()
+        description = plainText || htmlStripped
       }
     } catch {}
+
+    // ── Description fallback: scrape the Portal Inmobiliario page ─────────
+    // The API description can be short or missing; the page __NEXT_DATA__
+    // and og:description tags often contain a fuller text.
+    if (!description || description.length < 80) {
+      try {
+        const pageRes = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml',
+          },
+        })
+        if (pageRes.ok) {
+          const html = await pageRes.text()
+
+          // 1. __NEXT_DATA__ (Portal Inmobiliario is Next.js)
+          const ndStart = html.indexOf('__NEXT_DATA__')
+          if (ndStart !== -1) {
+            try {
+              const jsonStart = html.indexOf('>', ndStart) + 1
+              const jsonEnd = html.indexOf('</script>', jsonStart)
+              const nd = JSON.parse(html.substring(jsonStart, jsonEnd))
+              const pp = nd?.props?.pageProps
+              const candidates: string[] = [
+                pp?.item?.description,
+                pp?.data?.item?.description,
+                pp?.initialState?.descriptionState?.description?.content,
+                pp?.components?.description?.content,
+                pp?.description,
+              ]
+              for (const c of candidates) {
+                if (c && typeof c === 'string') {
+                  const stripped = c.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+                  if (stripped.length > description.length) description = stripped
+                }
+              }
+            } catch {}
+          }
+
+          // 2. og:description meta tag
+          if (!description || description.length < 80) {
+            const ogM = html.match(/<meta[^>]*(?:property|name)=["']og:description["'][^>]*content=["']([^"']{20,})["']/i)
+              || html.match(/<meta[^>]*content=["']([^"']{20,})["'][^>]*(?:property|name)=["']og:description["']/i)
+            if (ogM?.[1] && ogM[1].length > description.length) {
+              description = ogM[1].replace(/\s+/g, ' ').trim()
+            }
+          }
+        }
+      } catch {}
+    }
+
+    result.description = description.substring(0, 3000)
 
     return NextResponse.json(result)
   } catch {
