@@ -35,6 +35,8 @@ interface Property {
   agent?: { id: string; full_name: string | null } | null
   images?: { url: string }[]
   website_visible?: boolean | null
+  ml_item_id?: string | null
+  ml_status?: string | null
 }
 
 export function PropertyList({ properties: initialProperties, agents = [], currentUserRole = '' }: { properties: Property[]; agents?: Agent[]; currentUserRole?: string }) {
@@ -299,6 +301,32 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                       : <><GlobeLock className="h-3 w-3 text-muted-foreground" /><span className="text-[10px] text-muted-foreground">Oculta del sitio</span></>
                     }
                   </div>
+
+                  {/* ML / Portal Inmobiliario publication indicator */}
+                  {property.ml_item_id && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="https://www.google.com/s2/favicons?domain=mercadolibre.cl&sz=16"
+                        alt="ML"
+                        className="h-3 w-3 rounded-sm object-contain"
+                      />
+                      <span className={`text-[10px] font-medium ${
+                        property.ml_status === 'active'          ? 'text-green-600' :
+                        property.ml_status === 'paused'          ? 'text-yellow-600' :
+                        property.ml_status === 'payment_required'? 'text-orange-500' :
+                        property.ml_status === 'not_yet_active'  ? 'text-blue-500'   :
+                        'text-muted-foreground'
+                      }`}>
+                        {property.ml_status === 'active'           ? 'Publicado en portales' :
+                         property.ml_status === 'paused'           ? 'Pausado en portales'   :
+                         property.ml_status === 'payment_required' ? 'Pago pendiente ML'      :
+                         property.ml_status === 'not_yet_active'   ? 'Activando en ML…'       :
+                         'En portales'}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-1.5 mt-1">
                     <UserCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                     {agents.length > 0 && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') ? (
