@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Save, CheckCircle, Loader2, ExternalLink, AlertCircle,
-  Copy, Palette, Info, Globe,
+  Copy, Palette, Info, Globe, ImagePlus, X,
 } from 'lucide-react'
 
 // Hardcoded production domain — avoids env var issues in Edge/Client bundles
@@ -49,6 +49,9 @@ export function WebsiteConfigTab() {
   const [saveSuccess, setSaveSuccess]     = useState(false)
   const [saveError, setSaveError]         = useState('')
   const [copied, setCopied]               = useState(false)
+  const [logoUrl, setLogoUrl]             = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError]         = useState('')
 
   // Load profile into state
   useEffect(() => {
@@ -75,6 +78,7 @@ export function WebsiteConfigTab() {
     setHeroSubtitle(profile.website_hero_subtitle ?? '')
     setAboutText(profile.website_about_text ?? '')
     setWhatsapp(profile.website_whatsapp ?? '')
+    setLogoUrl(profile.avatar_url ?? null)
   }, [profile])
 
   // Debounced subdomain availability check
@@ -199,6 +203,48 @@ export function WebsiteConfigTab() {
       router.refresh()
     }
     setSaving(false)
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+    if (!file.type.startsWith('image/')) { setLogoError('Solo se permiten imágenes'); return }
+    if (file.size > 2 * 1024 * 1024) { setLogoError('El archivo no puede superar los 2 MB'); return }
+
+    setLogoUploading(true)
+    setLogoError('')
+
+    const ext = file.name.split('.').pop() || 'png'
+    const filePath = `logos/${profile.id}/logo-${Date.now()}.${ext}`
+
+    const { error: uploadErr } = await supabase.storage
+      .from('property-images')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadErr) { setLogoError(uploadErr.message); setLogoUploading(false); return }
+
+    const { data: urlData } = supabase.storage.from('property-images').getPublicUrl(filePath)
+    const publicUrl = urlData.publicUrl
+
+    const { error: updateErr } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', profile.id)
+
+    if (updateErr) { setLogoError(updateErr.message) } else {
+      setLogoUrl(publicUrl)
+    }
+    setLogoUploading(false)
+    // reset input so same file can be re-uploaded
+    e.target.value = ''
+  }
+
+  async function handleLogoRemove() {
+    if (!profile) return
+    setLogoUploading(true)
+    await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
+    setLogoUrl(null)
+    setLogoUploading(false)
   }
 
   function copyUrl(text: string) {
@@ -451,6 +497,53 @@ export function WebsiteConfigTab() {
       {/* ── CONTENIDO DEL SITIO ── */}
       <div className="space-y-4 pt-4 border-t">
         <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contenido del sitio</p>
+
+        {/* LOGO */}
+        <div className="space-y-2">
+          <Label>Logo del sitio</Label>
+          <div className="flex items-center gap-4">
+            {/* Preview */}
+            <div className="w-28 h-16 rounded-lg border-2 border-dashed border-input bg-muted/40 flex items-center justify-center overflow-hidden shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+              ) : (
+                <ImagePlus className="h-7 w-7 text-muted-foreground/40" />
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2 flex-1">
+              <label className="cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                  disabled={logoUploading}
+                />
+                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border transition-colors
+                  ${logoUploading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted cursor-pointer'}
+                  border-input bg-background`}>
+                  {logoUploading
+                    ? <><Loader2 className="h-4 w-4 animate-spin" />Subiendo...</>
+                    : <><ImagePlus className="h-4 w-4" />{logoUrl ? 'Cambiar logo' : 'Subir logo'}</>}
+                </span>
+              </label>
+              {logoUrl && !logoUploading && (
+                <button
+                  type="button"
+                  onClick={handleLogoRemove}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
+                >
+                  <X className="h-3 w-3" />Quitar logo
+                </button>
+              )}
+              {logoError && <p className="text-xs text-destructive">{logoError}</p>}
+              <p className="text-xs text-muted-foreground">PNG, JPG o SVG · Máx. 2 MB · Se mostrará en el header y footer de tu sitio.</p>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="ws_hero_title">Título principal</Label>
           <Input id="ws_hero_title" placeholder="Encuentra tu propiedad ideal" value={heroTitle}
