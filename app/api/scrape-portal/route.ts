@@ -423,79 +423,125 @@ async function scrapePortalInmobiliario(url: string) {
       amenities: [],
     }
 
-    // ── Description: ML API endpoint ─────────────────────────────────────
-    let description = ''
-    try {
-      const descRes = await fetch(`https://api.mercadolibre.com/items/${itemId}/description`)
-      if (descRes.ok) {
-        const d = await descRes.json()
-        // plain_text is the clean version; text may have HTML — strip it
-        const plainText = (d.plain_text || '').trim()
-        const htmlStripped = (d.text || '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .replace(/\s+/g, ' ')
-          .trim()
-        description = plainText || htmlStripped
-      }
-    } catch {}
-
-    // ── Description fallback: scrape the Portal Inmobiliario page ─────────
-    // The API description can be short or missing; the page __NEXT_DATA__
-    // and og:description tags often contain a fuller text.
-    if (!description || description.length < 80) {
-      try {
-        const pageRes = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml',
-          },
-        })
-        if (pageRes.ok) {
-          const html = await pageRes.text()
-
-          // 1. __NEXT_DATA__ (Portal Inmobiliario is Next.js)
-          const ndStart = html.indexOf('__NEXT_DATA__')
-          if (ndStart !== -1) {
-            try {
-              const jsonStart = html.indexOf('>', ndStart) + 1
-              const jsonEnd = html.indexOf('</script>', jsonStart)
-              const nd = JSON.parse(html.substring(jsonStart, jsonEnd))
-              const pp = nd?.props?.pageProps
-              const candidates: string[] = [
-                pp?.item?.description,
-                pp?.data?.item?.description,
-                pp?.initialState?.descriptionState?.description?.content,
-                pp?.components?.description?.content,
-                pp?.description,
-              ]
-              for (const c of candidates) {
-                if (c && typeof c === 'string') {
-                  const stripped = c.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-                  if (stripped.length > description.length) description = stripped
-                }
-              }
-            } catch {}
-          }
-
-          // 2. og:description meta tag
-          if (!description || description.length < 80) {
-            const ogM = html.match(/<meta[^>]*(?:property|name)=["']og:description["'][^>]*content=["']([^"']{20,})["']/i)
-              || html.match(/<meta[^>]*content=["']([^"']{20,})["'][^>]*(?:property|name)=["']og:description["']/i)
-            if (ogM?.[1] && ogM[1].length > description.length) {
-              description = ogM[1].replace(/\s+/g, ' ').trim()
-            }
-          }
-        }
-      } catch {}
-    }
-
-    result.description = description.substring(0, 3000)
+    // ── Description ───────────────────────────────────────────────────────
+    // NOTE: GET /items/{id}/description returns 403 for classified listings
+    // without auth. We scrape the Portal Inmobiliario page directly instead.
+    result.description = await extractMLDescription(url, itemId)
 
     return NextResponse.json(result)
   } catch {
     return NextResponse.json({ fallback: true })
   }
+}
+
+// ==================== ML DESCRIPTION ====================
+
+/**
+ * Extract the full description for a Portal Inmobiliario / ML classified listing.
+ *
+ * Strategy (in order of reliability):
+ *  1. Fetch the Portal Inmobiliario HTML page → parse __NEXT_DATA__ JSON
+ *     (PI is Next.js; the full description is always embedded server-side)
+ *  2. Scan rendered HTML for known description containers
+ *  3. og:description meta tag (usually a trimmed version but better than nothing)
+ *
+ * The ML REST API endpoint GET /items/{id}/description returns 403 for classified
+ * items (real estate) without a user access-token, so it is NOT used here.
+ */
+async function extractMLDescription(url: string, itemId: string): Promise<string> {
+  // Build canonical Portal Inmobiliario URL from the item id
+  const piUrl = url.includes('portalinmobiliario.com')
+    ? url
+    : `https://www.portalinmobiliario.com/${itemId}`
+
+  let description = ''
+
+  try {
+    const pageRes = await fetch(piUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'es-CL,es;q=0.9,en;q=0.8',
+      },
+    })
+    if (!pageRes.ok) return description
+    const html = await pageRes.text()
+
+    // ── 1. __NEXT_DATA__ ──────────────────────────────────────────────────
+    const ndStart = html.indexOf('__NEXT_DATA__')
+    if (ndStart !== -1) {
+      try {
+        const jsonStart = html.indexOf('>', ndStart) + 1
+        const jsonEnd   = html.indexOf('</script>', jsonStart)
+        const nd = JSON.parse(html.substring(jsonStart, jsonEnd))
+        const pp = nd?.props?.pageProps
+
+        // Known paths where Portal Inmobiliario stores the description
+        const candidates: unknown[] = [
+          pp?.initialState?.descriptionState?.description?.content,
+          pp?.initialState?.descriptionState?.description?.text,
+          pp?.item?.description,
+          pp?.data?.item?.description,
+          pp?.data?.description,
+          pp?.components?.description?.content,
+          pp?.serverData?.description,
+          pp?.description,
+          // Sometimes nested inside "body" arrays
+          ...(Array.isArray(pp?.components?.description?.body)
+            ? pp.components.description.body.map((b: any) => b?.text || b?.content || '')
+            : []),
+        ]
+
+        for (const c of candidates) {
+          if (c && typeof c === 'string') {
+            const clean = c
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'")
+              .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+              .replace(/\s+/g, ' ')
+              .trim()
+            if (clean.length > description.length) description = clean
+          }
+        }
+      } catch { /* malformed JSON — continue */ }
+    }
+
+    // ── 2. Rendered HTML containers ───────────────────────────────────────
+    if (description.length < 80) {
+      const containerPatterns = [
+        // Portal Inmobiliario / ML generic description class
+        /class="[^"]*ui-pdp-description[^"]*"[^>]*>([\s\S]{20,4000}?)<\/(?:div|section|article)>/i,
+        // MercadoLibre real-estate description block
+        /class="[^"]*pdp-description[^"]*"[^>]*>([\s\S]{20,4000}?)<\/(?:div|section)>/i,
+        // Generic fallback
+        /class="[^"]*description[^-"]*"[^>]*>\s*<p>([\s\S]{20,4000}?)<\/p>/i,
+      ]
+      for (const pat of containerPatterns) {
+        const m = html.match(pat)
+        if (m) {
+          const clean = m[1]
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/&#39;/g, "'")
+            .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/\s+/g, ' ')
+            .trim()
+          if (clean.length > description.length) { description = clean; break }
+        }
+      }
+    }
+
+    // ── 3. og:description meta tag ────────────────────────────────────────
+    if (description.length < 80) {
+      const ogM =
+        html.match(/<meta[^>]*(?:property|name)=["']og:description["'][^>]*content=["']([^"']{20,})["']/i) ||
+        html.match(/<meta[^>]*content=["']([^"']{20,})["'][^>]*(?:property|name)=["']og:description["']/i)
+      if (ogM?.[1] && ogM[1].length > description.length) {
+        description = ogM[1].replace(/\s+/g, ' ').trim()
+      }
+    }
+  } catch { /* network error — return whatever we have */ }
+
+  return description.substring(0, 3000)
 }
 
 // ==================== HELPERS ====================
