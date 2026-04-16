@@ -1,4 +1,4 @@
-import { Home, Building2, FileText, Users, Settings, Plus, CreditCard, Crown, Calendar, UserSearch, KeyRound, Globe, LayoutGrid } from 'lucide-react'
+import { Home, Building2, FileText, Users, Settings, Plus, CreditCard, Crown, Calendar, UserSearch, KeyRound, Globe, LayoutGrid, GitMerge } from 'lucide-react'
 import { ROLES, ADMIN_ROLES, PROPERTY_MANAGER_ROLES, ALL_ROLE_VALUES, type UserRole } from '@/lib/constants'
 
 export const menuItems = [
@@ -14,5 +14,6 @@ export const menuItems = [
   { href: '/dashboard/suscriptores', label: 'Suscriptores', icon: Crown, roles: [ROLES.SUPERADMINBOSS] as UserRole[] },
   { href: '/dashboard/usuarios', label: 'Agentes', icon: Users, roles: ADMIN_ROLES },
   { href: '/dashboard/portales', label: 'Portales', icon: LayoutGrid, roles: ADMIN_ROLES },
+  { href: '/dashboard/red-canjes', label: 'Red de Canjes', icon: GitMerge, roles: [...ADMIN_ROLES, ROLES.AGENTE] as UserRole[] },
   { href: '/dashboard/configuracion', label: 'Configuracion', icon: Settings, roles: ALL_ROLE_VALUES },
 ]
