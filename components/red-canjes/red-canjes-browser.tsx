@@ -261,8 +261,8 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
 
         {/* Action buttons */}
         <div className="pt-1 border-t space-y-2">
-          {/* Contact toggle — only visible if not claimed by another org */}
-          {(!isClaimed || isMineClaim) && (
+          {/* Contact toggle — only visible after accepting conditions (claim taken by my org) */}
+          {isMineClaim && (
             <Button
               variant="outline"
               size="sm"
@@ -351,8 +351,8 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
             </>
           )}
 
-          {/* Contact details */}
-          {showContact && listing.propietario && (!isClaimed || isMineClaim) && (
+          {/* Contact details — only after accepting conditions (claim taken by my org) */}
+          {showContact && listing.propietario && isMineClaim && (
             <div className="mt-2 space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-blue-500 shrink-0" />
