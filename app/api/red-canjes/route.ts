@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Listings from actual properties
+    // Listings from actual properties (filtered)
     const propertiesWithOwner = (properties || []).map((prop: any) => {
       const claim = claimsMap.get(prop.owner_id) || null
       return {
@@ -124,8 +124,14 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Metadata-only listings (propietarios with no linked property yet)
-    const ownersWithProperty = new Set((properties || []).map((p: any) => p.owner_id))
+    // Build the set of owners who have ANY property (regardless of status/filters)
+    // so we don't show metadata-only cards for propietarios whose properties were
+    // filtered out (e.g. rented/unavailable properties excluded by status filter)
+    const { data: allPropOwners } = await admin
+      .from('properties')
+      .select('owner_id')
+      .in('owner_id', propietarioIds)
+    const ownersWithProperty = new Set((allPropOwners || []).map((p: any) => p.owner_id))
     const metaOnlyListings = propietarios
       .filter((p: any) => !ownersWithProperty.has(p.id))
       .map((p: any) => {
