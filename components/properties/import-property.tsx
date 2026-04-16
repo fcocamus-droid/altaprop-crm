@@ -162,7 +162,7 @@ export function ImportProperty() {
                   <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-navy">Importar Propiedad desde tu Sitio Web</h3>
+              <h3 className="text-lg font-semibold text-navy">Importar Propiedad desde algún Sitio Web</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Pega la URL de una propiedad de tu sitio y se importara automaticamente
               </p>
