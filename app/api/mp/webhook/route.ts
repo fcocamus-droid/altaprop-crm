@@ -137,6 +137,15 @@ export async function POST(request: NextRequest) {
             .update({ [field]: true })
             .eq('id', applicationId)
         }
+      } else if (ref.startsWith('red_canjes_commission:')) {
+        // Red de Canjes commission: "red_canjes_commission:{claimId}"
+        const claimId = ref.split(':')[1]
+        if (claimId) {
+          await admin
+            .from('red_canjes_claims')
+            .update({ commission_paid: true, commission_paid_at: new Date().toISOString() })
+            .eq('id', claimId)
+        }
       } else if (ref.startsWith('other_service:')) {
         // Other service payment: "other_service:{paymentId}"
         const svcPaymentId = ref.split(':')[1]

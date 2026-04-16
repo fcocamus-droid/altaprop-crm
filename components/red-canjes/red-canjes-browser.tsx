@@ -124,7 +124,9 @@ interface ListingCardProps {
   onRequestClaim: (listing: Listing) => void
   onClaim: (propietarioId: string, propertyId: string | null) => Promise<void>
   onRelease: (propietarioId: string, propertyId: string | null) => Promise<void>
+  onPayCommission: (listing: Listing, amount: number) => Promise<void>
   claimLoading: boolean
+  payLoading: string | null
   isOwnSubscriber: boolean
   ufValue: number | null
 }
@@ -143,7 +145,7 @@ function calcCommission(listing: Listing, ufValue: number | null): number | null
   return Math.round(base * (1 + IVA))
 }
 
-function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, claimLoading, isOwnSubscriber, ufValue }: ListingCardProps) {
+function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, onPayCommission, claimLoading, payLoading, isOwnSubscriber, ufValue }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
@@ -303,13 +305,14 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
                     {commission ? (
                       <Button
                         size="sm"
-                        className="w-full gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                        onClick={() => {
-                          // TODO: connect to MercadoPago
-                          alert(`Próximamente: pago de comisión ${commission.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} vía MercadoPago`)
-                        }}
+                        className="w-full gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50"
+                        disabled={payLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
+                        onClick={() => onPayCommission(listing, commission)}
                       >
-                        <CreditCard className="h-3.5 w-3.5" />
+                        {payLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <CreditCard className="h-3.5 w-3.5" />
+                        }
                         Pagar comisión —{' '}
                         {commission.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
                       </Button>
@@ -406,6 +409,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   const [showFilters, setShowFilters] = useState(true)
   const [visibleContacts, setVisibleContacts] = useState<Set<string>>(new Set())
   const [claimLoading, setClaimLoading] = useState<string | null>(null)
+  const [payLoading, setPayLoading] = useState<string | null>(null)
   const [claimModalListing, setClaimModalListing] = useState<Listing | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [ufValue, setUfValue] = useState<number | null>(null)
@@ -524,6 +528,32 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
       showToast('error', 'Error de conexión. Intenta de nuevo.')
     } finally {
       setClaimLoading(null)
+    }
+  }
+
+  const handlePayCommission = async (listing: Listing, amount: number) => {
+    const loadingKey = listing.is_metadata_only ? listing.owner_id : listing.id
+    setPayLoading(loadingKey)
+    try {
+      const res = await fetch('/api/red-canjes/pay-commission', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_id: listing.is_metadata_only ? undefined : listing.id,
+          propietario_id: listing.owner_id,
+          amount,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast('error', data.error || 'Error al iniciar el pago.')
+      } else if (data.url) {
+        window.location.href = data.url
+      }
+    } catch {
+      showToast('error', 'Error de conexión. Intenta de nuevo.')
+    } finally {
+      setPayLoading(null)
     }
   }
 
@@ -701,7 +731,9 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
                 onRequestClaim={setClaimModalListing}
                 onClaim={handleClaim}
                 onRelease={handleRelease}
+                onPayCommission={handlePayCommission}
                 claimLoading={claimLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
+                payLoading={payLoading}
                 isOwnSubscriber={isOwnSubscriber}
                 ufValue={ufValue}
               />
