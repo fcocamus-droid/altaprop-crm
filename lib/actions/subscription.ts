@@ -11,6 +11,26 @@ import {
   sendSubscriptionEmail,
 } from '@/lib/emails/subscription-emails'
 
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+async function patchMpPreApproval(preapprovalId: string, status: 'paused' | 'cancelled' | 'authorized') {
+  const mpToken = process.env.MERCADOPAGO_ACCESS_TOKEN!
+  const res = await fetch(`https://api.mercadopago.com/preapproval/${preapprovalId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${mpToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    console.error('[patchMpPreApproval] error:', data)
+    return false
+  }
+  return true
+}
+
 /**
  * Called from the dashboard layout when a trialing user's trial_ends_at is in the past.
  * Updates their status to 'none' and sends the expiry email immediately (before the cron runs).
@@ -44,11 +64,20 @@ async function getUserEmail(userId: string): Promise<string | null> {
   return data?.user?.email || null
 }
 
+// ─── Pause ───────────────────────────────────────────────────────────────────
+
 export async function pauseSubscription() {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
   if (!['active', 'trialing'].includes(profile.subscription_status || '')) {
     return { error: 'Solo puedes pausar una suscripción activa o en periodo de prueba' }
+  }
+
+  // If there's a real MP subscription, pause it there first
+  if (profile.mp_subscription_id) {
+    const ok = await patchMpPreApproval(profile.mp_subscription_id, 'paused')
+    if (!ok) return { error: 'No se pudo pausar la suscripción en Mercado Pago. Intenta de nuevo.' }
+    // Webhook will update Supabase automatically — but update locally too for immediate feedback
   }
 
   const admin = createAdminClient()
@@ -70,11 +99,19 @@ export async function pauseSubscription() {
   return { success: true }
 }
 
+// ─── Resume ──────────────────────────────────────────────────────────────────
+
 export async function resumeSubscription() {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
   if (profile.subscription_status !== 'paused') {
     return { error: 'La suscripción no está pausada' }
+  }
+
+  // If there's a real MP subscription, reactivate it in MP
+  if (profile.mp_subscription_id) {
+    const ok = await patchMpPreApproval(profile.mp_subscription_id, 'authorized')
+    if (!ok) return { error: 'No se pudo reactivar la suscripción en Mercado Pago. Intenta de nuevo.' }
   }
 
   const admin = createAdminClient()
@@ -95,11 +132,19 @@ export async function resumeSubscription() {
   return { success: true }
 }
 
+// ─── Cancel ──────────────────────────────────────────────────────────────────
+
 export async function cancelSubscription() {
   const profile = await getUserProfile()
   if (!profile) return { error: 'No autorizado' }
   if (!['active', 'trialing', 'paused', 'past_due'].includes(profile.subscription_status || '')) {
     return { error: 'No hay suscripción activa para cancelar' }
+  }
+
+  // If there's a real MP subscription, cancel it in MP to stop future charges
+  if (profile.mp_subscription_id) {
+    const ok = await patchMpPreApproval(profile.mp_subscription_id, 'cancelled')
+    if (!ok) return { error: 'No se pudo cancelar la suscripción en Mercado Pago. Intenta de nuevo.' }
   }
 
   const admin = createAdminClient()

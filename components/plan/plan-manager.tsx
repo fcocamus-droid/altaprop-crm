@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PricingCards } from '@/components/pricing/pricing-cards'
 import { PLANS } from '@/lib/constants'
-import { CreditCard, Calendar, AlertTriangle, CheckCircle, Pause, Play, XCircle, Loader2 } from 'lucide-react'
+import { CreditCard, Calendar, AlertTriangle, CheckCircle, Pause, Play, XCircle, Loader2, Clock } from 'lucide-react'
 import { pauseSubscription, resumeSubscription, cancelSubscription } from '@/lib/actions/subscription'
 
 interface PlanManagerProps {
@@ -13,6 +13,10 @@ interface PlanManagerProps {
   subscriptionStatus: string
   trialEndsAt: string | null
   subscriptionEndsAt: string | null
+  /** True when user just returned from MP after authorizing a PreApproval */
+  processingSubscription?: boolean
+  paymentSuccess?: boolean
+  paymentError?: string | null
 }
 
 function getStatusBadge(status: string) {
@@ -45,9 +49,28 @@ function getDaysRemaining(date: string) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
 }
 
-export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subscriptionEndsAt }: PlanManagerProps) {
+export function PlanManager({
+  currentPlan,
+  subscriptionStatus,
+  trialEndsAt,
+  subscriptionEndsAt,
+  processingSubscription = false,
+  paymentSuccess = false,
+  paymentError = null,
+}: PlanManagerProps) {
   const [loading, setLoading] = useState<string | null>(null)
-  const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(
+    processingSubscription
+      ? {
+          type: 'info',
+          text: '✅ Suscripción autorizada. Tu plan se activará en unos minutos automáticamente una vez procesado el primer cobro.',
+        }
+      : paymentSuccess
+      ? { type: 'success', text: 'Suscripción activada correctamente.' }
+      : paymentError === 'payment_failed'
+      ? { type: 'error', text: 'El pago fue rechazado. Por favor intenta con otro método de pago.' }
+      : null
+  )
   const [localStatus, setLocalStatus] = useState(subscriptionStatus)
 
   const plan = PLANS.find(p => p.id === currentPlan)
@@ -61,7 +84,8 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
   const handleSelectPlan = async (planId: string, annual = false) => {
     setLoading(planId)
     try {
-      const res = await fetch('/api/mp/create-preference', {
+      // Use PreApproval (recurring subscription) for all paid plans
+      const res = await fetch('/api/mp/create-preapproval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId, annual }),
@@ -69,9 +93,11 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
+      } else {
+        setActionMsg({ type: 'error', text: data.error || 'Error al procesar. Intenta de nuevo.' })
       }
     } catch {
-      alert('Error al procesar. Intenta de nuevo.')
+      setActionMsg({ type: 'error', text: 'Error al procesar. Intenta de nuevo.' })
     }
     setLoading(null)
   }
@@ -149,7 +175,7 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
               )}
               {localStatus === 'active' && subscriptionEndsAt && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  Próxima renovación: {formatDate(subscriptionEndsAt)}
+                  Próxima renovación automática: {formatDate(subscriptionEndsAt)}
                 </p>
               )}
               {localStatus === 'paused' && (
@@ -214,8 +240,17 @@ export function PlanManager({ currentPlan, subscriptionStatus, trialEndsAt, subs
 
           {/* Action feedback */}
           {actionMsg && (
-            <div className={`text-sm rounded-lg px-4 py-3 ${actionMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-              {actionMsg.text}
+            <div
+              className={`text-sm rounded-lg px-4 py-3 flex items-start gap-2 ${
+                actionMsg.type === 'success'
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : actionMsg.type === 'info'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
+              {actionMsg.type === 'info' && <Clock className="h-4 w-4 mt-0.5 shrink-0" />}
+              <span>{actionMsg.text}</span>
             </div>
           )}
         </CardContent>

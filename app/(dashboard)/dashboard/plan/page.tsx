@@ -8,9 +8,18 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Mi Plan - Altaprop' }
 
-export default async function PlanPage() {
+interface Props {
+  searchParams: { subscription?: string; success?: string; error?: string }
+}
+
+export default async function PlanPage({ searchParams }: Props) {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
+
+  // ?subscription=processing → shown after user authorizes a PreApproval in MP
+  const processingSubscription = searchParams.subscription === 'processing'
+  const paymentSuccess = searchParams.success === 'true'
+  const paymentError = searchParams.error || null
 
   return (
     <RoleGuard allowedRoles={[ROLES.SUPERADMIN]}>
@@ -20,6 +29,9 @@ export default async function PlanPage() {
         subscriptionStatus={profile.subscription_status || 'none'}
         trialEndsAt={profile.trial_ends_at}
         subscriptionEndsAt={profile.subscription_ends_at}
+        processingSubscription={processingSubscription}
+        paymentSuccess={paymentSuccess}
+        paymentError={paymentError}
       />
     </RoleGuard>
   )
