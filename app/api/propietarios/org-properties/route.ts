@@ -30,7 +30,6 @@ export async function GET() {
     let query = admin
       .from('properties')
       .select('id, title, address, city, sector, status, operation, price, currency, owner_id, images:property_images(url)')
-      .is('owner_id', null)   // only unowned properties
       .order('created_at', { ascending: false })
 
     if (subscriberId) {
@@ -40,20 +39,29 @@ export async function GET() {
     const { data: properties, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Get owner names (to show who currently owns each property)
+    // Get owner profiles to determine role — properties are "available" only when
+    // their current owner is NOT a PROPIETARIO (i.e. created by admin/agent,
+    // not yet linked to a propietario). Properties with owner_id = null are also available.
     const ownerIds = Array.from(new Set((properties || []).map((p: any) => p.owner_id).filter(Boolean)))
-    const ownerMap = new Map<string, string>()
+    const ownerMap = new Map<string, { name: string; role: string }>()
     if (ownerIds.length > 0) {
       const { data: owners } = await admin
         .from('profiles')
         .select('id, full_name, role')
         .in('id', ownerIds)
       if (owners) {
-        owners.forEach(o => ownerMap.set(o.id, o.full_name || 'Sin nombre'))
+        owners.forEach(o => ownerMap.set(o.id, { name: o.full_name || 'Sin nombre', role: o.role || '' }))
       }
     }
 
-    const result = (properties || []).map(p => ({
+    // Keep only properties NOT yet owned by a PROPIETARIO
+    const available = (properties || []).filter((p: any) => {
+      if (!p.owner_id) return true                                    // unassigned
+      const ownerRole = ownerMap.get(p.owner_id)?.role ?? ''
+      return ownerRole !== 'PROPIETARIO'                              // created by admin/agent
+    })
+
+    const result = available.map((p: any) => ({
       id: p.id,
       title: p.title,
       address: p.address,
@@ -64,7 +72,7 @@ export async function GET() {
       price: p.price,
       currency: p.currency,
       owner_id: p.owner_id,
-      owner_name: ownerMap.get(p.owner_id) || '',
+      owner_name: ownerMap.get(p.owner_id)?.name || '',
       images: p.images,
     }))
 
