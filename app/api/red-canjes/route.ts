@@ -79,17 +79,28 @@ export async function GET(request: NextRequest) {
       const now = new Date().toISOString()
       const { data: expiring } = await admin
         .from('red_canjes_claims')
-        .select('id, property_id, original_subscriber_id')
+        .select('id, property_id, propietario_id, original_subscriber_id')
         .eq('status', 'active')
         .lt('expires_at', now)
 
       if (expiring && expiring.length > 0) {
-        // Restore subscriber_id for each property before expiring
+        // Restore subscriber_id for each property before expiring.
+        // Fallback to propietario's subscriber_id when original_subscriber_id is null
+        // (claims created before migration 036).
         for (const c of expiring) {
           if (c.property_id) {
+            let restoreSubscriberId: string | null = c.original_subscriber_id ?? null
+            if (!restoreSubscriberId && c.propietario_id) {
+              const { data: propietario } = await admin
+                .from('profiles')
+                .select('subscriber_id')
+                .eq('id', c.propietario_id)
+                .single()
+              restoreSubscriberId = propietario?.subscriber_id ?? null
+            }
             await admin
               .from('properties')
-              .update({ subscriber_id: c.original_subscriber_id ?? null })
+              .update({ subscriber_id: restoreSubscriberId })
               .eq('id', c.property_id)
           }
         }

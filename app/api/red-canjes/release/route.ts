@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   // Find the active claim — by property_id when available, else by propietario_id
   let claimQuery = admin
     .from('red_canjes_claims')
-    .select('id, subscriber_id, claimed_by_user_id, property_id, original_subscriber_id')
+    .select('id, subscriber_id, claimed_by_user_id, property_id, propietario_id, original_subscriber_id')
     .eq('status', 'active')
 
   if (property_id) {
@@ -52,11 +52,24 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Restore the property's original subscriber_id so it leaves the claimant's panel
+  // Restore the property's original subscriber_id so it leaves the claimant's panel.
+  // If original_subscriber_id is null (claim created before migration 036), fall back
+  // to the propietario's own subscriber_id — never blindly set null.
   if (claim.property_id) {
+    let restoreSubscriberId: string | null = claim.original_subscriber_id ?? null
+
+    if (!restoreSubscriberId && claim.propietario_id) {
+      const { data: propietario } = await admin
+        .from('profiles')
+        .select('subscriber_id')
+        .eq('id', claim.propietario_id)
+        .single()
+      restoreSubscriberId = propietario?.subscriber_id ?? null
+    }
+
     await admin
       .from('properties')
-      .update({ subscriber_id: claim.original_subscriber_id ?? null })
+      .update({ subscriber_id: restoreSubscriberId })
       .eq('id', claim.property_id)
   }
 
