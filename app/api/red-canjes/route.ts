@@ -164,7 +164,33 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean)
 
-    const result = [...propertiesWithOwner, ...metaOnlyListings]
+    // Step 5: fetch staff (non-PROPIETARIO) properties explicitly published to Red de Canjes
+    let staffQuery = admin
+      .from('properties')
+      .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, created_at, red_canjes_visible, images:property_images(url)')
+      .eq('red_canjes_visible', true)
+      .eq('status', 'available')
+
+    if (propietarioIds.length > 0) {
+      staffQuery = staffQuery.not('owner_id', 'in', `(${propietarioIds.join(',')})`)
+    }
+
+    if (filterRegion) staffQuery = staffQuery.ilike('region', `%${filterRegion}%`)
+    if (filterCity) staffQuery = staffQuery.ilike('city', `%${filterCity}%`)
+    if (filterOperation) staffQuery = staffQuery.eq('operation', filterOperation)
+    if (filterType) staffQuery = staffQuery.eq('type', filterType)
+
+    const { data: staffProperties } = await staffQuery
+
+    const staffListings = (staffProperties || []).map((prop: any) => ({
+      ...prop,
+      propietario: null,
+      pais: 'Chile',
+      claim: null,
+      is_staff_listing: true,
+    }))
+
+    const result = [...propertiesWithOwner, ...metaOnlyListings, ...staffListings]
 
     return NextResponse.json(result)
   } catch (e: any) {

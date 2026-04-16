@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty, updatePropertyWebsiteVisibility } from '@/lib/actions/properties'
+import { deleteProperty, updatePropertyStatus, updatePropertyAgent, finalizeProperty, updatePropertyWebsiteVisibility, toggleRedCanjesVisibility } from '@/lib/actions/properties'
 import { notifyAgentAssignment } from '@/lib/actions/agent-notify'
-import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail, Globe, GlobeLock, Send } from 'lucide-react'
+import { Pencil, Trash2, CalendarDays, ChevronLeft, ChevronRight, Lock, Unlock, Loader2, UserCircle, CheckCircle, XCircle, Clock, Ban, Home, Key, Trophy, AlertCircle, Mail, Globe, GlobeLock, Send, GitMerge } from 'lucide-react'
 import { SendFichaModal } from '@/components/properties/send-ficha-modal'
 
 function formatPrice(price: number, currency: string) {
@@ -35,6 +35,8 @@ interface Property {
   agent?: { id: string; full_name: string | null } | null
   images?: { url: string }[]
   website_visible?: boolean | null
+  red_canjes_visible?: boolean | null
+  owner_role?: string | null
   ml_item_id?: string | null
   ml_status?: string | null
 }
@@ -112,6 +114,7 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
   const [notifyingAgent, setNotifyingAgent] = useState<string | null>(null)
   const [notifySuccess, setNotifySuccess] = useState<string | null>(null)
   const [togglingWeb, setTogglingWeb] = useState<string | null>(null)
+  const [togglingCanjes, setTogglingCanjes] = useState<string | null>(null)
   const [sendFichaId, setSendFichaId] = useState<string | null>(null)
 
   const handleNotifyAgent = async (propertyId: string, agentId: string) => {
@@ -134,6 +137,17 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
       setProperties(prev => prev.map(p => p.id === id ? { ...p, website_visible: current } : p))
     }
     setTogglingWeb(null)
+  }
+
+  const handleToggleRedCanjes = async (id: string, current: boolean) => {
+    setTogglingCanjes(id)
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, red_canjes_visible: !current } : p))
+    const result = await toggleRedCanjesVisibility(id, !current)
+    if (result?.error) {
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, red_canjes_visible: current } : p))
+      alert(result.error)
+    }
+    setTogglingCanjes(null)
   }
 
   const handleDelete = async (id: string, title: string) => {
@@ -395,6 +409,26 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                       : <GlobeLock className="h-3.5 w-3.5" />
                   }
                 </button>
+
+                {/* Red de Canjes toggle — only for SUPERADMIN/AGENTE (PROPIETARIO always in network) */}
+                {property.owner_role !== 'PROPIETARIO' && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'AGENTE' || currentUserRole === 'SUPERADMINBOSS') && (
+                  <button
+                    type="button"
+                    title={property.red_canjes_visible ? 'Quitar de Red de Canjes' : 'Publicar en Red de Canjes'}
+                    disabled={togglingCanjes === property.id}
+                    onClick={() => handleToggleRedCanjes(property.id, !!property.red_canjes_visible)}
+                    className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors disabled:opacity-50 ${
+                      property.red_canjes_visible
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        : 'border-gray-200 bg-white text-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    {togglingCanjes === property.id
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <GitMerge className="h-3.5 w-3.5" />
+                    }
+                  </button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

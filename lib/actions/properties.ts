@@ -805,3 +805,26 @@ export async function updatePropertyWebsiteVisibility(id: string, website_visibl
 
   return { success: true }
 }
+
+// ─── Red de Canjes visibility toggle ─────────────────────────────────────────
+
+export async function toggleRedCanjesVisibility(id: string, red_canjes_visible: boolean) {
+  const profile = await getUserProfile()
+  if (!profile || !isPropertyManager(profile.role)) return { error: 'No autorizado' }
+
+  // PROPIETARIO properties are always in Red de Canjes — no toggle needed
+  if (profile.role === 'PROPIETARIO') return { error: 'Las propiedades de propietarios siempre aparecen en la red' }
+
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from('properties')
+    .update({ red_canjes_visible } as any)
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/propiedades')
+  revalidatePath('/dashboard/red-canjes')
+  return { success: true }
+}

@@ -49,47 +49,47 @@ export async function getPropertiesByOwner(ownerId: string) {
   const admin = getAdminClient()
   const { data, error } = await admin
     .from('properties')
-    .select('*, images:property_images(*), agent:profiles!properties_agent_id_fkey(id, full_name)')
+    .select('*, images:property_images(*), agent:profiles!properties_agent_id_fkey(id, full_name), ownerProfile:profiles!properties_owner_id_fkey(role)')
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as Property[]
+  return ((data || []) as any[]).map(p => ({ ...p, owner_role: p.ownerProfile?.role || null })) as Property[]
 }
 
 export async function getPropertiesByAgent(agentId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as Property[]
+  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
 }
 
 export async function getAllProperties() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as Property[]
+  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
 }
 
 export async function getPropertiesBySubscriber(subscriberId: string) {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name), agent:profiles!properties_agent_id_fkey(id, full_name)')
+    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
     .eq('subscriber_id', subscriberId)
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data || []) as Property[]
+  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
 }
 
 export async function getFeaturedProperties() {
