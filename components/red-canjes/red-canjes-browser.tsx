@@ -13,30 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  MapPin,
-  Phone,
-  Mail,
-  User,
-  Home,
-  Search,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  Building2,
-  Tag,
-  Globe,
-  Loader2,
-  RefreshCw,
-  X,
-  Eye,
-  EyeOff,
+  MapPin, Phone, Mail, User, Home, Search, Filter,
+  ChevronDown, ChevronUp, Building2, Tag, Globe,
+  Loader2, RefreshCw, X, Eye, EyeOff, Lock, Unlock, Clock,
+  CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import {
-  CHILE_REGIONS,
-  OPERATION_TYPES,
-  PROPERTY_TYPES,
-  PROPERTY_STATUSES,
-  CURRENCIES,
+  CHILE_REGIONS, OPERATION_TYPES, PROPERTY_TYPES, PROPERTY_STATUSES,
 } from '@/lib/constants'
 
 interface Propietario {
@@ -45,6 +28,13 @@ interface Propietario {
   phone: string
   email: string
   rut: string
+}
+
+interface Claim {
+  subscriber_name: string
+  claimed_by_name: string
+  expires_at: string
+  is_mine: boolean
 }
 
 interface Listing {
@@ -65,6 +55,7 @@ interface Listing {
   pais: string
   is_metadata_only?: boolean
   propietario: Propietario | null
+  claim: Claim | null
 }
 
 interface FiltersState {
@@ -76,14 +67,7 @@ interface FiltersState {
   search: string
 }
 
-const EMPTY_FILTERS: FiltersState = {
-  region: '',
-  city: '',
-  operation: '',
-  type: '',
-  status: '',
-  search: '',
-}
+const EMPTY_FILTERS: FiltersState = { region: '', city: '', operation: '', type: '', status: '', search: '' }
 
 function formatPrice(price: number | null, currency: string | null) {
   if (!price) return null
@@ -113,19 +97,32 @@ function operationColor(op: string) {
   }
 }
 
+function getDaysLeft(expiresAt: string) {
+  const diff = new Date(expiresAt).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+}
+
+// ─── ListingCard ─────────────────────────────────────────────────────────────
+
 interface ListingCardProps {
   listing: Listing
   showContact: boolean
   onToggleContact: () => void
+  onClaim: (propietarioId: string, propertyId: string | null) => Promise<void>
+  onRelease: (propietarioId: string) => Promise<void>
+  claimLoading: boolean
 }
 
-function ListingCard({ listing, showContact, onToggleContact }: ListingCardProps) {
+function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease, claimLoading }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
+  const claim = listing.claim
+  const isClaimed = !!claim
+  const isMineClaim = claim?.is_mine
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+    <Card className={`overflow-hidden hover:shadow-md transition-shadow ${isClaimed && !isMineClaim ? 'opacity-75' : ''}`}>
       {/* Image */}
       <div className="relative h-44 bg-gray-100">
         {mainImage ? (
@@ -146,7 +143,21 @@ function ListingCard({ listing, showContact, onToggleContact }: ListingCardProps
             {statusCfg.label}
           </span>
         </div>
-        {listing.is_metadata_only && (
+        {/* Claim badge overlay */}
+        {isClaimed && (
+          <div className="absolute top-2 right-2">
+            {isMineClaim ? (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> En tu gestión
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-800 flex items-center gap-1">
+                <Lock className="h-3 w-3" /> En gestión
+              </span>
+            )}
+          </div>
+        )}
+        {listing.is_metadata_only && !isClaimed && (
           <div className="absolute top-2 right-2">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
               Sin publicación aún
@@ -186,23 +197,87 @@ function ListingCard({ listing, showContact, onToggleContact }: ListingCardProps
           Chile
         </div>
 
-        {/* Propietario contact toggle */}
-        <div className="pt-1 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs"
-            onClick={onToggleContact}
-          >
-            {showContact ? (
-              <><EyeOff className="h-3.5 w-3.5" /> Ocultar contacto</>
-            ) : (
-              <><Eye className="h-3.5 w-3.5" /> Ver datos del propietario</>
-            )}
-          </Button>
+        {/* Claim status info */}
+        {isClaimed && !isMineClaim && (
+          <div className="flex items-start gap-2 p-2.5 bg-red-50 rounded-lg border border-red-100 text-xs text-red-700">
+            <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">En gestión por {claim.subscriber_name || claim.claimed_by_name || 'otra org.'}</p>
+              <p className="text-red-500 flex items-center gap-1 mt-0.5">
+                <Clock className="h-3 w-3" /> {getDaysLeft(claim.expires_at)} días restantes
+              </p>
+            </div>
+          </div>
+        )}
+        {isClaimed && isMineClaim && (
+          <div className="flex items-start gap-2 p-2.5 bg-green-50 rounded-lg border border-green-100 text-xs text-green-700">
+            <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium">Gestionado por tu organización</p>
+              <p className="text-green-600 flex items-center gap-1 mt-0.5">
+                <Clock className="h-3 w-3" /> {getDaysLeft(claim.expires_at)} días restantes
+              </p>
+            </div>
+          </div>
+        )}
 
-          {showContact && listing.propietario && (
-            <div className="mt-3 space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+        {/* Action buttons */}
+        <div className="pt-1 border-t space-y-2">
+          {/* Contact toggle — only visible if not claimed by another org */}
+          {(!isClaimed || isMineClaim) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs"
+              onClick={onToggleContact}
+            >
+              {showContact ? (
+                <><EyeOff className="h-3.5 w-3.5" /> Ocultar contacto</>
+              ) : (
+                <><Eye className="h-3.5 w-3.5" /> Ver datos del propietario</>
+              )}
+            </Button>
+          )}
+
+          {/* Claim / Release buttons */}
+          {!isClaimed && (
+            <Button
+              size="sm"
+              className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
+              disabled={claimLoading}
+              onClick={() => onClaim(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
+            >
+              {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+              Tomar gestión (30 días)
+            </Button>
+          )}
+          {isClaimed && isMineClaim && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+              disabled={claimLoading}
+              onClick={() => onRelease(listing.owner_id)}
+            >
+              {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
+              Liberar gestión
+            </Button>
+          )}
+          {isClaimed && !isMineClaim && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs"
+              disabled
+            >
+              <Lock className="h-3.5 w-3.5" />
+              No disponible
+            </Button>
+          )}
+
+          {/* Contact details */}
+          {showContact && listing.propietario && (!isClaimed || isMineClaim) && (
+            <div className="mt-2 space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                 <span className="text-xs font-semibold text-blue-800">{listing.propietario.full_name}</span>
@@ -231,11 +306,19 @@ function ListingCard({ listing, showContact, onToggleContact }: ListingCardProps
               )}
             </div>
           )}
+          {showContact && isClaimed && !isMineClaim && (
+            <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs text-gray-500 text-center">
+              <Lock className="h-4 w-4 mx-auto mb-1 text-gray-400" />
+              Datos disponibles solo para la organización que tomó la gestión
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   )
 }
+
+// ─── Main Browser ─────────────────────────────────────────────────────────────
 
 interface Props {
   currentUserRole: string
@@ -248,6 +331,13 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
   const [appliedFilters, setAppliedFilters] = useState<FiltersState>(EMPTY_FILTERS)
   const [showFilters, setShowFilters] = useState(true)
   const [visibleContacts, setVisibleContacts] = useState<Set<string>>(new Set())
+  const [claimLoading, setClaimLoading] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const showToast = (type: 'success' | 'error', text: string) => {
+    setToast({ type, text })
+    setTimeout(() => setToast(null), 4000)
+  }
 
   const fetchListings = useCallback(async (f: FiltersState) => {
     setLoading(true)
@@ -269,9 +359,7 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
     }
   }, [])
 
-  useEffect(() => {
-    fetchListings(EMPTY_FILTERS)
-  }, [fetchListings])
+  useEffect(() => { fetchListings(EMPTY_FILTERS) }, [fetchListings])
 
   const handleApplyFilters = () => {
     setAppliedFilters(filters)
@@ -293,9 +381,63 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
     })
   }
 
-  const hasActiveFilters = Object.values(appliedFilters).some(v => v !== '')
+  const handleClaim = async (propietarioId: string, propertyId: string | null) => {
+    setClaimLoading(propietarioId)
+    try {
+      const res = await fetch('/api/red-canjes/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propietario_id: propietarioId, property_id: propertyId }),
+      })
+      const data = await res.json()
+      if (res.status === 409) {
+        showToast('error', data.error || 'Ya está siendo gestionado por otra organización.')
+      } else if (!res.ok) {
+        showToast('error', data.error || 'Error al tomar gestión.')
+      } else {
+        showToast('success', '✅ Gestión tomada por 30 días. Ahora puedes ver los datos del propietario.')
+        // Update local state optimistically
+        setListings(prev => prev.map(l =>
+          l.owner_id === propietarioId
+            ? { ...l, claim: { subscriber_name: '', claimed_by_name: '', expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), is_mine: true } }
+            : l
+        ))
+      }
+    } catch {
+      showToast('error', 'Error de conexión. Intenta de nuevo.')
+    } finally {
+      setClaimLoading(null)
+    }
+  }
 
-  // Client-side search filter
+  const handleRelease = async (propietarioId: string) => {
+    if (!confirm('¿Liberar la gestión de este propietario? Quedará disponible para otras organizaciones.')) return
+    setClaimLoading(propietarioId)
+    try {
+      const res = await fetch('/api/red-canjes/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propietario_id: propietarioId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast('error', data.error || 'Error al liberar gestión.')
+      } else {
+        showToast('success', 'Gestión liberada. El propietario está disponible nuevamente.')
+        setListings(prev => prev.map(l =>
+          l.owner_id === propietarioId ? { ...l, claim: null } : l
+        ))
+        // Remove contact visibility
+        setVisibleContacts(prev => { const next = new Set(prev); next.delete(propietarioId); return next })
+      }
+    } catch {
+      showToast('error', 'Error de conexión. Intenta de nuevo.')
+    } finally {
+      setClaimLoading(null)
+    }
+  }
+
+  const hasActiveFilters = Object.values(appliedFilters).some(v => v !== '')
   const searchLower = filters.search.toLowerCase()
   const displayed = listings.filter(l => {
     if (!searchLower) return true
@@ -309,8 +451,41 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
     )
   })
 
+  const claimedByMe = listings.filter(l => l.claim?.is_mine).length
+  const claimedByOthers = listings.filter(l => l.claim && !l.claim.is_mine).length
+  const available = listings.filter(l => !l.claim).length
+
   return (
     <div className="space-y-4">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 flex items-start gap-2 px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm transition-all ${
+          toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
+          <span>{toast.text}</span>
+          <button onClick={() => setToast(null)} className="ml-auto shrink-0"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {/* Stats bar */}
+      {!loading && listings.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="p-3 text-center">
+            <p className="text-2xl font-bold text-navy">{available}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Disponibles</p>
+          </Card>
+          <Card className="p-3 text-center">
+            <p className="text-2xl font-bold text-green-600">{claimedByMe}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">En tu gestión</p>
+          </Card>
+          <Card className="p-3 text-center">
+            <p className="text-2xl font-bold text-red-500">{claimedByOthers}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">En gestión por otros</p>
+          </Card>
+        </div>
+      )}
+
       {/* Filter panel */}
       <Card>
         <CardContent className="pt-4 pb-4">
@@ -321,15 +496,13 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
             >
               <Filter className="h-4 w-4" />
               Filtros
-              {hasActiveFilters && (
-                <Badge variant="secondary" className="text-xs">Activos</Badge>
-              )}
+              {hasActiveFilters && <Badge variant="secondary" className="text-xs">Activos</Badge>}
               {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
             <div className="flex items-center gap-2">
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={handleClearFilters} className="gap-1 text-xs h-7">
-                  <X className="h-3 w-3" /> Limpiar filtros
+                  <X className="h-3 w-3" /> Limpiar
                 </Button>
               )}
               <Button variant="ghost" size="sm" onClick={() => fetchListings(appliedFilters)} className="gap-1 text-xs h-7">
@@ -340,9 +513,7 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
 
           {showFilters && (
             <div className="space-y-3">
-              {/* Row 1: search + country */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {/* Search */}
                 <div className="relative lg:col-span-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -352,93 +523,50 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
                     className="pl-8 text-sm"
                   />
                 </div>
-
-                {/* País (fixed Chile) */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md border text-sm text-muted-foreground">
                   <Globe className="h-4 w-4 shrink-0" />
                   <span>País: <strong className="text-foreground">Chile</strong></span>
                 </div>
               </div>
 
-              {/* Row 2: region, city, operation, type, status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Región */}
-                <Select
-                  value={filters.region || '_all'}
-                  onValueChange={v => setFilters(f => ({ ...f, region: v === '_all' ? '' : v }))}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Región" />
-                  </SelectTrigger>
+                <Select value={filters.region || '_all'} onValueChange={v => setFilters(f => ({ ...f, region: v === '_all' ? '' : v }))}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Región" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todas las regiones</SelectItem>
-                    {CHILE_REGIONS.map(r => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
+                    {CHILE_REGIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                   </SelectContent>
                 </Select>
 
-                {/* Ciudad */}
-                <Input
-                  placeholder="Ciudad"
-                  value={filters.city}
-                  onChange={e => setFilters(f => ({ ...f, city: e.target.value }))}
-                  className="text-sm"
-                />
+                <Input placeholder="Ciudad" value={filters.city} onChange={e => setFilters(f => ({ ...f, city: e.target.value }))} className="text-sm" />
 
-                {/* Operación */}
-                <Select
-                  value={filters.operation || '_all'}
-                  onValueChange={v => setFilters(f => ({ ...f, operation: v === '_all' ? '' : v }))}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Tipo de operación" />
-                  </SelectTrigger>
+                <Select value={filters.operation || '_all'} onValueChange={v => setFilters(f => ({ ...f, operation: v === '_all' ? '' : v }))}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Operación" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todas las operaciones</SelectItem>
-                    {OPERATION_TYPES.map(o => (
-                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                    ))}
+                    {OPERATION_TYPES.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
 
-                {/* Tipo de propiedad */}
-                <Select
-                  value={filters.type || '_all'}
-                  onValueChange={v => setFilters(f => ({ ...f, type: v === '_all' ? '' : v }))}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Tipo de propiedad" />
-                  </SelectTrigger>
+                <Select value={filters.type || '_all'} onValueChange={v => setFilters(f => ({ ...f, type: v === '_all' ? '' : v }))}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Tipo de propiedad" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todos los tipos</SelectItem>
-                    {PROPERTY_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
+                    {PROPERTY_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Row 3: status + apply */}
               <div className="flex flex-wrap items-center gap-3">
-                <Select
-                  value={filters.status || '_all'}
-                  onValueChange={v => setFilters(f => ({ ...f, status: v === '_all' ? '' : v }))}
-                >
-                  <SelectTrigger className="text-sm w-48">
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
+                <Select value={filters.status || '_all'} onValueChange={v => setFilters(f => ({ ...f, status: v === '_all' ? '' : v }))}>
+                  <SelectTrigger className="text-sm w-48"><SelectValue placeholder="Estado" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="_all">Todos los estados</SelectItem>
-                    {PROPERTY_STATUSES.map(s => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
+                    {PROPERTY_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-
                 <Button onClick={handleApplyFilters} size="sm" className="gap-2">
-                  <Search className="h-3.5 w-3.5" />
-                  Aplicar filtros
+                  <Search className="h-3.5 w-3.5" /> Aplicar filtros
                 </Button>
               </div>
             </div>
@@ -446,14 +574,13 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
         </CardContent>
       </Card>
 
-      {/* Results summary */}
+      {/* Results */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {loading ? 'Cargando...' : `${displayed.length} propiedades en la red`}
         </p>
       </div>
 
-      {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -463,7 +590,7 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
           <Building2 className="h-12 w-12 text-gray-300 mb-3" />
           <h3 className="font-medium text-gray-600 mb-1">Sin propiedades en la red</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Aún no hay propiedades publicadas por propietarios que coincidan con los filtros seleccionados.
+            Aún no hay propiedades publicadas por propietarios que coincidan con los filtros.
           </p>
           {hasActiveFilters && (
             <Button variant="outline" size="sm" className="mt-4" onClick={handleClearFilters}>
@@ -479,6 +606,9 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
               listing={listing}
               showContact={visibleContacts.has(listing.id)}
               onToggleContact={() => toggleContact(listing.id)}
+              onClaim={handleClaim}
+              onRelease={handleRelease}
+              claimLoading={claimLoading === listing.owner_id}
             />
           ))}
         </div>

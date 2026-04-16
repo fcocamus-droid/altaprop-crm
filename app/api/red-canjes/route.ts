@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
   const profile = await getUserProfile()
   if (!profile) return NextResponse.json([], { status: 401 })
 
-  // Only subscribers and their agents + SUPERADMINBOSS can access Red de Canjes
   const allowedRoles = ['SUPERADMIN', 'AGENTE', 'SUPERADMINBOSS']
   if (!allowedRoles.includes(profile.role)) {
     return NextResponse.json([], { status: 403 })
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
       auth: { autoRefreshToken: false, persistSession: false },
     })
 
-    // Step 1: get all PROPIETARIO profile IDs
+    // Step 1: get all PROPIETARIO profiles
     const { data: propietarios, error: propError } = await admin
       .from('profiles')
       .select('id, full_name, phone, rut, subscriber_id, created_at')
@@ -42,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const propietarioIds = propietarios.map((p: any) => p.id)
 
-    // Step 2: get emails from auth
+    // Step 2: get emails & metadata from auth
     const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
     const emailMap = new Map<string, string>()
     const metaMap = new Map<string, any>()
@@ -53,7 +52,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 3: get all properties owned by these propietarios
+    // Step 3: get properties owned by propietarios
     let propQuery = admin
       .from('properties')
       .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, created_at, images:property_images(url)')
@@ -69,6 +68,32 @@ export async function GET(request: NextRequest) {
     const { data: properties, error: propErr } = await propQuery
     if (propErr) return NextResponse.json({ error: propErr.message }, { status: 500 })
 
+    // Step 4: get all active claims
+    let claimsMap = new Map<string, { subscriber_name: string; claimed_by_name: string; expires_at: string; is_mine: boolean }>()
+    try {
+      const subscriberId = profile.role === 'SUPERADMINBOSS' ? profile.id : (profile.subscriber_id || profile.id)
+      const { data: claims } = await admin
+        .from('red_canjes_claims')
+        .select('propietario_id, subscriber_id, subscriber_name, claimed_by_name, expires_at')
+        .eq('status', 'active')
+
+      if (claims) {
+        for (const c of claims) {
+          // Auto-filter expired ones (shouldn't happen but defensive)
+          if (new Date(c.expires_at) >= new Date()) {
+            claimsMap.set(c.propietario_id, {
+              subscriber_name: c.subscriber_name || '',
+              claimed_by_name: c.claimed_by_name || '',
+              expires_at: c.expires_at,
+              is_mine: c.subscriber_id === subscriberId,
+            })
+          }
+        }
+      }
+    } catch {
+      // Table may not exist yet — claims feature is optional
+    }
+
     // Build propietario map
     const propietarioMap = new Map<string, any>()
     for (const p of propietarios) {
@@ -81,7 +106,6 @@ export async function GET(request: NextRequest) {
         email: emailMap.get(p.id) || '',
         subscriber_id: p.subscriber_id,
         created_at: p.created_at,
-        // Metadata from registration form
         property_city: meta.property_city || '',
         property_sector: meta.property_sector || '',
         property_type: meta.property_type || '',
@@ -89,15 +113,18 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Also include propietarios that only have metadata (no linked property yet)
-    // These are recent registrations where no property record was created yet
-    const propertiesWithOwner = (properties || []).map((prop: any) => ({
-      ...prop,
-      propietario: propietarioMap.get(prop.owner_id) || null,
-      pais: 'Chile',
-    }))
+    // Listings from actual properties
+    const propertiesWithOwner = (properties || []).map((prop: any) => {
+      const claim = claimsMap.get(prop.owner_id) || null
+      return {
+        ...prop,
+        propietario: propietarioMap.get(prop.owner_id) || null,
+        pais: 'Chile',
+        claim,
+      }
+    })
 
-    // Include propietarios with no linked property (show their metadata-based listing)
+    // Metadata-only listings (propietarios with no linked property yet)
     const ownersWithProperty = new Set((properties || []).map((p: any) => p.owner_id))
     const metaOnlyListings = propietarios
       .filter((p: any) => !ownersWithProperty.has(p.id))
@@ -107,6 +134,7 @@ export async function GET(request: NextRequest) {
         const matchesOp = !filterOperation || meta.property_operation === filterOperation
         const matchesType = !filterType || meta.property_type === filterType
         if (!matchesCity || !matchesOp || !matchesType) return null
+        const claim = claimsMap.get(p.id) || null
         return {
           id: `meta_${p.id}`,
           title: `Propiedad en ${meta.property_city || 'Chile'}`,
@@ -125,6 +153,7 @@ export async function GET(request: NextRequest) {
           pais: 'Chile',
           is_metadata_only: true,
           propietario: propietarioMap.get(p.id) || null,
+          claim,
         }
       })
       .filter(Boolean)
