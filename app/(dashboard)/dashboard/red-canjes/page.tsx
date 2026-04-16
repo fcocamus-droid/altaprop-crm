@@ -19,7 +19,10 @@ export default async function RedCanjesPage() {
         title="Red de Canjes"
         description="Propiedades disponibles de propietarios que buscan gestión — toda la red Altaprop"
       />
-      <RedCanjesBrowser currentUserRole={profile.role} />
+      <RedCanjesBrowser
+        currentUserRole={profile.role}
+        currentSubscriberId={profile.subscriber_id || profile.id}
+      />
     </div>
   )
 }

@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     // Step 5: fetch staff (non-PROPIETARIO) properties explicitly published to Red de Canjes
     let staffQuery = admin
       .from('properties')
-      .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, created_at, red_canjes_visible, images:property_images(url)')
+      .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, subscriber_id, created_at, red_canjes_visible, images:property_images(url)')
       .eq('red_canjes_visible', true)
       .eq('status', 'available')
 

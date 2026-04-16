@@ -28,6 +28,7 @@ interface Propietario {
   phone: string
   email: string
   rut: string
+  subscriber_id?: string | null
 }
 
 interface Claim {
@@ -50,10 +51,12 @@ interface Listing {
   price: number | null
   currency: string | null
   owner_id: string
+  subscriber_id?: string | null
   created_at: string
   images: { url: string }[]
   pais: string
   is_metadata_only?: boolean
+  is_staff_listing?: boolean
   propietario: Propietario | null
   claim: Claim | null
 }
@@ -119,9 +122,10 @@ interface ListingCardProps {
   onClaim: (propietarioId: string, propertyId: string | null) => Promise<void>
   onRelease: (propietarioId: string) => Promise<void>
   claimLoading: boolean
+  isOwnSubscriber: boolean
 }
 
-function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease, claimLoading }: ListingCardProps) {
+function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease, claimLoading, isOwnSubscriber }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
@@ -247,40 +251,49 @@ function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease
             </Button>
           )}
 
-          {/* Claim / Release buttons */}
-          {!isClaimed && (
-            <Button
-              size="sm"
-              className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
-              disabled={claimLoading}
-              onClick={() => onClaim(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
-            >
-              {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
-              Tomar gestión (30 días)
-            </Button>
-          )}
-          {isClaimed && isMineClaim && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-              disabled={claimLoading}
-              onClick={() => onRelease(listing.owner_id)}
-            >
-              {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
-              Liberar gestión
-            </Button>
-          )}
-          {isClaimed && !isMineClaim && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-2 text-xs"
-              disabled
-            >
-              <Lock className="h-3.5 w-3.5" />
-              No disponible
-            </Button>
+          {/* Claim / Release buttons — hidden for own-subscriber properties */}
+          {isOwnSubscriber ? (
+            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground">
+              <Home className="h-3.5 w-3.5" />
+              <span>Propiedad de tu organización</span>
+            </div>
+          ) : (
+            <>
+              {!isClaimed && (
+                <Button
+                  size="sm"
+                  className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
+                  disabled={claimLoading}
+                  onClick={() => onClaim(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
+                >
+                  {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+                  Tomar gestión (30 días)
+                </Button>
+              )}
+              {isClaimed && isMineClaim && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                  disabled={claimLoading}
+                  onClick={() => onRelease(listing.owner_id)}
+                >
+                  {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
+                  Liberar gestión
+                </Button>
+              )}
+              {isClaimed && !isMineClaim && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-xs"
+                  disabled
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  No disponible
+                </Button>
+              )}
+            </>
           )}
 
           {/* Contact details */}
@@ -330,9 +343,10 @@ function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease
 
 interface Props {
   currentUserRole: string
+  currentSubscriberId: string
 }
 
-export function RedCanjesBrowser({ currentUserRole }: Props) {
+export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props) {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS)
@@ -606,17 +620,23 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {displayed.map(listing => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              showContact={visibleContacts.has(listing.id)}
-              onToggleContact={() => toggleContact(listing.id)}
-              onClaim={handleClaim}
-              onRelease={handleRelease}
-              claimLoading={claimLoading === listing.owner_id}
-            />
-          ))}
+          {displayed.map(listing => {
+            // Determine if this listing belongs to the current user's subscriber org
+            const listingSubscriberId = listing.propietario?.subscriber_id ?? listing.subscriber_id ?? null
+            const isOwnSubscriber = !!listingSubscriberId && listingSubscriberId === currentSubscriberId
+            return (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                showContact={visibleContacts.has(listing.id)}
+                onToggleContact={() => toggleContact(listing.id)}
+                onClaim={handleClaim}
+                onRelease={handleRelease}
+                claimLoading={claimLoading === listing.owner_id}
+                isOwnSubscriber={isOwnSubscriber}
+              />
+            )
+          })}
         </div>
       )}
     </div>
