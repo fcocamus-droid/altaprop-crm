@@ -29,8 +29,9 @@ export function Footer() {
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-gold shrink-0" />contacto@altaprop.cl
               </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gold shrink-0" />Santiago, Chile
+              <li className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+                <span>Manquehue Norte 882, piso -1,<br />Las Condes, Santiago, Chile</span>
               </li>
             </ul>
           </div>

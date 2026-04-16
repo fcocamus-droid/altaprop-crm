@@ -69,8 +69,9 @@ export default function ContactoPage() {
                   <MapPin className="h-6 w-6 text-navy dark:text-gold" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Ubicacion</h3>
-                  <p className="text-sm text-muted-foreground">Santiago, Chile</p>
+                  <h3 className="font-semibold">Ubicación</h3>
+                  <p className="text-sm text-muted-foreground">Manquehue Norte 882, piso -1</p>
+                  <p className="text-sm text-muted-foreground">Las Condes, Santiago, Chile</p>
                 </div>
               </div>
             </CardContent>
