@@ -57,6 +57,26 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Enforce 3-claim limit per subscriber within a rolling 30-day window.
+  // A slot is occupied while claimed_at > 30 days ago AND commission_paid = false.
+  const CLAIMS_LIMIT = 3
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const { count: activeSlots } = await admin
+    .from('red_canjes_claims')
+    .select('id', { count: 'exact', head: true })
+    .eq('subscriber_id', effectiveSubscriberId)
+    .gte('claimed_at', thirtyDaysAgo)
+    .eq('commission_paid', false)
+
+  if ((activeSlots ?? 0) >= CLAIMS_LIMIT) {
+    return NextResponse.json({
+      error: `Límite alcanzado. Tu organización ya tiene ${CLAIMS_LIMIT} gestiones activas en los últimos 30 días. Paga la comisión de una de ellas para liberar un cupo.`,
+      limitReached: true,
+      claimsLimit: CLAIMS_LIMIT,
+      currentCount: activeSlots,
+    }, { status: 429 })
+  }
+
   // Read the property's current subscriber_id so we can restore it on release/expire
   let originalSubscriberId: string | null = null
   if (property_id) {

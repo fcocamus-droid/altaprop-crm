@@ -17,7 +17,7 @@ export default async function RedCanjesPage() {
     <div>
       <PageHeader
         title="Red de Canjes"
-        description="Propiedades disponibles de propietarios que buscan gestión — toda la red Altaprop"
+        description="Toda la red Altaprop · Hasta 3 gestiones simultáneas por organización · El cupo se libera al pagar la comisión o al vencer los 30 días"
       />
       <RedCanjesBrowser
         currentUserRole={profile.role}

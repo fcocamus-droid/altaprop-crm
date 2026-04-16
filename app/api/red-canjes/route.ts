@@ -234,7 +234,19 @@ export async function GET(request: NextRequest) {
 
     const result = [...propertiesWithOwner, ...metaOnlyListings, ...staffListings]
 
-    return NextResponse.json(result)
+    // Count how many claim "slots" this subscriber is currently using.
+    // A slot is occupied for 30 days from claimed_at unless commission was paid.
+    // Released/expired claims within that window still count (can't release & re-claim).
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const subscriberIdForCount = profile.role === 'SUPERADMINBOSS' ? profile.id : (profile.subscriber_id || profile.id)
+    const { count: myClaimsCount } = await admin
+      .from('red_canjes_claims')
+      .select('id', { count: 'exact', head: true })
+      .eq('subscriber_id', subscriberIdForCount)
+      .gte('claimed_at', thirtyDaysAgo)
+      .eq('commission_paid', false)
+
+    return NextResponse.json({ listings: result, myClaimsCount: myClaimsCount ?? 0, claimsLimit: 3 })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

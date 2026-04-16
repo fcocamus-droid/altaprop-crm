@@ -18,7 +18,7 @@ import {
   MapPin, Phone, Mail, User, Home, Search, Filter,
   ChevronDown, ChevronUp, Building2, Tag, Globe,
   Loader2, RefreshCw, X, Eye, EyeOff, Lock, Unlock, Clock,
-  CheckCircle2, AlertCircle, CreditCard,
+  CheckCircle2, AlertCircle, CreditCard, ShieldAlert, Info,
 } from 'lucide-react'
 import {
   CHILE_REGIONS, OPERATION_TYPES, PROPERTY_TYPES,
@@ -117,6 +117,8 @@ function getDaysLeft(expiresAt: string) {
 
 // ─── ListingCard ─────────────────────────────────────────────────────────────
 
+const CLAIMS_LIMIT = 3
+
 interface ListingCardProps {
   listing: Listing
   showContact: boolean
@@ -128,6 +130,7 @@ interface ListingCardProps {
   claimLoading: boolean
   payLoading: string | null
   isOwnSubscriber: boolean
+  isAtLimit: boolean
   ufValue: number | null
 }
 
@@ -145,7 +148,7 @@ function calcCommission(listing: Listing, ufValue: number | null): number | null
   return Math.round(base * (1 + IVA))
 }
 
-function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, onPayCommission, claimLoading, payLoading, isOwnSubscriber, ufValue }: ListingCardProps) {
+function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, onPayCommission, claimLoading, payLoading, isOwnSubscriber, isAtLimit, ufValue }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
@@ -286,15 +289,22 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
           ) : (
             <>
               {!isClaimed && (
-                <Button
-                  size="sm"
-                  className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
-                  disabled={claimLoading}
-                  onClick={() => onRequestClaim(listing)}
-                >
-                  {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
-                  Tomar gestión (30 días)
-                </Button>
+                isAtLimit ? (
+                  <div className="flex items-start gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Límite de {CLAIMS_LIMIT} gestiones alcanzado. Paga una comisión para liberar un cupo.</span>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
+                    disabled={claimLoading}
+                    onClick={() => onRequestClaim(listing)}
+                  >
+                    {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+                    Tomar gestión (30 días)
+                  </Button>
+                )
               )}
               {isClaimed && isMineClaim && (() => {
                 const commission = calcCommission(listing, ufValue)
@@ -410,6 +420,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   const [visibleContacts, setVisibleContacts] = useState<Set<string>>(new Set())
   const [claimLoading, setClaimLoading] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState<string | null>(null)
+  const [myClaimsCount, setMyClaimsCount] = useState(0)
   const [claimModalListing, setClaimModalListing] = useState<Listing | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [ufValue, setUfValue] = useState<number | null>(null)
@@ -439,7 +450,14 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
 
       const res = await fetch(`/api/red-canjes?${params.toString()}`)
       const data = await res.json()
-      setListings(Array.isArray(data) ? data : [])
+      // API returns { listings, myClaimsCount, claimsLimit }
+      if (data && typeof data === 'object' && !Array.isArray(data) && data.listings) {
+        setListings(Array.isArray(data.listings) ? data.listings : [])
+        setMyClaimsCount(typeof data.myClaimsCount === 'number' ? data.myClaimsCount : 0)
+      } else {
+        // fallback for old array format
+        setListings(Array.isArray(data) ? data : [])
+      }
     } catch {
       setListings([])
     } finally {
@@ -487,6 +505,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
         showToast('error', data.error || 'Error al tomar gestión.')
       } else {
         showToast('success', '✅ Gestión tomada por 30 días. Ahora puedes ver los datos del propietario.')
+        setMyClaimsCount(prev => prev + 1)
         const newClaim = { subscriber_name: '', claimed_by_name: '', expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), is_mine: true }
         setListings(prev => prev.map(l => {
           // Update only the specific property (by id) or meta-only listing (by owner_id)
@@ -586,6 +605,49 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
           {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
           <span>{toast.text}</span>
           <button onClick={() => setToast(null)} className="ml-auto shrink-0"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+
+      {/* Slots banner — always visible once loaded */}
+      {!loading && (
+        <div className={`rounded-xl border p-4 ${
+          myClaimsCount >= CLAIMS_LIMIT
+            ? 'bg-amber-50 border-amber-300'
+            : myClaimsCount >= CLAIMS_LIMIT - 1
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-navy/5 border-navy/15'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`shrink-0 mt-0.5 ${myClaimsCount >= CLAIMS_LIMIT ? 'text-amber-600' : 'text-navy'}`}>
+              {myClaimsCount >= CLAIMS_LIMIT ? <ShieldAlert className="h-5 w-5" /> : <Info className="h-5 w-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className={`text-sm font-semibold ${myClaimsCount >= CLAIMS_LIMIT ? 'text-amber-800' : 'text-navy'}`}>
+                    {myClaimsCount >= CLAIMS_LIMIT
+                      ? 'Límite de gestiones alcanzado'
+                      : `Cupos de gestión: ${myClaimsCount} / ${CLAIMS_LIMIT} usados`}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${myClaimsCount >= CLAIMS_LIMIT ? 'text-amber-700' : 'text-muted-foreground'}`}>
+                    {myClaimsCount >= CLAIMS_LIMIT
+                      ? 'Para tomar una nueva propiedad, paga la comisión de una activa. Liberar no libera el cupo dentro de los 30 días.'
+                      : `Puedes gestionar hasta ${CLAIMS_LIMIT} propiedades en paralelo. Un cupo se libera al pagar la comisión o al vencer los 30 días.`}
+                  </p>
+                </div>
+                {/* Slot dots */}
+                <div className="flex gap-1.5 shrink-0">
+                  {Array.from({ length: CLAIMS_LIMIT }).map((_, i) => (
+                    <div key={i} className={`h-3 w-3 rounded-full border-2 ${
+                      i < myClaimsCount
+                        ? myClaimsCount >= CLAIMS_LIMIT ? 'bg-amber-500 border-amber-500' : 'bg-navy border-navy'
+                        : 'bg-white border-gray-300'
+                    }`} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -735,6 +797,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
                 claimLoading={claimLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
                 payLoading={payLoading}
                 isOwnSubscriber={isOwnSubscriber}
+                isAtLimit={myClaimsCount >= CLAIMS_LIMIT}
                 ufValue={ufValue}
               />
             )
