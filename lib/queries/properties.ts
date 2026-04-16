@@ -10,6 +10,23 @@ function getAdminClient() {
   })
 }
 
+/**
+ * Marks properties that are currently under an active Red de Canjes claim
+ * so the UI can hide the Red de Canjes toggle button for those properties.
+ */
+async function enrichWithClaimStatus(properties: any[]): Promise<any[]> {
+  if (!properties.length) return properties
+  const admin = getAdminClient()
+  const ids = properties.map(p => p.id).filter(Boolean)
+  const { data: claims } = await admin
+    .from('red_canjes_claims')
+    .select('property_id')
+    .in('property_id', ids)
+    .eq('status', 'active')
+  const claimedIds = new Set((claims || []).map((c: any) => c.property_id))
+  return properties.map(p => ({ ...p, has_active_red_canjes_claim: claimedIds.has(p.id) }))
+}
+
 export async function getProperties(filters: PropertyFilters = {}) {
   const supabase = createClient()
   let query = supabase
@@ -66,7 +83,8 @@ export async function getPropertiesByAgent(agentId: string) {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
+  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
+  return enrichWithClaimStatus(mapped) as Promise<Property[]>
 }
 
 export async function getAllProperties() {
@@ -77,7 +95,8 @@ export async function getAllProperties() {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
+  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
+  return enrichWithClaimStatus(mapped) as Promise<Property[]>
 }
 
 export async function getPropertiesBySubscriber(subscriberId: string) {
@@ -89,7 +108,8 @@ export async function getPropertiesBySubscriber(subscriberId: string) {
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null })) as Property[]
+  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
+  return enrichWithClaimStatus(mapped) as Promise<Property[]>
 }
 
 export async function getFeaturedProperties() {

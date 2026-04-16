@@ -36,6 +36,7 @@ interface Property {
   images?: { url: string }[]
   website_visible?: boolean | null
   red_canjes_visible?: boolean | null
+  has_active_red_canjes_claim?: boolean | null
   owner_role?: string | null
   ml_item_id?: string | null
   ml_status?: string | null
@@ -410,8 +411,8 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                   }
                 </button>
 
-                {/* Red de Canjes toggle — visible for admins/agents on all properties */}
-                {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'AGENTE' || currentUserRole === 'SUPERADMINBOSS') && (
+                {/* Red de Canjes toggle — hidden for properties sourced from Red de Canjes (active claim) */}
+                {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'AGENTE' || currentUserRole === 'SUPERADMINBOSS') && !property.has_active_red_canjes_claim && (
                   <button
                     type="button"
                     title={property.red_canjes_visible ? 'Quitar de Red de Canjes' : 'Publicar en Red de Canjes'}
