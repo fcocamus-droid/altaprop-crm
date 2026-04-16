@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { ClaimConfirmModal } from '@/components/red-canjes/claim-confirm-modal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -120,13 +121,14 @@ interface ListingCardProps {
   listing: Listing
   showContact: boolean
   onToggleContact: () => void
+  onRequestClaim: (listing: Listing) => void
   onClaim: (propietarioId: string, propertyId: string | null) => Promise<void>
   onRelease: (propietarioId: string, propertyId: string | null) => Promise<void>
   claimLoading: boolean
   isOwnSubscriber: boolean
 }
 
-function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease, claimLoading, isOwnSubscriber }: ListingCardProps) {
+function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, claimLoading, isOwnSubscriber }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
@@ -271,7 +273,7 @@ function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease
                   size="sm"
                   className="w-full gap-2 text-xs bg-navy hover:bg-navy/90"
                   disabled={claimLoading}
-                  onClick={() => onClaim(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
+                  onClick={() => onRequestClaim(listing)}
                 >
                   {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
                   Tomar gestión (30 días)
@@ -361,6 +363,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   const [showFilters, setShowFilters] = useState(true)
   const [visibleContacts, setVisibleContacts] = useState<Set<string>>(new Set())
   const [claimLoading, setClaimLoading] = useState<string | null>(null)
+  const [claimModalListing, setClaimModalListing] = useState<Listing | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const showToast = (type: 'success' | 'error', text: string) => {
@@ -491,6 +494,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   const available = listings.filter(l => !l.claim).length
 
   return (
+    <>
     <div className="space-y-4">
       {/* Toast */}
       {toast && (
@@ -642,6 +646,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
                 listing={listing}
                 showContact={visibleContacts.has(listing.id)}
                 onToggleContact={() => toggleContact(listing.id)}
+                onRequestClaim={setClaimModalListing}
                 onClaim={handleClaim}
                 onRelease={handleRelease}
                 claimLoading={claimLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
@@ -652,5 +657,20 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
         </div>
       )}
     </div>
+
+    {/* Claim confirmation modal */}
+    {claimModalListing && (
+      <ClaimConfirmModal
+        listing={claimModalListing}
+        loading={claimLoading === (claimModalListing.is_metadata_only ? claimModalListing.owner_id : claimModalListing.id)}
+        onCancel={() => setClaimModalListing(null)}
+        onConfirm={async () => {
+          const l = claimModalListing
+          setClaimModalListing(null)
+          await handleClaim(l.owner_id, l.is_metadata_only ? null : l.id)
+        }}
+      />
+    )}
+    </>
   )
 }
