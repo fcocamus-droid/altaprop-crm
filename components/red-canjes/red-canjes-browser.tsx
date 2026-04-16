@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -181,7 +182,13 @@ function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease
       <CardContent className="p-4 space-y-3">
         {/* Title & type */}
         <div>
-          <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">{listing.title}</h3>
+          {listing.is_metadata_only ? (
+            <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">{listing.title}</h3>
+          ) : (
+            <Link href={`/propiedades/${listing.id}`} target="_blank" className="hover:underline">
+              <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">{listing.title}</h3>
+            </Link>
+          )}
           {listing.type && (
             <p className="text-xs text-muted-foreground mt-0.5">{getTypeLabel(listing.type)}</p>
           )}
