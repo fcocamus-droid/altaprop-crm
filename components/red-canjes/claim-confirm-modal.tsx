@@ -65,7 +65,7 @@ export function ClaimConfirmModal({ listing, onConfirm, onCancel, loading }: Pro
 
   const commissionBase = priceCLP
     ? opType === 'venta'
-      ? priceCLP * 0.008
+      ? priceCLP * 0.005
       : priceCLP * 0.25
     : null
 
@@ -89,7 +89,7 @@ export function ClaimConfirmModal({ listing, onConfirm, onCancel, loading }: Pro
         <>
           Si <strong className="text-emerald-700">vendo</strong> una propiedad captada a través de la Red de Canjes,
           la comisión a pagar es{' '}
-          <strong className="text-emerald-700">0,8% + IVA del valor de venta</strong> de la propiedad.
+          <strong className="text-emerald-700">0,5% + IVA del valor de venta</strong> de la propiedad.
         </>
       ),
     },
@@ -162,8 +162,8 @@ export function ClaimConfirmModal({ listing, onConfirm, onCancel, loading }: Pro
           <div className="rounded-xl border border-navy/20 bg-navy/5 p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Calculator className="h-4 w-4 text-navy shrink-0" />
-              <p className="text-xs font-semibold text-navy">
-                Comisión estimada — {opType === 'venta' ? 'Venta (0,8% + IVA)' : 'Arriendo (25% de un mes + IVA)'}
+                      <p className="text-xs font-semibold text-navy">
+                Comisión estimada — {opType === 'venta' ? 'Venta (0,5% + IVA)' : 'Arriendo (25% de un mes + IVA)'}
               </p>
             </div>
 
@@ -190,7 +190,7 @@ export function ClaimConfirmModal({ listing, onConfirm, onCancel, loading }: Pro
                 )}
                 {commissionBase && (
                   <div className="flex justify-between text-gray-600">
-                    <span>Comisión base ({opType === 'venta' ? '0,8%' : '25%'})</span>
+                    <span>Comisión base ({opType === 'venta' ? '0,5%' : '25%'})</span>
                     <span>{formatCLP(commissionBase)}</span>
                   </div>
                 )}

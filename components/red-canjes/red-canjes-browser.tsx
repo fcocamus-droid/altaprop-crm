@@ -139,7 +139,7 @@ function calcCommission(listing: Listing, ufValue: number | null): number | null
     : null
   if (!priceCLP) return null
   const isArriendo = listing.operation === 'arriendo' || listing.operation === 'arriendo_temporal'
-  const base = isArriendo ? priceCLP * 0.25 : priceCLP * 0.008
+  const base = isArriendo ? priceCLP * 0.25 : priceCLP * 0.005
   return Math.round(base * (1 + IVA))
 }
 
@@ -316,7 +316,7 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
                     ) : (
                       <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground bg-gray-50 rounded-lg border border-gray-200">
                         <CreditCard className="h-3.5 w-3.5" />
-                        <span>Comisión: {isArriendo ? '25% de un mes + IVA' : '0,8% del valor + IVA'}</span>
+                        <span>Comisión: {isArriendo ? '25% de un mes + IVA' : '0,5% del valor + IVA'}</span>
                       </div>
                     )}
 
