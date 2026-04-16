@@ -18,7 +18,7 @@ import {
   MapPin, Phone, Mail, User, Home, Search, Filter,
   ChevronDown, ChevronUp, Building2, Tag, Globe,
   Loader2, RefreshCw, X, Eye, EyeOff, Lock, Unlock, Clock,
-  CheckCircle2, AlertCircle,
+  CheckCircle2, AlertCircle, CreditCard,
 } from 'lucide-react'
 import {
   CHILE_REGIONS, OPERATION_TYPES, PROPERTY_TYPES,
@@ -126,9 +126,24 @@ interface ListingCardProps {
   onRelease: (propietarioId: string, propertyId: string | null) => Promise<void>
   claimLoading: boolean
   isOwnSubscriber: boolean
+  ufValue: number | null
 }
 
-function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, claimLoading, isOwnSubscriber }: ListingCardProps) {
+const IVA = 0.19
+
+function calcCommission(listing: Listing, ufValue: number | null): number | null {
+  if (!listing.price) return null
+  const priceCLP =
+    listing.currency === 'UF' && ufValue ? listing.price * ufValue
+    : (listing.currency === 'CLP' || listing.currency === '$') ? listing.price
+    : null
+  if (!priceCLP) return null
+  const isArriendo = listing.operation === 'arriendo' || listing.operation === 'arriendo_temporal'
+  const base = isArriendo ? priceCLP * 0.25 : priceCLP * 0.008
+  return Math.round(base * (1 + IVA))
+}
+
+function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, onClaim, onRelease, claimLoading, isOwnSubscriber, ufValue }: ListingCardProps) {
   const statusCfg = getStatusConfig(listing.status)
   const priceStr = formatPrice(listing.price, listing.currency)
   const mainImage = listing.images?.[0]?.url
@@ -279,18 +294,46 @@ function ListingCard({ listing, showContact, onToggleContact, onRequestClaim, on
                   Tomar gestión (30 días)
                 </Button>
               )}
-              {isClaimed && isMineClaim && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
-                  disabled={claimLoading}
-                  onClick={() => onRelease(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
-                >
-                  {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
-                  Liberar gestión
-                </Button>
-              )}
+              {isClaimed && isMineClaim && (() => {
+                const commission = calcCommission(listing, ufValue)
+                const isArriendo = listing.operation === 'arriendo' || listing.operation === 'arriendo_temporal'
+                return (
+                  <>
+                    {/* Payment button */}
+                    {commission ? (
+                      <Button
+                        size="sm"
+                        className="w-full gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                        onClick={() => {
+                          // TODO: connect to MercadoPago
+                          alert(`Próximamente: pago de comisión ${commission.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} vía MercadoPago`)
+                        }}
+                      >
+                        <CreditCard className="h-3.5 w-3.5" />
+                        Pagar comisión —{' '}
+                        {commission.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
+                      </Button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground bg-gray-50 rounded-lg border border-gray-200">
+                        <CreditCard className="h-3.5 w-3.5" />
+                        <span>Comisión: {isArriendo ? '25% de un mes + IVA' : '0,8% del valor + IVA'}</span>
+                      </div>
+                    )}
+
+                    {/* Release button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                      disabled={claimLoading}
+                      onClick={() => onRelease(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
+                    >
+                      {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
+                      Liberar gestión
+                    </Button>
+                  </>
+                )
+              })()}
               {isClaimed && !isMineClaim && (
                 <Button
                   variant="outline"
@@ -365,6 +408,15 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   const [claimLoading, setClaimLoading] = useState<string | null>(null)
   const [claimModalListing, setClaimModalListing] = useState<Listing | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [ufValue, setUfValue] = useState<number | null>(null)
+
+  // Fetch live UF once on mount
+  useEffect(() => {
+    fetch('https://mindicador.cl/api/uf')
+      .then(r => r.json())
+      .then(data => { if (data?.serie?.[0]?.valor) setUfValue(data.serie[0].valor) })
+      .catch(() => setUfValue(37500)) // fallback
+  }, [])
 
   const showToast = (type: 'success' | 'error', text: string) => {
     setToast({ type, text })
@@ -651,6 +703,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
                 onRelease={handleRelease}
                 claimLoading={claimLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
                 isOwnSubscriber={isOwnSubscriber}
+                ufValue={ufValue}
               />
             )
           })}
