@@ -74,6 +74,13 @@ export async function GET(request: NextRequest) {
     const claimsMapByProperty = new Map<string, ClaimInfo>()
     const claimsMapByPropietario = new Map<string, ClaimInfo>()
     try {
+      // Auto-cleanup: batch-expire any claims whose expires_at has passed
+      await admin
+        .from('red_canjes_claims')
+        .update({ status: 'expired' })
+        .eq('status', 'active')
+        .lt('expires_at', new Date().toISOString())
+
       const subscriberId = profile.role === 'SUPERADMINBOSS' ? profile.id : (profile.subscriber_id || profile.id)
       const { data: claims } = await admin
         .from('red_canjes_claims')
@@ -82,7 +89,6 @@ export async function GET(request: NextRequest) {
 
       if (claims) {
         for (const c of claims) {
-          if (new Date(c.expires_at) < new Date()) continue // skip expired
           const info: ClaimInfo = {
             subscriber_name: c.subscriber_name || '',
             claimed_by_name: c.claimed_by_name || '',
