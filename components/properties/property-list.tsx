@@ -410,8 +410,8 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                   }
                 </button>
 
-                {/* Red de Canjes toggle — only for SUPERADMIN/AGENTE (PROPIETARIO always in network) */}
-                {property.owner_role !== 'PROPIETARIO' && (currentUserRole === 'SUPERADMIN' || currentUserRole === 'AGENTE' || currentUserRole === 'SUPERADMINBOSS') && (
+                {/* Red de Canjes toggle — visible for admins/agents on all properties */}
+                {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'AGENTE' || currentUserRole === 'SUPERADMINBOSS') && (
                   <button
                     type="button"
                     title={property.red_canjes_visible ? 'Quitar de Red de Canjes' : 'Publicar en Red de Canjes'}
