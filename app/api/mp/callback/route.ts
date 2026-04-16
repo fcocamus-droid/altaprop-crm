@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
       if (plan.trial) {
         const trialEndsAt = new Date(now)
-        trialEndsAt.setDate(trialEndsAt.getDate() + (plan.trialDays || 7))
+        trialEndsAt.setDate(trialEndsAt.getDate() + (plan.trialDays || 14))
 
         await admin.from('profiles').update({
           plan: plan.id,

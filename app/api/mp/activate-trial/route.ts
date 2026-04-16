@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   const trialEndsAt = new Date()
-  trialEndsAt.setDate(trialEndsAt.getDate() + (plan.trialDays || 7))
+  trialEndsAt.setDate(trialEndsAt.getDate() + (plan.trialDays || 14))
 
   const { error } = await supabase.from('profiles').update({
     plan: plan.id,
