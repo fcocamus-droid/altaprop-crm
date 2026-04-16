@@ -84,8 +84,16 @@ function getTypeLabel(t: string) {
   return PROPERTY_TYPES.find(pt => pt.value === t)?.label || t
 }
 
+const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  available:   { label: 'Disponible',    color: 'bg-green-100 text-green-800' },
+  reserved:    { label: 'Reservada',     color: 'bg-yellow-100 text-yellow-800' },
+  rented:      { label: 'Arrendada',     color: 'bg-blue-100 text-blue-800' },
+  sold:        { label: 'Vendida',       color: 'bg-purple-100 text-purple-800' },
+  unavailable: { label: 'No disponible', color: 'bg-gray-100 text-gray-800' },
+}
+
 function getStatusConfig(s: string) {
-  return PROPERTY_STATUSES.find(ps => ps.value === s) || { label: s, color: 'bg-gray-100 text-gray-800' }
+  return STATUS_MAP[s] || { label: s, color: 'bg-gray-100 text-gray-800' }
 }
 
 function operationColor(op: string) {
