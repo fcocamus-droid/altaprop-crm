@@ -30,7 +30,7 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   reserved:    { label: 'Reservada',   cls: 'bg-yellow-100 text-yellow-800' },
   rented:      { label: 'Arrendada',   cls: 'bg-blue-100 text-blue-800' },
   sold:        { label: 'Vendida',     cls: 'bg-purple-100 text-purple-800' },
-  unavailable: { label: 'No disp.',    cls: 'bg-gray-100 text-gray-800' },
+  unavailable: { label: 'No disponible', cls: 'bg-gray-100 text-gray-800' },
 }
 
 const OP_LABELS: Record<string, string> = {
