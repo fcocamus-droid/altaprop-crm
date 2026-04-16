@@ -19,7 +19,7 @@ import {
   CheckCircle2, AlertCircle,
 } from 'lucide-react'
 import {
-  CHILE_REGIONS, OPERATION_TYPES, PROPERTY_TYPES, PROPERTY_STATUSES,
+  CHILE_REGIONS, OPERATION_TYPES, PROPERTY_TYPES,
 } from '@/lib/constants'
 
 interface Propietario {
@@ -67,7 +67,7 @@ interface FiltersState {
   search: string
 }
 
-const EMPTY_FILTERS: FiltersState = { region: '', city: '', operation: '', type: '', status: '', search: '' }
+const EMPTY_FILTERS: FiltersState = { region: '', city: '', operation: '', type: '', status: 'available', search: '' }
 
 function formatPrice(price: number | null, currency: string | null) {
   if (!price) return null
@@ -367,9 +367,10 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
   }
 
   const handleClearFilters = () => {
-    setFilters(EMPTY_FILTERS)
-    setAppliedFilters(EMPTY_FILTERS)
-    fetchListings(EMPTY_FILTERS)
+    const reset = { ...EMPTY_FILTERS, status: 'available' }
+    setFilters(reset)
+    setAppliedFilters(reset)
+    fetchListings(reset)
   }
 
   const toggleContact = (id: string) => {
@@ -558,13 +559,10 @@ export function RedCanjesBrowser({ currentUserRole }: Props) {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Select value={filters.status || '_all'} onValueChange={v => setFilters(f => ({ ...f, status: v === '_all' ? '' : v }))}>
-                  <SelectTrigger className="text-sm w-48"><SelectValue placeholder="Estado" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">Todos los estados</SelectItem>
-                    {PROPERTY_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-md border border-green-200 text-sm text-green-700">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>Estado: <strong>Disponibles</strong></span>
+                </div>
                 <Button onClick={handleApplyFilters} size="sm" className="gap-2">
                   <Search className="h-3.5 w-3.5" /> Aplicar filtros
                 </Button>
