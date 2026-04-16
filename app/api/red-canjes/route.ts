@@ -52,11 +52,12 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Step 3: get properties owned by propietarios
+    // Step 3: get properties owned by propietarios that are visible in Red de Canjes
     let propQuery = admin
       .from('properties')
-      .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, created_at, images:property_images(url)')
+      .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, created_at, red_canjes_visible, images:property_images(url)')
       .in('owner_id', propietarioIds)
+      .eq('red_canjes_visible', true)
       .order('created_at', { ascending: false })
 
     if (filterRegion) propQuery = propQuery.ilike('region', `%${filterRegion}%`)

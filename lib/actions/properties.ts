@@ -80,6 +80,8 @@ export async function createProperty(formData: FormData) {
       owner_id: profile.id,
       subscriber_id: profile.subscriber_id || profile.id,
       website_visible: websiteVisible,
+      // PROPIETARIO properties are visible in Red de Canjes by default
+      red_canjes_visible: profile.role === ROLES.PROPIETARIO,
       amenities,
       ...(profile.role === ROLES.AGENTE ? { agent_id: profile.id } : {}),
     } as any)
