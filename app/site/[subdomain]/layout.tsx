@@ -68,6 +68,16 @@ export default async function SiteLayout({
             <Link href="/" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Inicio</Link>
             <Link href="/propiedades" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Propiedades</Link>
             <Link href="/nosotros" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Nosotros</Link>
+            {subscriber.website_extra_page_name && subscriber.website_extra_page_url && (
+              <a
+                href={subscriber.website_extra_page_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-white/80 hover:text-white transition-colors"
+              >
+                {subscriber.website_extra_page_name}
+              </a>
+            )}
           </nav>
 
           {subscriber.website_whatsapp && (
@@ -107,6 +117,18 @@ export default async function SiteLayout({
                 <li><Link href="/" className="hover:text-white transition-colors">Inicio</Link></li>
                 <li><Link href="/propiedades" className="hover:text-white transition-colors">Propiedades</Link></li>
                 <li><Link href="/nosotros" className="hover:text-white transition-colors">Nosotros</Link></li>
+                {subscriber.website_extra_page_name && subscriber.website_extra_page_url && (
+                  <li>
+                    <a
+                      href={subscriber.website_extra_page_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-white transition-colors"
+                    >
+                      {subscriber.website_extra_page_name}
+                    </a>
+                  </li>
+                )}
               </ul>
             </div>
             <div>

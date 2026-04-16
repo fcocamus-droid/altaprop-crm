@@ -8,14 +8,16 @@ import { WebsiteConfigTab } from './website-config-tab'
 import { WebsitePropiedadesTab } from './website-propiedades-tab'
 import { WebsiteEstadisticasTab } from './website-estadisticas-tab'
 import { WebsiteNosotrosTab } from './website-nosotros-tab'
+import { WebsitePaginaExtraTab } from './website-pagina-extra-tab'
 
-type Tab = 'configuracion' | 'propiedades' | 'estadisticas' | 'nosotros'
+type Tab = 'configuracion' | 'propiedades' | 'estadisticas' | 'nosotros' | 'pagina-extra'
 
 const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { id: 'configuracion', label: 'Configuración', icon: Settings },
   { id: 'propiedades',   label: 'Propiedades',   icon: HomeIcon },
   { id: 'estadisticas',  label: 'Estadísticas',  icon: BarChart3 },
   { id: 'nosotros',      label: 'Nosotros',       icon: Users },
+  { id: 'pagina-extra',  label: 'Página Extra',   icon: ExternalLink },
 ]
 
 interface MiSitioTabsProps {
@@ -86,6 +88,7 @@ export function MiSitioTabs({ defaultTab = 'configuracion', websiteEnabled, webs
       {activeTab === 'propiedades'   && <WebsitePropiedadesTab />}
       {activeTab === 'estadisticas'  && <WebsiteEstadisticasTab />}
       {activeTab === 'nosotros'      && <WebsiteNosotrosTab />}
+      {activeTab === 'pagina-extra'  && <WebsitePaginaExtraTab />}
     </div>
   )
 }

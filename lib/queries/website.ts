@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 const PROFILE_SELECT =
   'id, full_name, avatar_url, website_enabled, website_subdomain, website_domain, ' +
   'website_primary_color, website_accent_color, website_hero_title, website_hero_subtitle, ' +
-  'website_about_text, website_whatsapp, phone'
+  'website_about_text, website_whatsapp, phone, ' +
+  'website_extra_page_name, website_extra_page_url'
 
 type SubscriberRow = {
   id: string
@@ -20,6 +21,8 @@ type SubscriberRow = {
   website_about_text: string | null
   website_whatsapp: string | null
   phone: string | null
+  website_extra_page_name: string | null
+  website_extra_page_url: string | null
 }
 
 /**
