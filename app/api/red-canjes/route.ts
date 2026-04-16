@@ -69,25 +69,30 @@ export async function GET(request: NextRequest) {
     const { data: properties, error: propErr } = await propQuery
     if (propErr) return NextResponse.json({ error: propErr.message }, { status: 500 })
 
-    // Step 4: get all active claims
-    let claimsMap = new Map<string, { subscriber_name: string; claimed_by_name: string; expires_at: string; is_mine: boolean }>()
+    // Step 4: get all active claims — keyed by property_id (per-property) or propietario_id (meta-only)
+    type ClaimInfo = { subscriber_name: string; claimed_by_name: string; expires_at: string; is_mine: boolean }
+    const claimsMapByProperty = new Map<string, ClaimInfo>()
+    const claimsMapByPropietario = new Map<string, ClaimInfo>()
     try {
       const subscriberId = profile.role === 'SUPERADMINBOSS' ? profile.id : (profile.subscriber_id || profile.id)
       const { data: claims } = await admin
         .from('red_canjes_claims')
-        .select('propietario_id, subscriber_id, subscriber_name, claimed_by_name, expires_at')
+        .select('propietario_id, property_id, subscriber_id, subscriber_name, claimed_by_name, expires_at')
         .eq('status', 'active')
 
       if (claims) {
         for (const c of claims) {
-          // Auto-filter expired ones (shouldn't happen but defensive)
-          if (new Date(c.expires_at) >= new Date()) {
-            claimsMap.set(c.propietario_id, {
-              subscriber_name: c.subscriber_name || '',
-              claimed_by_name: c.claimed_by_name || '',
-              expires_at: c.expires_at,
-              is_mine: c.subscriber_id === subscriberId,
-            })
+          if (new Date(c.expires_at) < new Date()) continue // skip expired
+          const info: ClaimInfo = {
+            subscriber_name: c.subscriber_name || '',
+            claimed_by_name: c.claimed_by_name || '',
+            expires_at: c.expires_at,
+            is_mine: c.subscriber_id === subscriberId,
+          }
+          if (c.property_id) {
+            claimsMapByProperty.set(c.property_id, info)
+          } else {
+            claimsMapByPropietario.set(c.propietario_id, info)
           }
         }
       }
@@ -116,7 +121,7 @@ export async function GET(request: NextRequest) {
 
     // Listings from actual properties (filtered)
     const propertiesWithOwner = (properties || []).map((prop: any) => {
-      const claim = claimsMap.get(prop.owner_id) || null
+      const claim = claimsMapByProperty.get(prop.id) || null
       return {
         ...prop,
         propietario: propietarioMap.get(prop.owner_id) || null,
@@ -141,7 +146,7 @@ export async function GET(request: NextRequest) {
         const matchesOp = !filterOperation || meta.property_operation === filterOperation
         const matchesType = !filterType || meta.property_type === filterType
         if (!matchesCity || !matchesOp || !matchesType) return null
-        const claim = claimsMap.get(p.id) || null
+        const claim = claimsMapByPropietario.get(p.id) || null
         return {
           id: `meta_${p.id}`,
           title: `Propiedad en ${meta.property_city || 'Chile'}`,

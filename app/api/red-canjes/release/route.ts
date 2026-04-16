@@ -8,18 +8,26 @@ export async function POST(request: NextRequest) {
   const profile = await getUserProfile()
   if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const { propietario_id } = await request.json()
-  if (!propietario_id) return NextResponse.json({ error: 'propietario_id requerido' }, { status: 400 })
+  const { propietario_id, property_id } = await request.json()
+  if (!propietario_id && !property_id) {
+    return NextResponse.json({ error: 'propietario_id o property_id requerido' }, { status: 400 })
+  }
 
   const admin = createAdminClient()
 
-  // Find the active claim
-  const { data: claim } = await admin
+  // Find the active claim — by property_id when available, else by propietario_id
+  let claimQuery = admin
     .from('red_canjes_claims')
     .select('id, subscriber_id, claimed_by_user_id')
-    .eq('propietario_id', propietario_id)
     .eq('status', 'active')
-    .maybeSingle()
+
+  if (property_id) {
+    claimQuery = claimQuery.eq('property_id', property_id)
+  } else {
+    claimQuery = claimQuery.eq('propietario_id', propietario_id).is('property_id', null)
+  }
+
+  const { data: claim } = await claimQuery.maybeSingle()
 
   if (!claim) {
     return NextResponse.json({ error: 'No existe una gestión activa para este propietario' }, { status: 404 })

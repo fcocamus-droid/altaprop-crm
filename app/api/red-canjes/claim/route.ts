@@ -30,24 +30,26 @@ export async function POST(request: NextRequest) {
     if (sub?.full_name) subscriberName = sub.full_name
   }
 
-  // Check if there's already an active claim for this propietario
-  const { data: existing } = await admin
+  // Check if there's already an active claim — per property_id if provided, else per propietario_id
+  let existingQuery = admin
     .from('red_canjes_claims')
     .select('id, subscriber_name, claimed_by_name, expires_at')
-    .eq('propietario_id', propietario_id)
     .eq('status', 'active')
-    .maybeSingle()
+
+  if (property_id) {
+    existingQuery = existingQuery.eq('property_id', property_id)
+  } else {
+    existingQuery = existingQuery.eq('propietario_id', propietario_id).is('property_id', null)
+  }
+
+  const { data: existing } = await existingQuery.maybeSingle()
 
   if (existing) {
-    // Check if it's expired
     if (new Date(existing.expires_at) < new Date()) {
-      // Expire it automatically
-      await admin.from('red_canjes_claims')
-        .update({ status: 'expired' })
-        .eq('id', existing.id)
+      await admin.from('red_canjes_claims').update({ status: 'expired' }).eq('id', existing.id)
     } else {
       return NextResponse.json({
-        error: `Este propietario ya está siendo gestionado por ${existing.subscriber_name || existing.claimed_by_name || 'otra organización'}.`,
+        error: `Esta propiedad ya está siendo gestionada por ${existing.subscriber_name || existing.claimed_by_name || 'otra organización'}.`,
         alreadyClaimed: true,
         claimedBy: existing.subscriber_name || existing.claimed_by_name,
         expiresAt: existing.expires_at,

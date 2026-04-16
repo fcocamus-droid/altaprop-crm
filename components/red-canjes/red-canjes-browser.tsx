@@ -121,7 +121,7 @@ interface ListingCardProps {
   showContact: boolean
   onToggleContact: () => void
   onClaim: (propietarioId: string, propertyId: string | null) => Promise<void>
-  onRelease: (propietarioId: string) => Promise<void>
+  onRelease: (propietarioId: string, propertyId: string | null) => Promise<void>
   claimLoading: boolean
   isOwnSubscriber: boolean
 }
@@ -283,7 +283,7 @@ function ListingCard({ listing, showContact, onToggleContact, onClaim, onRelease
                   size="sm"
                   className="w-full gap-2 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
                   disabled={claimLoading}
-                  onClick={() => onRelease(listing.owner_id)}
+                  onClick={() => onRelease(listing.owner_id, listing.is_metadata_only ? null : listing.id)}
                 >
                   {claimLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
                   Liberar gestión
@@ -412,7 +412,9 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
   }
 
   const handleClaim = async (propietarioId: string, propertyId: string | null) => {
-    setClaimLoading(propietarioId)
+    // Use property id as loading key when available, else propietario id
+    const loadingKey = propertyId || propietarioId
+    setClaimLoading(loadingKey)
     try {
       const res = await fetch('/api/red-canjes/claim', {
         method: 'POST',
@@ -421,17 +423,18 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
       })
       const data = await res.json()
       if (res.status === 409) {
-        showToast('error', data.error || 'Ya está siendo gestionado por otra organización.')
+        showToast('error', data.error || 'Ya está siendo gestionada por otra organización.')
       } else if (!res.ok) {
         showToast('error', data.error || 'Error al tomar gestión.')
       } else {
         showToast('success', '✅ Gestión tomada por 30 días. Ahora puedes ver los datos del propietario.')
-        // Update local state optimistically
-        setListings(prev => prev.map(l =>
-          l.owner_id === propietarioId
-            ? { ...l, claim: { subscriber_name: '', claimed_by_name: '', expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), is_mine: true } }
-            : l
-        ))
+        const newClaim = { subscriber_name: '', claimed_by_name: '', expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), is_mine: true }
+        setListings(prev => prev.map(l => {
+          // Update only the specific property (by id) or meta-only listing (by owner_id)
+          if (propertyId ? l.id === propertyId : (l.owner_id === propietarioId && l.is_metadata_only))
+            return { ...l, claim: newClaim }
+          return l
+        }))
       }
     } catch {
       showToast('error', 'Error de conexión. Intenta de nuevo.')
@@ -440,25 +443,27 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
     }
   }
 
-  const handleRelease = async (propietarioId: string) => {
-    if (!confirm('¿Liberar la gestión de este propietario? Quedará disponible para otras organizaciones.')) return
-    setClaimLoading(propietarioId)
+  const handleRelease = async (propietarioId: string, propertyId: string | null) => {
+    if (!confirm('¿Liberar la gestión de esta propiedad? Quedará disponible para otras organizaciones.')) return
+    const loadingKey = propertyId || propietarioId
+    setClaimLoading(loadingKey)
     try {
       const res = await fetch('/api/red-canjes/release', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propietario_id: propietarioId }),
+        body: JSON.stringify({ propietario_id: propietarioId, property_id: propertyId }),
       })
       const data = await res.json()
       if (!res.ok) {
         showToast('error', data.error || 'Error al liberar gestión.')
       } else {
-        showToast('success', 'Gestión liberada. El propietario está disponible nuevamente.')
-        setListings(prev => prev.map(l =>
-          l.owner_id === propietarioId ? { ...l, claim: null } : l
-        ))
-        // Remove contact visibility
-        setVisibleContacts(prev => { const next = new Set(prev); next.delete(propietarioId); return next })
+        showToast('success', 'Gestión liberada. La propiedad está disponible nuevamente.')
+        setListings(prev => prev.map(l => {
+          if (propertyId ? l.id === propertyId : (l.owner_id === propietarioId && l.is_metadata_only))
+            return { ...l, claim: null }
+          return l
+        }))
+        setVisibleContacts(prev => { const next = new Set(prev); next.delete(loadingKey); return next })
       }
     } catch {
       showToast('error', 'Error de conexión. Intenta de nuevo.')
@@ -639,7 +644,7 @@ export function RedCanjesBrowser({ currentUserRole, currentSubscriberId }: Props
                 onToggleContact={() => toggleContact(listing.id)}
                 onClaim={handleClaim}
                 onRelease={handleRelease}
-                claimLoading={claimLoading === listing.owner_id}
+                claimLoading={claimLoading === (listing.is_metadata_only ? listing.owner_id : listing.id)}
                 isOwnSubscriber={isOwnSubscriber}
               />
             )
