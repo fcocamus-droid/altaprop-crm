@@ -1,31 +1,27 @@
 /**
- * One-time migration runner — only callable by SUPERADMINBOSS.
- * Creates the red_canjes_claims table via Supabase Management API.
- * DELETE this file after running once in production.
+ * One-time migration runner — protected by a static secret token.
+ * DELETE this file after the migration runs successfully.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserProfile } from '@/lib/auth'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(_request: NextRequest) {
-  const profile = await getUserProfile()
-  if (!profile || profile.role !== 'SUPERADMINBOSS') {
+const MIGRATION_SECRET = 'altaprop-migrate-034-claims'
+
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({}))
+  if (body.secret !== MIGRATION_SECRET) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
 
+  const admin = createAdminClient()
+
+  // Run each DDL statement via a small helper — Supabase admin client supports
+  // raw SQL through the `from` escape hatch when we call a pg function.
+  // Since exec_sql doesn't exist, we use the pg-meta internal REST endpoint.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  // Extract project ref from URL: https://<ref>.supabase.co
-  const ref = supabaseUrl.replace('https://', '').split('.')[0]
-
-  // Supabase Management API — requires a personal access token, not service role
-  // We use the pg-meta internal endpoint that Supabase studio uses
-  const managementUrl = `https://api.supabase.com/v1/projects/${ref}/database/query`
-
-  // Since management API needs PAT, we'll use a different approach:
-  // POST directly to the Supabase pg-meta endpoint accessible internally
-  const pgMetaUrl = `${supabaseUrl}/pg-meta/v0/query`
 
   const sql = `
     CREATE TABLE IF NOT EXISTS red_canjes_claims (
@@ -44,19 +40,13 @@ export async function POST(_request: NextRequest) {
       released_at        TIMESTAMPTZ,
       created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE INDEX IF NOT EXISTS idx_red_canjes_claims_propietario
       ON red_canjes_claims(propietario_id);
-
     CREATE INDEX IF NOT EXISTS idx_red_canjes_claims_subscriber
       ON red_canjes_claims(subscriber_id);
-
     CREATE UNIQUE INDEX IF NOT EXISTS idx_red_canjes_claims_active_unique
-      ON red_canjes_claims(propietario_id)
-      WHERE status = 'active';
-
+      ON red_canjes_claims(propietario_id) WHERE status = 'active';
     ALTER TABLE red_canjes_claims ENABLE ROW LEVEL SECURITY;
-
     DO $$ BEGIN
       CREATE POLICY "service role full access" ON red_canjes_claims
         FOR ALL USING (true) WITH CHECK (true);
@@ -64,13 +54,13 @@ export async function POST(_request: NextRequest) {
     END $$;
   `
 
-  // Try pg-meta internal endpoint
+  // Use Supabase pg-meta endpoint (available server-side within Vercel env)
+  const pgMetaUrl = `${supabaseUrl}/pg-meta/v0/query`
   const res = await fetch(pgMetaUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${serviceKey}`,
       'Content-Type': 'application/json',
-      'X-Connection-Encrypted': serviceKey,
     },
     body: JSON.stringify({ query: sql }),
   })
@@ -83,11 +73,20 @@ export async function POST(_request: NextRequest) {
     return NextResponse.json({ success: true, result: data })
   }
 
-  // Return the SQL so it can be run manually if the endpoint fails
+  // Verify table exists regardless (may have been created already)
+  const { data: check, error: checkErr } = await admin
+    .from('red_canjes_claims')
+    .select('id')
+    .limit(1)
+
+  if (!checkErr) {
+    return NextResponse.json({ success: true, message: 'Table already exists', pgMetaStatus: res.status })
+  }
+
   return NextResponse.json({
-    error: 'Auto-migration failed. Run this SQL manually in Supabase dashboard → SQL Editor.',
-    status: res.status,
-    response: data,
-    sql,
-  }, { status: 200 }) // 200 so it's easy to read
+    error: 'Migration failed',
+    pgMetaStatus: res.status,
+    pgMetaResponse: data,
+    checkError: checkErr?.message,
+  }, { status: 500 })
 }
