@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   // Find the active claim — by property_id when available, else by propietario_id
   let claimQuery = admin
     .from('red_canjes_claims')
-    .select('id, subscriber_id, claimed_by_user_id')
+    .select('id, subscriber_id, claimed_by_user_id, property_id, original_subscriber_id')
     .eq('status', 'active')
 
   if (property_id) {
@@ -44,12 +44,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No tienes permisos para liberar esta gestión' }, { status: 403 })
   }
 
+  // Mark claim as released
   const { error } = await admin
     .from('red_canjes_claims')
     .update({ status: 'released', released_at: new Date().toISOString() })
     .eq('id', claim.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Restore the property's original subscriber_id so it leaves the claimant's panel
+  if (claim.property_id) {
+    await admin
+      .from('properties')
+      .update({ subscriber_id: claim.original_subscriber_id ?? null })
+      .eq('id', claim.property_id)
+  }
 
   return NextResponse.json({ success: true })
 }

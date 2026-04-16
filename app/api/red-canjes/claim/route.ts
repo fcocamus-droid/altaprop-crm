@@ -57,7 +57,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Insert new claim
+  // Read the property's current subscriber_id so we can restore it on release/expire
+  let originalSubscriberId: string | null = null
+  if (property_id) {
+    const { data: prop } = await admin
+      .from('properties')
+      .select('subscriber_id')
+      .eq('id', property_id)
+      .single()
+    originalSubscriberId = prop?.subscriber_id ?? null
+  }
+
+  // Insert new claim (storing original_subscriber_id for later restoration)
   const { data, error } = await admin
     .from('red_canjes_claims')
     .insert({
@@ -69,6 +80,7 @@ export async function POST(request: NextRequest) {
       subscriber_name: subscriberName,
       notes: notes || null,
       status: 'active',
+      original_subscriber_id: originalSubscriberId,
     })
     .select()
     .single()
@@ -82,6 +94,14 @@ export async function POST(request: NextRequest) {
       }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Transfer the property into the claimant's subscriber org so it appears in their panel
+  if (property_id) {
+    await admin
+      .from('properties')
+      .update({ subscriber_id: effectiveSubscriberId })
+      .eq('id', property_id)
   }
 
   return NextResponse.json({ success: true, claim: data })

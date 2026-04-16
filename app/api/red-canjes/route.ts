@@ -75,11 +75,30 @@ export async function GET(request: NextRequest) {
     const claimsMapByPropietario = new Map<string, ClaimInfo>()
     try {
       // Auto-cleanup: batch-expire any claims whose expires_at has passed
-      await admin
+      // First fetch them so we can restore each property's original subscriber_id
+      const now = new Date().toISOString()
+      const { data: expiring } = await admin
         .from('red_canjes_claims')
-        .update({ status: 'expired' })
+        .select('id, property_id, original_subscriber_id')
         .eq('status', 'active')
-        .lt('expires_at', new Date().toISOString())
+        .lt('expires_at', now)
+
+      if (expiring && expiring.length > 0) {
+        // Restore subscriber_id for each property before expiring
+        for (const c of expiring) {
+          if (c.property_id) {
+            await admin
+              .from('properties')
+              .update({ subscriber_id: c.original_subscriber_id ?? null })
+              .eq('id', c.property_id)
+          }
+        }
+        // Now mark all as expired
+        await admin
+          .from('red_canjes_claims')
+          .update({ status: 'expired' })
+          .in('id', expiring.map((c: any) => c.id))
+      }
 
       const subscriberId = profile.role === 'SUPERADMINBOSS' ? profile.id : (profile.subscriber_id || profile.id)
       const { data: claims } = await admin
