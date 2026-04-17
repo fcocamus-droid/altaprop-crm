@@ -10,7 +10,7 @@ import { formatPrice } from '@/lib/utils'
 import type { Property } from '@/types'
 
 export function PropertyCard({ property }: { property: Property }) {
-  const mainImage = property.images?.[0]?.url || ''
+  const mainImage = [...(property.images || [])].sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0))[0]?.url || ''
   const operationLabel = property.operation === 'arriendo' ? 'Arriendo' : 'Venta'
   const [imgError, setImgError] = useState(false)
 

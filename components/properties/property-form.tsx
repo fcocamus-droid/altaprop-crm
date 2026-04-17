@@ -246,7 +246,10 @@ export function PropertyForm({ property }: PropertyFormProps) {
   const [amenities, setAmenities]   = useState<string[]>(property?.amenities || [])
 
   // ── Images — existing (from DB) ───────────────────────────────────────────
-  const [existingImages, setExistingImages] = useState<PropertyImage[]>(property?.images || [])
+  // Sort by order on init so they display in the correct saved order
+  const [existingImages, setExistingImages] = useState<PropertyImage[]>(
+    [...(property?.images || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  )
   const [deletedImageIds, setDeletedImageIds] = useState<string[]>([])
 
   // ── Images — new (selected files + base64 previews) ─────────────────────
@@ -254,6 +257,49 @@ export function PropertyForm({ property }: PropertyFormProps) {
   // This avoids all blob URL issues (CSP, revocation, re-render instability).
   const [newImages, setNewImages]         = useState<File[]>([])
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([])
+
+  // ── Drag-and-drop reorder ─────────────────────────────────────────────────
+  const [dragIdx, setDragIdx]         = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [dragSection, setDragSection] = useState<'existing' | 'new' | null>(null)
+
+  function handleDragStart(index: number, section: 'existing' | 'new') {
+    setDragIdx(index)
+    setDragSection(section)
+  }
+
+  function handleDragEnter(index: number) {
+    if (dragIdx !== null && dragIdx !== index) setDragOverIdx(index)
+  }
+
+  function handleDragEnd() {
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      if (dragSection === 'existing') {
+        setExistingImages(prev => {
+          const arr = [...prev]
+          const [item] = arr.splice(dragIdx, 1)
+          arr.splice(dragOverIdx, 0, item)
+          return arr
+        })
+      } else if (dragSection === 'new') {
+        setNewImages(prev => {
+          const arr = [...prev]
+          const [item] = arr.splice(dragIdx, 1)
+          arr.splice(dragOverIdx, 0, item)
+          return arr
+        })
+        setNewImagePreviews(prev => {
+          const arr = [...prev]
+          const [item] = arr.splice(dragIdx, 1)
+          arr.splice(dragOverIdx, 0, item)
+          return arr
+        })
+      }
+    }
+    setDragIdx(null)
+    setDragOverIdx(null)
+    setDragSection(null)
+  }
 
   // ── Lightbox ──────────────────────────────────────────────────────────────
   const [lightbox, setLightbox]     = useState<{ open: boolean; index: number }>({ open: false, index: 0 })
@@ -341,6 +387,9 @@ export function PropertyForm({ property }: PropertyFormProps) {
 
     // Deleted image IDs
     formData.set('deleted_image_ids', JSON.stringify(deletedImageIds))
+
+    // Current order of existing images (for drag-and-drop reorder persistence)
+    formData.set('existing_image_order', JSON.stringify(existingImages.map(img => img.id)))
 
     // Upload new images
     if (newImages.length > 0) {
@@ -671,17 +720,46 @@ export function PropertyForm({ property }: PropertyFormProps) {
                 {/* Existing images */}
                 {existingImages.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">Imágenes actuales — haz click para ampliar</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Imágenes actuales — <span className="font-medium">arrastra para reordenar</span> · click para ampliar
+                    </p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                       {existingImages.map((img, i) => (
-                        <div key={img.id} className="group relative aspect-square rounded-lg overflow-hidden bg-muted border">
+                        <div
+                          key={img.id}
+                          draggable
+                          onDragStart={() => handleDragStart(i, 'existing')}
+                          onDragEnter={() => handleDragEnter(i)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={e => e.preventDefault()}
+                          className={[
+                            'group relative aspect-square rounded-lg overflow-hidden bg-muted border select-none transition-all duration-150',
+                            dragSection === 'existing' && dragIdx === i
+                              ? 'opacity-40 scale-95 cursor-grabbing'
+                              : 'cursor-grab',
+                            dragSection === 'existing' && dragOverIdx === i && dragIdx !== i
+                              ? 'ring-2 ring-primary ring-offset-1'
+                              : '',
+                          ].join(' ')}
+                        >
                           <img
                             src={img.url}
                             alt=""
-                            className="object-cover w-full h-full cursor-zoom-in"
-                            onClick={() => setLightbox({ open: true, index: i })}
+                            draggable={false}
+                            className="object-cover w-full h-full pointer-events-none"
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
+                          {/* Cover badge on first image */}
+                          {i === 0 && (
+                            <div className="absolute bottom-1 left-1 bg-gold text-navy text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              PORTADA
+                            </div>
+                          )}
+                          {i > 0 && (
+                            <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 bg-black/50 text-white text-[10px] px-1 rounded transition-opacity">
+                              #{i + 1}
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => setLightbox({ open: true, index: i })}
@@ -696,9 +774,6 @@ export function PropertyForm({ property }: PropertyFormProps) {
                           >
                             <X className="h-3 w-3" />
                           </button>
-                          <div className="absolute bottom-1 left-1 opacity-0 group-hover:opacity-100 bg-black/50 text-white text-[10px] px-1 rounded transition-opacity">
-                            #{i + 1}
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -708,15 +783,33 @@ export function PropertyForm({ property }: PropertyFormProps) {
                 {/* New images to upload */}
                 {newImages.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-2">Nuevas imágenes a subir</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Nuevas imágenes a subir — <span className="font-medium">arrastra para reordenar</span>
+                    </p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                       {newImages.map((file, i) => (
-                        <div key={i} className="group relative aspect-square rounded-lg overflow-hidden bg-muted border border-dashed border-primary/40">
+                        <div
+                          key={`new-${i}`}
+                          draggable
+                          onDragStart={() => handleDragStart(i, 'new')}
+                          onDragEnter={() => handleDragEnter(i)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={e => e.preventDefault()}
+                          className={[
+                            'group relative aspect-square rounded-lg overflow-hidden bg-muted border border-dashed border-primary/40 select-none transition-all duration-150',
+                            dragSection === 'new' && dragIdx === i
+                              ? 'opacity-40 scale-95 cursor-grabbing'
+                              : 'cursor-grab',
+                            dragSection === 'new' && dragOverIdx === i && dragIdx !== i
+                              ? 'ring-2 ring-primary ring-offset-1'
+                              : '',
+                          ].join(' ')}
+                        >
                           <img
                             src={newImagePreviews[i] ?? ''}
                             alt=""
-                            className="object-cover w-full h-full cursor-zoom-in"
-                            onClick={() => setLightbox({ open: true, index: existingImages.length + i })}
+                            draggable={false}
+                            className="object-cover w-full h-full pointer-events-none"
                           />
                           <button
                             type="button"

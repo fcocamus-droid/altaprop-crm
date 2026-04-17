@@ -152,6 +152,17 @@ export async function updateProperty(id: string, formData: FormData) {
     await supabase.from('property_images').delete().in('id', deletedIds)
   }
 
+  // Persist the new display order for existing images (drag-and-drop reorder)
+  const imageOrderRaw = formData.get('existing_image_order') as string
+  const imageOrder: string[] = imageOrderRaw ? JSON.parse(imageOrderRaw) : []
+  if (imageOrder.length > 0) {
+    await Promise.all(
+      imageOrder.map((imageId, idx) =>
+        supabase.from('property_images').update({ order: idx } as any).eq('id', imageId)
+      )
+    )
+  }
+
   const { error } = await supabase
     .from('properties')
     .update({ ...parsed.data, website_visible: websiteVisible, amenities } as any)

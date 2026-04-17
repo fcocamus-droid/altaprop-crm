@@ -33,7 +33,7 @@ export async function getProperties(filters: PropertyFilters = {}) {
   const supabase = createClient()
   let query = supabase
     .from('properties')
-    .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, phone)')
+    .select('*, images:property_images(id, url, order), owner:profiles!properties_owner_id_fkey(full_name, phone)')
     .order('created_at', { ascending: false })
 
   if (filters.type) query = query.eq('type', filters.type)
@@ -68,7 +68,7 @@ export async function getPropertiesByOwner(ownerId: string) {
   const admin = getAdminClient()
   const { data, error } = await admin
     .from('properties')
-    .select('*, images:property_images(url), agent:profiles!properties_agent_id_fkey(id, full_name), ownerProfile:profiles!properties_owner_id_fkey(role)')
+    .select('*, images:property_images(id, url, order), agent:profiles!properties_agent_id_fkey(id, full_name), ownerProfile:profiles!properties_owner_id_fkey(role)')
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: false })
 
@@ -83,7 +83,7 @@ export async function getPropertiesByAgent(agentId: string) {
   const [{ data, error }, claimedIds] = await Promise.all([
     supabase
       .from('properties')
-      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .select('*, images:property_images(id, url, order), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
       .eq('agent_id', agentId)
       .order('created_at', { ascending: false }),
     getActiveClaimedIds(),
@@ -104,7 +104,7 @@ export async function getAllProperties() {
   const [{ data, error }, claimedIds] = await Promise.all([
     supabase
       .from('properties')
-      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .select('*, images:property_images(id, url, order), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
       .order('created_at', { ascending: false }),
     getActiveClaimedIds(),
   ])
@@ -124,7 +124,7 @@ export async function getPropertiesBySubscriber(subscriberId: string) {
   const [{ data, error }, claimedIds] = await Promise.all([
     supabase
       .from('properties')
-      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .select('*, images:property_images(id, url, order), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
       .eq('subscriber_id', subscriberId)
       .order('created_at', { ascending: false }),
     getActiveClaimedIds(),
@@ -142,7 +142,7 @@ export async function getFeaturedProperties() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(url)')
+    .select('*, images:property_images(url, order)')
     .eq('status', 'available')
     .eq('featured', true)
     .order('created_at', { ascending: false })
