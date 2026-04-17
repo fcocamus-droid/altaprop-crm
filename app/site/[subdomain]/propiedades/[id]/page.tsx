@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { unstable_noStore as noStore } from 'next/cache'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatPrice, formatDate, toEmbedUrl } from '@/lib/utils'
 import {
   Bed, Bath, Maximize, MapPin, Calendar, MessageCircle,
   ArrowLeft, Phone, Car, Package, CheckCircle2, Video,
@@ -215,7 +215,7 @@ export default async function SitePropertyDetailPage({
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg overflow-hidden aspect-video">
-                  <iframe src={property.video_url} className="w-full h-full" allowFullScreen title="Video propiedad" />
+                  <iframe src={toEmbedUrl(property.video_url)} className="w-full h-full" allowFullScreen title="Video propiedad" />
                 </div>
               </CardContent>
             </Card>

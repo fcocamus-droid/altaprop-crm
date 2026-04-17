@@ -13,6 +13,7 @@ import {
 } from '@/lib/constants'
 import { createProperty, updateProperty } from '@/lib/actions/properties'
 import { createClient } from '@/lib/supabase/client'
+import { toEmbedUrl } from '@/lib/utils'
 import { ComunaSelector } from '@/components/properties/comuna-selector'
 import {
   Loader2, Upload, X, Globe, ChevronDown, ChevronUp,
@@ -689,11 +690,11 @@ export function PropertyForm({ property }: PropertyFormProps) {
             <Card>
               <SectionHeader title="Multimedia" />
               <CardContent className="space-y-4">
-                <Field label="Video YouTube (URL de embed o iFrame)">
+                <Field label="Video YouTube">
                   <Input
                     name="video_url"
                     defaultValue={property?.video_url || ''}
-                    placeholder="https://www.youtube.com/embed/..."
+                    placeholder="https://www.youtube.com/watch?v=... o https://youtu.be/..."
                   />
                 </Field>
                 <Field label="Tour Virtual (URL de iFrame 360°)">
@@ -706,7 +707,7 @@ export function PropertyForm({ property }: PropertyFormProps) {
                 {/* Preview */}
                 {property?.video_url && (
                   <div className="rounded-lg overflow-hidden aspect-video bg-muted">
-                    <iframe src={property.video_url} className="w-full h-full" allowFullScreen />
+                    <iframe src={toEmbedUrl(property.video_url)} className="w-full h-full" allowFullScreen />
                   </div>
                 )}
               </CardContent>

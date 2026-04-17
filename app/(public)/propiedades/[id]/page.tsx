@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApplyButton } from '@/components/applications/apply-button'
 import { VisitCalendarToggle } from '@/components/visits/visit-calendar-toggle'
 import { SiteImageCarousel } from '@/components/site/site-image-carousel'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatPrice, formatDate, toEmbedUrl } from '@/lib/utils'
 import {
   Bed, Bath, Maximize, MapPin, Calendar, Phone,
   ArrowLeft, Car, Package, CheckCircle2, Video,
@@ -177,7 +177,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
               </CardHeader>
               <CardContent>
                 <div className="rounded-lg overflow-hidden aspect-video">
-                  <iframe src={property.video_url} className="w-full h-full" allowFullScreen title="Video propiedad" />
+                  <iframe src={toEmbedUrl(property.video_url)} className="w-full h-full" allowFullScreen title="Video propiedad" />
                 </div>
               </CardContent>
             </Card>
