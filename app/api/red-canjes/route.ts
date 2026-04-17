@@ -69,10 +69,9 @@ export async function GET(request: NextRequest) {
     const { data: properties, error: propErr } = await propQuery
     if (propErr) return NextResponse.json({ error: propErr.message }, { status: 500 })
 
-    // Step 4: get all active claims — keyed by property_id (per-property) or propietario_id (meta-only)
+    // Step 4: get all active claims — keyed by property_id
     type ClaimInfo = { subscriber_name: string; claimed_by_name: string; expires_at: string; is_mine: boolean }
     const claimsMapByProperty = new Map<string, ClaimInfo>()
-    const claimsMapByPropietario = new Map<string, ClaimInfo>()
     try {
       // Auto-cleanup: batch-expire any claims whose expires_at has passed
       // First fetch them so we can restore each property's original subscriber_id
@@ -127,8 +126,6 @@ export async function GET(request: NextRequest) {
           }
           if (c.property_id) {
             claimsMapByProperty.set(c.property_id, info)
-          } else {
-            claimsMapByPropietario.set(c.propietario_id, info)
           }
         }
       }
@@ -166,47 +163,10 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Build the set of owners who have ANY property (regardless of status/filters)
-    // so we don't show metadata-only cards for propietarios whose properties were
-    // filtered out (e.g. rented/unavailable properties excluded by status filter)
-    const { data: allPropOwners } = await admin
-      .from('properties')
-      .select('owner_id')
-      .in('owner_id', propietarioIds)
-    const ownersWithProperty = new Set((allPropOwners || []).map((p: any) => p.owner_id))
-    const metaOnlyListings = propietarios
-      .filter((p: any) => !ownersWithProperty.has(p.id))
-      .map((p: any) => {
-        const meta = metaMap.get(p.id) || {}
-        const matchesCity = !filterCity || (meta.property_city || '').toLowerCase().includes(filterCity.toLowerCase())
-        const matchesOp = !filterOperation || meta.property_operation === filterOperation
-        const matchesType = !filterType || meta.property_type === filterType
-        if (!matchesCity || !matchesOp || !matchesType) return null
-        const claim = claimsMapByPropietario.get(p.id) || null
-        return {
-          id: `meta_${p.id}`,
-          title: `Propiedad en ${meta.property_city || 'Chile'}`,
-          address: meta.property_address || '',
-          city: meta.property_city || '',
-          sector: meta.property_sector || '',
-          region: '',
-          status: 'available',
-          operation: meta.property_operation || '',
-          type: meta.property_type || '',
-          price: null,
-          currency: null,
-          owner_id: p.id,
-          created_at: p.created_at,
-          images: [],
-          pais: 'Chile',
-          is_metadata_only: true,
-          propietario: propietarioMap.get(p.id) || null,
-          claim,
-        }
-      })
-      .filter(Boolean)
-
     // Step 5: fetch staff (non-PROPIETARIO) properties explicitly published to Red de Canjes
+    // NOTE: metadata-only listings (propietarios with no real properties) are intentionally
+    // excluded. A property must be explicitly published via the property form with
+    // red_canjes_visible = true before it appears here.
     let staffQuery = admin
       .from('properties')
       .select('id, title, address, city, sector, region, status, operation, type, price, currency, owner_id, subscriber_id, created_at, red_canjes_visible, images:property_images(url)')
@@ -232,7 +192,7 @@ export async function GET(request: NextRequest) {
       is_staff_listing: true,
     }))
 
-    const result = [...propertiesWithOwner, ...metaOnlyListings, ...staffListings]
+    const result = [...propertiesWithOwner, ...staffListings]
 
     // Count how many claim "slots" this subscriber is currently using.
     // A slot is occupied for 30 days from claimed_at unless commission was paid.
