@@ -12,18 +12,22 @@ export const metadata: Metadata = { title: 'Suscriptores - Altaprop' }
 async function getSubscribers() {
   const admin = createAdminClient()
 
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('*')
-    .eq('role', 'SUPERADMIN')
-    .order('created_at', { ascending: false })
+  // Run profiles + auth users in parallel — they are independent queries
+  const [profilesResult, authResult] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id, full_name, phone, rut, plan, subscription_status, subscription_ends_at, trial_ends_at, mp_subscription_id, max_agents, extra_agent_slots, created_at, updated_at, website_subdomain, website_domain, website_enabled')
+      .eq('role', 'SUPERADMIN')
+      .order('created_at', { ascending: false }),
+    admin.auth.admin.listUsers({ perPage: 1000 }),
+  ])
 
+  const profiles = profilesResult.data
   if (!profiles) return []
 
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
   const emailMap = new Map<string, string>()
-  if (authData?.users) {
-    for (const u of authData.users) {
+  if (authResult.data?.users) {
+    for (const u of authResult.data.users) {
       emailMap.set(u.id, u.email || '')
     }
   }

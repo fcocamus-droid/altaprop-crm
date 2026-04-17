@@ -31,33 +31,31 @@ export default async function UsuariosPage() {
       const admin = createAdminClient()
       const subscriberId = result.profile.subscriber_id || result.profile.id
 
-      // Fetch subscriber profile for plan + extra_agent_slots
-      const { data: subscriberProfile } = await admin
-        .from('profiles')
-        .select('plan, extra_agent_slots')
-        .eq('id', subscriberId)
-        .single()
+      // Run all three queries in parallel — they are independent of each other
+      const [{ data: subscriberProfile }, { count }, { data: pendingReq }] = await Promise.all([
+        admin
+          .from('profiles')
+          .select('plan, extra_agent_slots')
+          .eq('id', subscriberId)
+          .single(),
+        admin
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('subscriber_id', subscriberId)
+          .eq('role', 'AGENTE'),
+        admin
+          .from('agent_slot_requests' as any)
+          .select('id')
+          .eq('subscriber_id', subscriberId)
+          .eq('status', 'pending')
+          .maybeSingle(),
+      ])
 
       const plan = (subscriberProfile as any)?.plan ?? result.profile.plan
       extraSlots = (subscriberProfile as any)?.extra_agent_slots ?? 0
       planName = getPlanName(plan)
       maxAgents = getMaxAgents(plan, extraSlots)
-
-      // Count current agents
-      const { count } = await admin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('subscriber_id', subscriberId)
-        .eq('role', 'AGENTE')
       usedAgents = count || 0
-
-      // Check for pending slot request
-      const { data: pendingReq } = await admin
-        .from('agent_slot_requests' as any)
-        .select('id')
-        .eq('subscriber_id', subscriberId)
-        .eq('status', 'pending')
-        .maybeSingle()
       hasPendingRequest = !!pendingReq
     }
   } catch {

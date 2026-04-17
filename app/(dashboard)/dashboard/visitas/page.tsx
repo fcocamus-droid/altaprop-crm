@@ -19,33 +19,32 @@ export default async function VisitasPage() {
   let properties: any[] = []
 
   try {
+    const supabase = createClient()
+
+    // Build both queries up-front and run them in parallel
+    let visitsPromise: Promise<any[]>
+    let propertiesPromise: Promise<{ data: any[] | null }>
+
     if (profile.role === ROLES.SUPERADMINBOSS) {
-      visits = await getAllVisits()
+      visitsPromise = getAllVisits()
+      propertiesPromise = supabase.from('properties').select('id, title').order('title') as any
     } else if (profile.role === ROLES.SUPERADMIN) {
-      visits = await getVisitsBySubscriber(profile.subscriber_id || profile.id)
+      visitsPromise = getVisitsBySubscriber(profile.subscriber_id || profile.id)
+      propertiesPromise = supabase.from('properties').select('id, title').eq('subscriber_id', profile.subscriber_id || profile.id).order('title') as any
     } else if (profile.role === 'AGENTE') {
-      visits = await getVisitsByAgent(profile.id)
+      visitsPromise = getVisitsByAgent(profile.id)
+      propertiesPromise = supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title') as any
     } else if (profile.role === 'PROPIETARIO') {
-      visits = await getVisitsByPropertyOwner(profile.id)
+      visitsPromise = getVisitsByPropertyOwner(profile.id)
+      propertiesPromise = supabase.from('properties').select('id, title').eq('owner_id', profile.id).order('title') as any
     } else {
-      visits = await getVisitsByVisitor(profile.id)
+      visitsPromise = getVisitsByVisitor(profile.id)
+      propertiesPromise = Promise.resolve({ data: null }) as any
     }
 
-    // Get properties for the create form
-    const supabase = createClient()
-    if (profile.role === ROLES.SUPERADMINBOSS) {
-      const { data } = await supabase.from('properties').select('id, title').order('title')
-      properties = data || []
-    } else if (profile.role === ROLES.SUPERADMIN) {
-      const { data } = await supabase.from('properties').select('id, title').eq('subscriber_id', profile.subscriber_id || profile.id).order('title')
-      properties = data || []
-    } else if (profile.role === 'AGENTE') {
-      const { data } = await supabase.from('properties').select('id, title').eq('agent_id', profile.id).order('title')
-      properties = data || []
-    } else if (profile.role === 'PROPIETARIO') {
-      const { data } = await supabase.from('properties').select('id, title').eq('owner_id', profile.id).order('title')
-      properties = data || []
-    }
+    const [visitsData, propertiesResult] = await Promise.all([visitsPromise, propertiesPromise])
+    visits = visitsData
+    properties = (propertiesResult as any).data || []
   } catch {
     // Supabase may not be configured yet
   }

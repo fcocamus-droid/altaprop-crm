@@ -11,27 +11,29 @@ function getAdminClient() {
 }
 
 /**
- * Marks properties that are currently under an active Red de Canjes claim
- * so the UI can hide the Red de Canjes toggle button for those properties.
+ * Returns a set of property IDs that are currently under an active Red de Canjes claim.
+ * Fetches all active claims at once — the table is small (max 3 per subscriber),
+ * so a full scan is fast and lets us run this in parallel with the properties query.
  */
-async function enrichWithClaimStatus(properties: any[]): Promise<any[]> {
-  if (!properties.length) return properties
-  const admin = getAdminClient()
-  const ids = properties.map(p => p.id).filter(Boolean)
-  const { data: claims } = await admin
-    .from('red_canjes_claims')
-    .select('property_id')
-    .in('property_id', ids)
-    .eq('status', 'active')
-  const claimedIds = new Set((claims || []).map((c: any) => c.property_id))
-  return properties.map(p => ({ ...p, has_active_red_canjes_claim: claimedIds.has(p.id) }))
+async function getActiveClaimedIds(): Promise<Set<string>> {
+  try {
+    const admin = getAdminClient()
+    const { data: claims } = await admin
+      .from('red_canjes_claims')
+      .select('property_id')
+      .eq('status', 'active')
+      .not('property_id', 'is', null)
+    return new Set((claims || []).map((c: any) => c.property_id as string))
+  } catch {
+    return new Set()
+  }
 }
 
 export async function getProperties(filters: PropertyFilters = {}) {
   const supabase = createClient()
   let query = supabase
     .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, phone)')
+    .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, phone)')
     .order('created_at', { ascending: false })
 
   if (filters.type) query = query.eq('type', filters.type)
@@ -66,7 +68,7 @@ export async function getPropertiesByOwner(ownerId: string) {
   const admin = getAdminClient()
   const { data, error } = await admin
     .from('properties')
-    .select('*, images:property_images(*), agent:profiles!properties_agent_id_fkey(id, full_name), ownerProfile:profiles!properties_owner_id_fkey(role)')
+    .select('*, images:property_images(url), agent:profiles!properties_agent_id_fkey(id, full_name), ownerProfile:profiles!properties_owner_id_fkey(role)')
     .eq('owner_id', ownerId)
     .order('created_at', { ascending: false })
 
@@ -76,47 +78,71 @@ export async function getPropertiesByOwner(ownerId: string) {
 
 export async function getPropertiesByAgent(agentId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending: false })
+
+  // Run properties + active claims in parallel
+  const [{ data, error }, claimedIds] = await Promise.all([
+    supabase
+      .from('properties')
+      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: false }),
+    getActiveClaimedIds(),
+  ])
 
   if (error) throw error
-  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
-  return enrichWithClaimStatus(mapped) as Promise<Property[]>
+  return ((data || []) as any[]).map(p => ({
+    ...p,
+    owner_role: (p.owner as any)?.role || null,
+    has_active_red_canjes_claim: claimedIds.has(p.id),
+  })) as Property[]
 }
 
 export async function getAllProperties() {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
-    .order('created_at', { ascending: false })
+
+  // Run properties + active claims in parallel
+  const [{ data, error }, claimedIds] = await Promise.all([
+    supabase
+      .from('properties')
+      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .order('created_at', { ascending: false }),
+    getActiveClaimedIds(),
+  ])
 
   if (error) throw error
-  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
-  return enrichWithClaimStatus(mapped) as Promise<Property[]>
+  return ((data || []) as any[]).map(p => ({
+    ...p,
+    owner_role: (p.owner as any)?.role || null,
+    has_active_red_canjes_claim: claimedIds.has(p.id),
+  })) as Property[]
 }
 
 export async function getPropertiesBySubscriber(subscriberId: string) {
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('properties')
-    .select('*, images:property_images(*), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
-    .eq('subscriber_id', subscriberId)
-    .order('created_at', { ascending: false })
+
+  // Run properties + active claims in parallel
+  const [{ data, error }, claimedIds] = await Promise.all([
+    supabase
+      .from('properties')
+      .select('*, images:property_images(url), owner:profiles!properties_owner_id_fkey(full_name, role), agent:profiles!properties_agent_id_fkey(id, full_name)')
+      .eq('subscriber_id', subscriberId)
+      .order('created_at', { ascending: false }),
+    getActiveClaimedIds(),
+  ])
 
   if (error) throw error
-  const mapped = ((data || []) as any[]).map(p => ({ ...p, owner_role: (p.owner as any)?.role || null }))
-  return enrichWithClaimStatus(mapped) as Promise<Property[]>
+  return ((data || []) as any[]).map(p => ({
+    ...p,
+    owner_role: (p.owner as any)?.role || null,
+    has_active_red_canjes_claim: claimedIds.has(p.id),
+  })) as Property[]
 }
 
 export async function getFeaturedProperties() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
-    .select('*, images:property_images(*)')
+    .select('*, images:property_images(url)')
     .eq('status', 'available')
     .eq('featured', true)
     .order('created_at', { ascending: false })

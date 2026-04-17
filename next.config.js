@@ -4,6 +4,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['pdfkit'],
   },
   images: {
+    minimumCacheTTL: 3600,
     remotePatterns: [
       {
         protocol: 'https',
