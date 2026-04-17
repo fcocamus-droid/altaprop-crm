@@ -152,13 +152,15 @@ export async function updateProperty(id: string, formData: FormData) {
     await supabase.from('property_images').delete().in('id', deletedIds)
   }
 
-  // Persist the new display order for existing images (drag-and-drop reorder)
+  // Persist the new display order for existing images (drag-and-drop reorder).
+  // Uses admin client to bypass RLS — RLS allows INSERT/DELETE but not UPDATE on property_images.
   const imageOrderRaw = formData.get('existing_image_order') as string
   const imageOrder: string[] = imageOrderRaw ? JSON.parse(imageOrderRaw) : []
   if (imageOrder.length > 0) {
+    const admin = createAdminClient()
     await Promise.all(
       imageOrder.map((imageId, idx) =>
-        supabase.from('property_images').update({ order: idx } as any).eq('id', imageId)
+        admin.from('property_images').update({ order: idx } as any).eq('id', imageId)
       )
     )
   }
@@ -170,12 +172,16 @@ export async function updateProperty(id: string, formData: FormData) {
 
   if (error) return { error: error.message }
 
+  // New images must start their order AFTER the existing ones so they
+  // don't collide with the just-saved order values (0, 1, 2 … existingCount-1).
+  const existingCount = imageOrder.length  // already declared above
+
   // Handle image URLs (uploaded from client)
   const imageUrlsJson = formData.get('image_urls') as string
   if (imageUrlsJson) {
     const imageUrls = JSON.parse(imageUrlsJson) as string[]
     if (imageUrls.length > 0) {
-      const records = imageUrls.map((url, i) => ({ property_id: id, url, order: i }))
+      const records = imageUrls.map((url, i) => ({ property_id: id, url, order: existingCount + i }))
       await supabase.from('property_images').insert(records)
     }
   }
@@ -191,7 +197,7 @@ export async function updateProperty(id: string, formData: FormData) {
         .upload(filePath, file)
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from('property-images').getPublicUrl(filePath)
-        return { property_id: id, url: urlData.publicUrl, order: i }
+        return { property_id: id, url: urlData.publicUrl, order: existingCount + i }
       }
       return null
     })
