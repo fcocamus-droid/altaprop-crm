@@ -1,0 +1,59 @@
+{
+  "name": "Altaprop CRM",
+  "short_name": "Altaprop",
+  "description": "Gestión inmobiliaria · Propiedades, visitas, postulaciones",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#003f73",
+  "theme_color": "#003f73",
+  "lang": "es-CL",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/api/pwa/icon/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/pwa/icon/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/pwa/icon/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Propiedades",
+      "short_name": "Propiedades",
+      "url": "/dashboard/propiedades",
+      "description": "Ver mis propiedades"
+    },
+    {
+      "name": "Visitas",
+      "short_name": "Visitas",
+      "url": "/dashboard/visitas",
+      "description": "Gestionar visitas agendadas"
+    },
+    {
+      "name": "Postulaciones",
+      "short_name": "Postulaciones",
+      "url": "/dashboard/postulaciones",
+      "description": "Revisar postulaciones recibidas"
+    },
+    {
+      "name": "Red de Canjes",
+      "short_name": "Red Canjes",
+      "url": "/dashboard/red-canjes",
+      "description": "Red de propiedades Altaprop"
+    }
+  ]
+}

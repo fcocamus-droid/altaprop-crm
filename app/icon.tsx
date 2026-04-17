@@ -1,33 +1,13 @@
 import { ImageResponse } from 'next/og'
 
-export const size        = { width: 64, height: 64 }
+export const size = { width: 32, height: 32 }
 export const contentType = 'image/png'
 
 export default function Icon() {
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#1a2332',
-          borderRadius: '14px',
-        }}
-      >
-        <span
-          style={{
-            fontSize: 44,
-            fontWeight: 900,
-            color: '#c9a84c',
-            lineHeight: 1,
-            fontFamily: 'Georgia, serif',
-          }}
-        >
-          A
-        </span>
+      <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#003f73', borderRadius: 6 }}>
+        <span style={{ color: '#ccbd92', fontSize: 20, fontWeight: 900, fontFamily: 'Arial Black, Arial, sans-serif', lineHeight: 1 }}>A</span>
       </div>
     ),
     { ...size }
