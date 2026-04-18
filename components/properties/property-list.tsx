@@ -28,6 +28,7 @@ interface Property {
   price: number
   currency: string
   operation: string
+  address: string | null
   city: string
   sector: string
   status: string
