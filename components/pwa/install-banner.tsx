@@ -121,11 +121,11 @@ export function InstallBanner() {
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-gold font-bold shrink-0">2.</span>
-                  <span>Desplázate y toca <strong>"Agregar a pantalla de inicio"</strong></span>
+                  <span>Desplázate y toca <strong>&quot;Agregar a pantalla de inicio&quot;</strong></span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-gold font-bold shrink-0">3.</span>
-                  <span>Toca <strong>"Agregar"</strong> en la esquina superior derecha</span>
+                  <span>Toca <strong>&quot;Agregar&quot;</strong> en la esquina superior derecha</span>
                 </div>
                 <button onClick={dismiss} className="mt-1 text-xs text-white/50 hover:text-white/70 transition-colors">
                   Entendido, cerrar
