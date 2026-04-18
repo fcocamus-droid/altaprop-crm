@@ -271,7 +271,9 @@ export function PropertyList({ properties: initialProperties, agents = [], curre
                   <Link href={`/propiedades/${property.id}`} target="_blank" className="hover:underline">
                     <h3 className="font-semibold truncate">{property.title}</h3>
                   </Link>
-                  <p className="text-sm text-muted-foreground">{property.city}{property.sector ? `, ${property.sector}` : ''}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {[property.address, property.city, property.sector].filter(Boolean).join(', ')}
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="font-semibold text-sm text-navy">{formatPrice(property.price, property.currency)}</span>
                     {/* Editable dropdown for ALL statuses — admin/agent can always correct */}
