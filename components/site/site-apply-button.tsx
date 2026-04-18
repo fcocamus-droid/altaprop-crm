@@ -94,9 +94,13 @@ export function SiteApplyButton({ propertyId, subdomain, primaryColor, accentCol
   }
 
   // ── Guest: register / login ──────────────────────────────────────────────
-  // Auth pages live on the main app domain — must use absolute URLs so custom
-  // domains (e.g. loginaltaprop.cl) don't resolve them locally (404).
-  const appUrl     = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
+  // Auth pages live on the canonical production domain — must use absolute URLs
+  // so custom subscriber domains don't try to resolve them locally (404).
+  // NEXT_PUBLIC_SITE_URL may be set to the Vercel preview URL in Vercel env vars;
+  // hardcoding production ensures the link always points to altaprop-app.cl.
+  const appUrl = process.env.NODE_ENV === 'development'
+    ? (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
+    : 'https://altaprop-app.cl'
   const returnPath = `/site/${subdomain}/propiedades/${propertyId}`
   const registerUrl = `${appUrl}/registro-postulante?property=${propertyId}&redirect=${encodeURIComponent(returnPath)}`
   const loginUrl    = `${appUrl}/login?redirect=${encodeURIComponent(returnPath)}`
