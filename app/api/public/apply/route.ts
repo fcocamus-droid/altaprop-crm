@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { findOrCreatePostulante } from '@/lib/actions/guest-profile'
 import { fetchSubscriberBrand, buildSimpleBrandHeader, type SubscriberBrand } from '@/lib/utils/subscriber-brand'
+import { sendPushToUsers } from '@/lib/actions/push-notify'
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,7 +63,21 @@ export async function POST(req: NextRequest) {
     const notifName  = isAuthenticated ? (user!.user_metadata?.full_name ?? user!.email ?? '') : fullName
     const notifEmail = isAuthenticated ? (user!.email ?? '') : email
 
-    // Fire-and-forget — don't block the response
+    // Fire-and-forget push + email — don't block the response
+    const propertyTitle = property.title || property.address || 'la propiedad'
+    if (property.subscriber_id) {
+      sendPushToUsers(
+        [property.subscriber_id],
+        {
+          title: '📄 Nueva postulación',
+          body: `${notifName} postuló a "${propertyTitle}"`,
+          data: { type: 'application', propertyId },
+          channelId: 'postulaciones',
+        },
+        admin,
+      ).catch(() => {})
+    }
+
     sendNotificationEmails({
       admin,
       subscriberId: property.subscriber_id,

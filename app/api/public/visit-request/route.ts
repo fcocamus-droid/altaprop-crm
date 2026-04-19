@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { toChileDatetime } from '@/lib/utils/chile-datetime'
 import { findOrCreatePostulante } from '@/lib/actions/guest-profile'
 import { fetchSubscriberBrand, buildSimpleBrandHeader, type SubscriberBrand } from '@/lib/utils/subscriber-brand'
+import { sendPushToUsers } from '@/lib/actions/push-notify'
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,7 +46,20 @@ export async function POST(req: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://altaprop-app.cl'
     const propertyTitle = property.title || property.address || 'la propiedad'
 
-    // Fire-and-forget — don't block the response
+    // Fire-and-forget push + email — don't block the response
+    if (property.subscriber_id) {
+      sendPushToUsers(
+        [property.subscriber_id],
+        {
+          title: '📅 Nueva solicitud de visita',
+          body: `${fullName} quiere visitar "${propertyTitle}"`,
+          data: { type: 'visit', propertyId },
+          channelId: 'visitas',
+        },
+        admin,
+      ).catch(() => {})
+    }
+
     sendNotificationEmails({
       admin,
       subscriberId: property.subscriber_id,
