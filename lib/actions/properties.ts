@@ -78,7 +78,13 @@ export async function createProperty(formData: FormData) {
       ...parsed.data,
       ...(tempId ? { id: tempId } : {}),
       owner_id: profile.id,
-      subscriber_id: profile.subscriber_id || profile.id,
+      // PROPIETARIO: keep null when not yet assigned to a subscriber (avoids
+      // the property being "owned" by the propietario's own ID, which no
+      // subscriber query would ever match).  Other roles fall back to their
+      // own ID so their properties always land in the right subscriber panel.
+      subscriber_id: profile.role === ROLES.PROPIETARIO
+        ? (profile.subscriber_id || null)
+        : (profile.subscriber_id || profile.id),
       website_visible: websiteVisible,
       // PROPIETARIO properties are visible in Red de Canjes by default
       red_canjes_visible: profile.role === ROLES.PROPIETARIO,
@@ -350,7 +356,9 @@ export async function importProperty(propertyData: {
       video_url: propertyData.video_url || '',
       internal_code: propertyData.internal_code || '',
       owner_id: profile.id,
-      subscriber_id: profile.subscriber_id || profile.id,
+      subscriber_id: profile.role === ROLES.PROPIETARIO
+        ? (profile.subscriber_id || null)
+        : (profile.subscriber_id || profile.id),
       status: 'available',
       featured: false,
       // Auto-assign to the agent who imported the property

@@ -226,7 +226,18 @@ export async function assignPropietarioToSubscriber(
 
   if (error) return { error: error.message }
 
+  // Bulk-update all existing properties owned by this propietario so they
+  // immediately appear (or disappear) in the subscriber's panel without
+  // requiring the propietario to re-upload them.
+  const { error: propError } = await admin
+    .from('properties')
+    .update({ subscriber_id: subscriberId })
+    .eq('owner_id', propietarioId)
+
+  if (propError) return { error: propError.message }
+
   revalidatePath('/dashboard/base-propietarios')
+  revalidatePath('/dashboard/propiedades')
   return { success: true }
 }
 
