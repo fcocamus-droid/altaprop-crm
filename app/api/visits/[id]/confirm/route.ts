@@ -86,12 +86,20 @@ export async function POST(
       superadminEmail = authSuperadmin?.user?.email || ''
     } catch {}
 
-    // Fetch subscriber profile for branding
+    // Fetch subscriber profile for branding + public site URL
     const { data: subProfile } = await admin
       .from('profiles')
-      .select('full_name, avatar_url, phone')
+      .select('full_name, avatar_url, phone, website_subdomain, website_domain')
       .eq('id', subscriberId)
       .single()
+
+    // Resolve the subscriber's own public site URL.
+    // Priority: custom domain → subdomain → env fallback
+    const subscriberSiteUrl = (subProfile as any)?.website_domain
+      ? `https://${(subProfile as any).website_domain}`
+      : (subProfile as any)?.website_subdomain
+      ? `https://${(subProfile as any).website_subdomain}.altaprop-app.cl`
+      : siteUrl
 
     if (subProfile?.full_name) {
       subscriberBrand = {
@@ -100,9 +108,12 @@ export async function POST(
         logoUrl: subProfile.avatar_url || '',
         phone: subProfile.phone || '',
         email: superadminEmail,
-        siteUrl: siteUrl,
-        website: siteUrl.replace(/^https?:\/\//, ''),
+        siteUrl: subscriberSiteUrl,
+        website: subscriberSiteUrl.replace(/^https?:\/\//, ''),
       }
+    } else {
+      // Even without a name, use the correct public site URL in the brand
+      subscriberBrand = { ...subscriberBrand, siteUrl: subscriberSiteUrl, website: subscriberSiteUrl.replace(/^https?:\/\//, '') }
     }
   }
 
@@ -117,7 +128,9 @@ export async function POST(
   const agentName = agentProfile?.full_name || profile.full_name || 'Agente Altaprop'
   const agentPhone = agentProfile?.phone || ''
   const propertyTitle = property?.title || property?.address || 'la propiedad'
-  const propertyUrl = `${siteUrl}/propiedades/${property?.id || ''}`
+  // propertyUrl → subscriber's PUBLIC site (where the visitor saw the property)
+  // dashboardUrl → CRM (internal, for the agent/superadmin "Ver en Dashboard" button)
+  const propertyUrl = `${subscriberBrand.siteUrl}/propiedades/${property?.id || ''}`
   const dashboardUrl = `${siteUrl}/dashboard/visitas`
   const pdfFilename = `orden-visita-${visitNumber}.pdf`
 

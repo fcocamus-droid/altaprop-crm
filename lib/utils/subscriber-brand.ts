@@ -63,11 +63,19 @@ export async function fetchSubscriberBrand(
 
   const { data: sub } = await admin
     .from('profiles')
-    .select('full_name, avatar_url, phone')
+    .select('full_name, avatar_url, phone, website_subdomain, website_domain')
     .eq('id', subscriberId)
     .single()
 
-  if (!sub?.full_name) return { ...DEFAULT_BRAND, email, siteUrl, website: siteUrl.replace(/^https?:\/\//, '') }
+  // Resolve the subscriber's own public site URL.
+  // Priority: custom domain → subdomain → fallback (CRM/env URL)
+  const resolvedSiteUrl = (sub as any)?.website_domain
+    ? `https://${(sub as any).website_domain}`
+    : (sub as any)?.website_subdomain
+    ? `https://${(sub as any).website_subdomain}.altaprop-app.cl`
+    : siteUrl
+
+  if (!sub?.full_name) return { ...DEFAULT_BRAND, email, siteUrl: resolvedSiteUrl, website: resolvedSiteUrl.replace(/^https?:\/\//, '') }
 
   return {
     name: sub.full_name,
@@ -75,7 +83,7 @@ export async function fetchSubscriberBrand(
     logoUrl: sub.avatar_url || '',
     phone: sub.phone || '',
     email,
-    siteUrl,
-    website: siteUrl.replace(/^https?:\/\//, ''),
+    siteUrl: resolvedSiteUrl,
+    website: resolvedSiteUrl.replace(/^https?:\/\//, ''),
   }
 }
