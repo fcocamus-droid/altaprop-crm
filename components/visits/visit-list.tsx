@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
-import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react'
+import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink, Download } from 'lucide-react'
 import Link from 'next/link'
 import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
 
@@ -47,6 +47,7 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
   const [visits, setVisits] = useState(initialVisits)
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [calendarOpen, setCalendarOpen] = useState<string | null>(null)
@@ -130,6 +131,28 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
       setSuccess('Visita eliminada')
     }
     setLoading(null)
+  }
+
+  async function handleDownloadPDF(visitId: string) {
+    setPdfLoading(visitId)
+    try {
+      const res = await fetch(`/api/visits/${visitId}/pdf`)
+      if (!res.ok) { setError('No se pudo generar el PDF'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const disposition = res.headers.get('Content-Disposition') || ''
+      const filenameMatch = disposition.match(/filename="([^"]+)"/)
+      a.href = url
+      a.download = filenameMatch?.[1] || `orden-visita.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Error al descargar el PDF')
+    }
+    setPdfLoading(null)
   }
 
   return (
@@ -310,6 +333,17 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                         className={`h-8 px-2 ${calendarOpen === visit.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'text-blue-600 border-blue-200 hover:bg-blue-50'}`}
                         title="Agendar y confirmar">
                         <CalendarDays className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {(visit.status === 'confirmed' || visit.status === 'completed') && (
+                      <Button size="sm" variant="outline" onClick={() => handleDownloadPDF(visit.id)}
+                        disabled={pdfLoading === visit.id}
+                        className="h-8 px-2 text-navy border-navy/30 hover:bg-navy/5"
+                        title="Descargar orden de visita en PDF">
+                        {pdfLoading === visit.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Download className="h-4 w-4" />
+                        }
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => handleDelete(visit.id)} disabled={isLoading}
