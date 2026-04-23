@@ -20,7 +20,7 @@ export async function GET() {
     const admin = adminClient()
 
     // ── Fetch everything in parallel ──────────────────────────────────────────
-    const [profilesRes, authRes, visitsRes] = await Promise.all([
+    const [profilesRes, authRes, visitsRes, prospectosRes] = await Promise.all([
       // All profiles (all roles)
       admin
         .from('profiles')
@@ -36,10 +36,17 @@ export async function GET() {
         .select('id, visitor_id, scheduled_at, property:properties(title, city), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
         .order('created_at', { ascending: false })
         .limit(500),
+
+      // Prospectos (CRM leads — not registered users)
+      admin
+        .from('prospectos')
+        .select('id, full_name, rut, email, phone, company, tipo, status, subscriber_id, agent_id, created_at')
+        .order('created_at', { ascending: false }),
     ])
 
     const profiles = profilesRes.data || []
     const authUsers = authRes.data?.users || []
+    const prospectos = prospectosRes.data || []
 
     // Build email & metadata maps from auth
     const emailMap = new Map<string, string>()
@@ -50,6 +57,7 @@ export async function GET() {
     // Build subscriber map: id -> { full_name, company_name }
     const subscriberIdSet = new Set<string>()
     profiles.forEach(p => { if (p.subscriber_id) subscriberIdSet.add(p.subscriber_id) })
+    prospectos.forEach(p => { if (p.subscriber_id) subscriberIdSet.add(p.subscriber_id) })
     const subscriberIds = Array.from(subscriberIdSet)
     const subscriberMap = new Map<string, { name: string }>()
 
@@ -65,7 +73,7 @@ export async function GET() {
     const subscriberProfiles = profiles.filter(p => p.role === 'SUPERADMIN')
 
     // ── Build unified contacts list ────────────────────────────────────────────
-    const contacts = profiles.map(p => {
+    const contactsFromProfiles = profiles.map(p => {
       const subscriberInfo = p.subscriber_id ? subscriberMap.get(p.subscriber_id) : null
       const isSuperAdmin = p.role === 'SUPERADMIN'
 
@@ -82,19 +90,43 @@ export async function GET() {
         subscriber_name: isSuperAdmin ? (p.full_name || '') : (subscriberInfo?.name || ''),
         avatar_url:      p.avatar_url || null,
         created_at:      p.created_at,
-        // City/address come from their profile (phone field currently)
+        tipo:            '',
         city:            '',
         country:         'Chile',
       }
     })
 
+    // Prospectos → unified contact format (role = 'PROSPECTO')
+    const contactsFromProspectos = prospectos.map(pr => {
+      const subscriberInfo = pr.subscriber_id ? subscriberMap.get(pr.subscriber_id) : null
+      return {
+        id:              `prospecto:${pr.id}`,
+        role:            'PROSPECTO' as string,
+        full_name:       pr.full_name || '',
+        rut:             pr.rut || '',
+        email:           pr.email || '',
+        phone:           pr.phone || '',
+        empresa:         pr.company || subscriberInfo?.name || '',
+        subscriber_id:   pr.subscriber_id || '',
+        subscriber_name: subscriberInfo?.name || '',
+        avatar_url:      null,
+        created_at:      pr.created_at,
+        tipo:            pr.tipo || '',
+        city:            '',
+        country:         'Chile',
+      }
+    })
+
+    const contacts = [...contactsFromProfiles, ...contactsFromProspectos]
+
     // ── Stats ─────────────────────────────────────────────────────────────────
     const stats = {
-      total:       contacts.length,
+      total:        contacts.length,
       suscriptores: contacts.filter(c => c.role === 'SUPERADMIN').length,
-      agentes:     contacts.filter(c => c.role === 'AGENTE').length,
+      agentes:      contacts.filter(c => c.role === 'AGENTE').length,
       propietarios: contacts.filter(c => c.role === 'PROPIETARIO').length,
       postulantes:  contacts.filter(c => c.role === 'POSTULANTE').length,
+      prospectos:   contacts.filter(c => c.role === 'PROSPECTO').length,
     }
 
     return NextResponse.json({ contacts, stats })

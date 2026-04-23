@@ -4,8 +4,9 @@ import { useEffect, useState, useMemo } from 'react'
 import {
   Search, Download, Copy, Phone, Mail, MessageCircle,
   Users, Building2, UserCheck, Home, User, ChevronUp,
-  ChevronDown, ChevronsUpDown, RefreshCw, Filter, X,
+  ChevronDown, ChevronsUpDown, RefreshCw, Filter, X, TrendingUp,
 } from 'lucide-react'
+import { getTipoConfig } from '@/lib/prospectos-constants'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +27,7 @@ interface Contact {
   subscriber_name: string
   avatar_url: string | null
   created_at: string
+  tipo: string
   city: string
   country: string
 }
@@ -36,6 +38,7 @@ interface Stats {
   agentes: number
   propietarios: number
   postulantes: number
+  prospectos: number
 }
 
 // ── Role config ───────────────────────────────────────────────────────────────
@@ -45,6 +48,7 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
   AGENTE:         { label: 'Agente',      color: '#1d4ed8', bg: '#dbeafe', icon: UserCheck },
   PROPIETARIO:    { label: 'Propietario', color: '#15803d', bg: '#dcfce7', icon: Home },
   POSTULANTE:     { label: 'Postulante',  color: '#92400e', bg: '#fef3c7', icon: User },
+  PROSPECTO:      { label: 'Prospecto',   color: '#be185d', bg: '#fce7f3', icon: TrendingUp },
 }
 function Crown(props: any) {
   return (
@@ -60,6 +64,7 @@ const SEGMENT_TABS = [
   { value: 'AGENTE',       label: 'Agentes',       icon: UserCheck },
   { value: 'PROPIETARIO',  label: 'Propietarios',  icon: Home },
   { value: 'POSTULANTE',   label: 'Postulantes',   icon: User },
+  { value: 'PROSPECTO',    label: 'Prospectos',    icon: TrendingUp },
 ]
 
 type SortField = 'full_name' | 'role' | 'empresa' | 'created_at'
@@ -273,12 +278,13 @@ export function ContactsDatabase() {
 
       {/* ── Stats ── */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatCard icon={Users}     label="Total contactos"  value={stats.total}        color="#1e293b" bg="#f1f5f9" />
           <StatCard icon={Building2} label="Suscriptores"     value={stats.suscriptores}  color="#0369a1" bg="#e0f2fe" />
           <StatCard icon={UserCheck} label="Agentes"          value={stats.agentes}       color="#1d4ed8" bg="#dbeafe" />
           <StatCard icon={Home}      label="Propietarios"     value={stats.propietarios}  color="#15803d" bg="#dcfce7" />
           <StatCard icon={User}      label="Postulantes"      value={stats.postulantes}   color="#92400e" bg="#fef3c7" />
+          <StatCard icon={TrendingUp} label="Prospectos"      value={stats.prospectos}    color="#be185d" bg="#fce7f3" />
         </div>
       )}
 
@@ -429,13 +435,23 @@ export function ContactsDatabase() {
                     >
                       {/* Tipo */}
                       <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold"
-                          style={{ background: rc.bg, color: rc.color }}
-                        >
-                          <RoleIcon className="h-3 w-3" />
-                          {rc.label}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold w-fit"
+                            style={{ background: rc.bg, color: rc.color }}
+                          >
+                            <RoleIcon className="h-3 w-3" />
+                            {rc.label}
+                          </span>
+                          {c.role === 'PROSPECTO' && c.tipo && (() => {
+                            const tc = getTipoConfig(c.tipo)
+                            return tc ? (
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium w-fit ${tc.color}`}>
+                                {tc.icon} {tc.label}
+                              </span>
+                            ) : null
+                          })()}
+                        </div>
                       </td>
 
                       {/* Empresa */}
