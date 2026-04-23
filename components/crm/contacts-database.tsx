@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import {
   Search, Download, Copy, Phone, Mail, MessageCircle,
   Users, Building2, UserCheck, Home, User, ChevronUp,
-  ChevronDown, ChevronsUpDown, RefreshCw, Filter, X, TrendingUp,
+  ChevronDown, ChevronsUpDown, RefreshCw, Filter, X, TrendingUp, Eye,
 } from 'lucide-react'
 import { getTipoConfig } from '@/lib/prospectos-constants'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,7 @@ interface Stats {
   propietarios: number
   postulantes: number
   prospectos: number
+  visitas: number
 }
 
 // ── Role config ───────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
   PROPIETARIO:    { label: 'Propietario', color: '#15803d', bg: '#dcfce7', icon: Home },
   POSTULANTE:     { label: 'Postulante',  color: '#92400e', bg: '#fef3c7', icon: User },
   PROSPECTO:      { label: 'Prospecto',   color: '#be185d', bg: '#fce7f3', icon: TrendingUp },
+  VISITA:         { label: 'Visita',      color: '#0284c7', bg: '#e0f2fe', icon: Eye },
 }
 function Crown(props: any) {
   return (
@@ -65,6 +67,7 @@ const SEGMENT_TABS = [
   { value: 'PROPIETARIO',  label: 'Propietarios',  icon: Home },
   { value: 'POSTULANTE',   label: 'Postulantes',   icon: User },
   { value: 'PROSPECTO',    label: 'Prospectos',    icon: TrendingUp },
+  { value: 'VISITA',       label: 'Visitas',       icon: Eye },
 ]
 
 type SortField = 'full_name' | 'role' | 'empresa' | 'created_at'
@@ -278,13 +281,14 @@ export function ContactsDatabase() {
 
       {/* ── Stats ── */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           <StatCard icon={Users}     label="Total contactos"  value={stats.total}        color="#1e293b" bg="#f1f5f9" />
           <StatCard icon={Building2} label="Suscriptores"     value={stats.suscriptores}  color="#0369a1" bg="#e0f2fe" />
           <StatCard icon={UserCheck} label="Agentes"          value={stats.agentes}       color="#1d4ed8" bg="#dbeafe" />
           <StatCard icon={Home}      label="Propietarios"     value={stats.propietarios}  color="#15803d" bg="#dcfce7" />
           <StatCard icon={User}      label="Postulantes"      value={stats.postulantes}   color="#92400e" bg="#fef3c7" />
           <StatCard icon={TrendingUp} label="Prospectos"      value={stats.prospectos}    color="#be185d" bg="#fce7f3" />
+          <StatCard icon={Eye}        label="Visitas"          value={stats.visitas}       color="#0284c7" bg="#e0f2fe" />
         </div>
       )}
 
@@ -451,6 +455,11 @@ export function ContactsDatabase() {
                               </span>
                             ) : null
                           })()}
+                          {c.role === 'VISITA' && c.tipo && (
+                            <span className="text-[10px] text-slate-500 truncate max-w-[140px]" title={c.tipo}>
+                              🏠 {c.tipo}
+                            </span>
+                          )}
                         </div>
                       </td>
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getUserProfile } from '@/lib/auth'
+import { parseVisitorFromNotes } from '@/lib/utils/visit-pdf'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -30,12 +31,12 @@ export async function GET() {
       // Auth users for emails
       admin.auth.admin.listUsers({ perPage: 1000 }),
 
-      // Visit requests (may include non-registered visitors)
+      // Visits — visitor info is embedded in `notes` (parseVisitorFromNotes)
       admin
         .from('visits')
-        .select('id, visitor_id, scheduled_at, property:properties(title, city), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
+        .select('id, notes, subscriber_id, scheduled_at, created_at, property:properties(title, city)')
         .order('created_at', { ascending: false })
-        .limit(500),
+        .limit(1000),
 
       // Prospectos (CRM leads — not registered users)
       admin
@@ -47,6 +48,7 @@ export async function GET() {
     const profiles = profilesRes.data || []
     const authUsers = authRes.data?.users || []
     const prospectos = prospectosRes.data || []
+    const visits = visitsRes.data || []
 
     // Build email & metadata maps from auth
     const emailMap = new Map<string, string>()
@@ -58,6 +60,7 @@ export async function GET() {
     const subscriberIdSet = new Set<string>()
     profiles.forEach(p => { if (p.subscriber_id) subscriberIdSet.add(p.subscriber_id) })
     prospectos.forEach(p => { if (p.subscriber_id) subscriberIdSet.add(p.subscriber_id) })
+    visits.forEach(v => { if ((v as any).subscriber_id) subscriberIdSet.add((v as any).subscriber_id) })
     const subscriberIds = Array.from(subscriberIdSet)
     const subscriberMap = new Map<string, { name: string }>()
 
@@ -117,7 +120,56 @@ export async function GET() {
       }
     })
 
-    const contacts = [...contactsFromProfiles, ...contactsFromProspectos]
+    // Visitas → dedupe by email (or phone if no email), take most recent
+    const visitorMap = new Map<string, {
+      firstVisitId: string
+      v: ReturnType<typeof parseVisitorFromNotes>
+      subscriberId: string | null
+      propertyTitle: string
+      propertyCity: string
+      scheduledAt: string
+      createdAt: string
+    }>()
+    for (const v of visits as any[]) {
+      const parsed = parseVisitorFromNotes(v.notes)
+      const key = (parsed.email || parsed.phone || '').toLowerCase().trim()
+      if (!key || !parsed.name) continue
+      // Keep the most recent visit per visitor
+      const existing = visitorMap.get(key)
+      if (!existing || new Date(v.created_at) > new Date(existing.createdAt)) {
+        visitorMap.set(key, {
+          firstVisitId: v.id,
+          v: parsed,
+          subscriberId: v.subscriber_id || null,
+          propertyTitle: v.property?.title || '',
+          propertyCity: v.property?.city || '',
+          scheduledAt: v.scheduled_at || '',
+          createdAt: v.created_at || v.scheduled_at || '',
+        })
+      }
+    }
+
+    const contactsFromVisits = Array.from(visitorMap.entries()).map(([, entry]) => {
+      const subscriberInfo = entry.subscriberId ? subscriberMap.get(entry.subscriberId) : null
+      return {
+        id:              `visita:${entry.firstVisitId}`,
+        role:            'VISITA' as string,
+        full_name:       entry.v.name || '',
+        rut:             entry.v.rut || '',
+        email:           entry.v.email || '',
+        phone:           entry.v.phone || '',
+        empresa:         subscriberInfo?.name || '',
+        subscriber_id:   entry.subscriberId || '',
+        subscriber_name: subscriberInfo?.name || '',
+        avatar_url:      null,
+        created_at:      entry.createdAt,
+        tipo:            entry.propertyTitle || '',
+        city:            entry.propertyCity || '',
+        country:         'Chile',
+      }
+    })
+
+    const contacts = [...contactsFromProfiles, ...contactsFromProspectos, ...contactsFromVisits]
 
     // ── Stats ─────────────────────────────────────────────────────────────────
     const stats = {
@@ -127,6 +179,7 @@ export async function GET() {
       propietarios: contacts.filter(c => c.role === 'PROPIETARIO').length,
       postulantes:  contacts.filter(c => c.role === 'POSTULANTE').length,
       prospectos:   contacts.filter(c => c.role === 'PROSPECTO').length,
+      visitas:      contacts.filter(c => c.role === 'VISITA').length,
     }
 
     return NextResponse.json({ contacts, stats })
