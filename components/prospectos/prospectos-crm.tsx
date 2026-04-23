@@ -8,7 +8,36 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { formatRut, validateRut, formatPhone, validatePhone } from '@/lib/validations/chilean-formats'
-import { formatDate, formatDateTime } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
+
+// datetime-local input ("2026-04-23T09:00") → timezone-aware ISO for Chile
+function chileLocalToISO(dtLocal: string): string {
+  if (!dtLocal) return ''
+  const [date, time] = dtLocal.split('T')
+  if (!date || !time) return dtLocal
+  // datetime-local may omit seconds; toChileDatetime expects "HH:mm"
+  return toChileDatetime(date, time.substring(0, 5))
+}
+
+// ISO back to "YYYY-MM-DDTHH:mm" in Chile TZ for datetime-local input default values
+function isoToChileLocal(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value || ''
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
+}
+
+// Short local formatter using Chile TZ (ensures display matches input)
+function fmtChile(iso: string | null | undefined): string {
+  if (!iso) return ''
+  return formatChileDateTimeDisplay(iso)
+}
 import {
   PROSPECTO_STATUSES, PROSPECTO_PRIORITIES, PROSPECTO_SOURCES,
   PROSPECTO_INTERESTS, PROSPECTO_PROPERTY_TYPES, ACTIVITY_TYPES,
@@ -184,6 +213,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
       ...addForm,
       budget_min: addForm.budget_min ? Number(addForm.budget_min.replace(/\D/g, '')) : null,
       budget_max: addForm.budget_max ? Number(addForm.budget_max.replace(/\D/g, '')) : null,
+      next_action_at: addForm.next_action_at ? chileLocalToISO(addForm.next_action_at) : null,
     }
     Object.keys(payload).forEach(k => { if (payload[k] === '') payload[k] = null })
 
@@ -255,7 +285,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
         type: payload.type || 'nota',
         content: payload.content,
         is_important: payload.is_important,
-        due_at: payload.due_at || null,
+        due_at: payload.due_at ? chileLocalToISO(payload.due_at) : null,
       }),
     })
     const data = await res.json()
@@ -718,7 +748,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                         <div className={`mt-1 text-xs flex items-center gap-1 ${new Date(p.next_action_at) < new Date() ? 'text-red-600 font-medium' : 'text-blue-600'}`}>
                           <Clock className="h-3 w-3" />
                           {new Date(p.next_action_at) < new Date() ? 'Vencido: ' : 'Próximo: '}
-                          {formatDateTime(p.next_action_at)}
+                          {fmtChile(p.next_action_at)}
                           {p.next_action_note && <span className="text-muted-foreground">· {p.next_action_note}</span>}
                         </div>
                       )}
@@ -988,11 +1018,11 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                                     ${overdueTask ? 'ring-2 ring-red-300' : ''}`}>
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <Badge className={`text-[10px] ${t.color} border-0`}>{t.icon} {t.label}</Badge>
-                                    <span className="text-[10px] text-muted-foreground">{formatDateTime(a.created_at)}</span>
+                                    <span className="text-[10px] text-muted-foreground">{fmtChile(a.created_at)}</span>
                                     <span className="text-[10px] font-medium">{a.agent_name}</span>
                                     {a.due_at && (
                                       <Badge className={`text-[10px] ${overdueTask ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'} border-0`}>
-                                        <Clock className="h-2.5 w-2.5 mr-0.5" />{formatDateTime(a.due_at)}
+                                        <Clock className="h-2.5 w-2.5 mr-0.5" />{fmtChile(a.due_at)}
                                       </Badge>
                                     )}
                                     <div className="flex-1" />
