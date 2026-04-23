@@ -245,7 +245,7 @@ function RegistroForm() {
           {step === 2 && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="occupation">Ocupación / Cargo *</Label>
+                <Label htmlFor="occupation">Profesión / Ocupación / Cargo *</Label>
                 <Input id="occupation" name="occupation" placeholder="Ingeniero, Contador, Vendedor..." value={form.occupation} onChange={handleChange} required />
               </div>
               <div className="space-y-2">
