@@ -78,7 +78,7 @@ export const CURRENCIES = [
 export const PROPERTY_CONDITIONS = [
   { value: 'nuevo',           label: 'Nuevo / Listo' },
   { value: 'en_construccion', label: 'En Construcción' },
-  { value: 'segunda_mano',    label: 'Segunda Mano' },
+  { value: 'segunda_mano',    label: 'Usado' },
   { value: 'remodelada',      label: 'Remodelada' },
   { value: 'en_planos',       label: 'En Planos' },
 ] as const

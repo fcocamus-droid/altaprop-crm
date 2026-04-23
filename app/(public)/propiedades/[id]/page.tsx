@@ -40,7 +40,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 const CONDITION_LABELS: Record<string, string> = {
-  nuevo: 'Nuevo', en_construccion: 'En Construcción', segunda_mano: 'Segunda Mano',
+  nuevo: 'Nuevo', en_construccion: 'En Construcción', segunda_mano: 'Usado',
   remodelada: 'Remodelada', en_planos: 'En Planos',
 }
 
