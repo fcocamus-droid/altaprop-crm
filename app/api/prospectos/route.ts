@@ -171,6 +171,7 @@ export async function POST(req: Request) {
     phone: body.phone?.trim() || null,
     status: body.status || 'nuevo',
     priority: body.priority || 'media',
+    tipo: body.tipo || null,
     source: body.source || null,
     interest: body.interest || null,
     property_type: body.property_type || null,

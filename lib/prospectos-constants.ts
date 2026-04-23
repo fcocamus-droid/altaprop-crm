@@ -34,6 +34,19 @@ export const PROSPECTO_INTERESTS = [
   { value: 'ambos',      label: 'Arriendo o venta' },
 ] as const
 
+export const PROSPECTO_TIPOS = [
+  { value: 'visita',       label: 'Visita',        color: 'bg-blue-100 text-blue-800 border-blue-300',       icon: '👁️' },
+  { value: 'postulante',   label: 'Postulante',    color: 'bg-purple-100 text-purple-800 border-purple-300', icon: '📝' },
+  { value: 'propietario',  label: 'Propietario',   color: 'bg-amber-100 text-amber-800 border-amber-300',    icon: '🏠' },
+  { value: 'inmobiliaria', label: 'Inmobiliaria',  color: 'bg-emerald-100 text-emerald-800 border-emerald-300', icon: '🏢' },
+  { value: 'corredor',     label: 'Corredor',      color: 'bg-indigo-100 text-indigo-800 border-indigo-300', icon: '🧑‍💼' },
+] as const
+
+export type ProspectoTipo = (typeof PROSPECTO_TIPOS)[number]['value']
+export function getTipoConfig(tipo: string) {
+  return PROSPECTO_TIPOS.find(t => t.value === tipo)
+}
+
 export const PROSPECTO_PROPERTY_TYPES = [
   { value: 'depto',    label: 'Departamento' },
   { value: 'casa',     label: 'Casa' },

@@ -40,8 +40,8 @@ function fmtChile(iso: string | null | undefined): string {
 }
 import {
   PROSPECTO_STATUSES, PROSPECTO_PRIORITIES, PROSPECTO_SOURCES,
-  PROSPECTO_INTERESTS, PROSPECTO_PROPERTY_TYPES, ACTIVITY_TYPES,
-  getStatusConfig, getPriorityConfig, getActivityTypeConfig,
+  PROSPECTO_INTERESTS, PROSPECTO_PROPERTY_TYPES, PROSPECTO_TIPOS, ACTIVITY_TYPES,
+  getStatusConfig, getPriorityConfig, getActivityTypeConfig, getTipoConfig,
 } from '@/lib/prospectos-constants'
 import {
   Search, UserPlus, Plus, Mail, Phone, Building, MapPin, Calendar,
@@ -87,6 +87,7 @@ interface Prospecto {
   phone: string | null
   status: string
   priority: string
+  tipo: string | null
   source: string | null
   interest: string | null
   property_type: string | null
@@ -119,12 +120,13 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [agentFilter, setAgentFilter] = useState('all')
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [tipoFilter, setTipoFilter] = useState('all')
   const [viewFilter, setViewFilter] = useState<'all'|'open'|'overdue'|'mine'>('all')
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [addForm, setAddForm] = useState({
     full_name: '', company: '', rut: '', email: '', phone: '',
-    status: 'nuevo', priority: 'media', source: '', interest: '', property_type: '',
+    status: 'nuevo', priority: 'media', tipo: '', source: '', interest: '', property_type: '',
     budget_min: '', budget_max: '', budget_currency: 'CLP',
     notes: '', next_action_at: '', next_action_note: '',
     agent_id: '', subscriber_id: '', property_id: '',
@@ -235,7 +237,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
       setPropertySearch('')
       setAddForm({
         full_name: '', company: '', rut: '', email: '', phone: '',
-        status: 'nuevo', priority: 'media', source: '', interest: '', property_type: '',
+        status: 'nuevo', priority: 'media', tipo: '', source: '', interest: '', property_type: '',
         budget_min: '', budget_max: '', budget_currency: 'CLP',
         notes: '', next_action_at: '', next_action_note: '',
         agent_id: '', subscriber_id: '', property_id: '',
@@ -348,6 +350,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
       if (agentFilter === 'unassigned' && p.agent_id) return false
       if (agentFilter !== 'all' && agentFilter !== 'unassigned' && p.agent_id !== agentFilter) return false
       if (sourceFilter !== 'all' && p.source !== sourceFilter) return false
+      if (tipoFilter !== 'all' && p.tipo !== tipoFilter) return false
 
       if (viewFilter === 'open' && ['ganado', 'perdido'].includes(p.status)) return false
       if (viewFilter === 'overdue' && (!p.overdue_tasks || p.overdue_tasks === 0)) return false
@@ -482,6 +485,21 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                     onChange={e => { setPhoneError(''); setAddForm({ ...addForm, phone: formatPhone(e.target.value) }) }}
                     placeholder="+56 9 1234 5678" className={`h-9 text-sm ${phoneError ? 'border-red-500' : ''}`} />
                   {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
+                </div>
+
+                <div className="space-y-1 md:col-span-3">
+                  <Label className="text-xs">Tipo de prospecto *</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {PROSPECTO_TIPOS.map(t => (
+                      <button key={t.value} type="button"
+                        onClick={() => setAddForm({ ...addForm, tipo: t.value })}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                          addForm.tipo === t.value ? `${t.color} ring-2 ring-offset-1` : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                        }`}>
+                        <span className="mr-1">{t.icon}</span>{t.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-1">
@@ -673,6 +691,12 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
             value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
 
+        <select value={tipoFilter} onChange={e => setTipoFilter(e.target.value)}
+          className="h-9 px-3 text-sm border rounded-md bg-background shrink-0">
+          <option value="all">Tipo</option>
+          {PROSPECTO_TIPOS.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
+        </select>
+
         <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
           className="h-9 px-3 text-sm border rounded-md bg-background shrink-0">
           <option value="all">Prioridad</option>
@@ -777,6 +801,14 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                           {p.open_tasks}
                         </Badge>
                       )}
+                      {p.tipo && (() => {
+                        const tc = getTipoConfig(p.tipo)
+                        return tc ? (
+                          <Badge className={`text-xs ${tc.color} border`}>
+                            {tc.icon} {tc.label}
+                          </Badge>
+                        ) : null
+                      })()}
                       {p.agent_name && (
                         <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                           {p.agent_name}
@@ -801,6 +833,13 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                           onChange={e => updateProspecto(p.id, { priority: e.target.value })}
                           className={`h-8 text-xs rounded-md border px-2 ${pr.color} border-current`}>
                           {PROSPECTO_PRIORITIES.map(pp => <option key={pp.value} value={pp.value}>{pp.icon} {pp.label}</option>)}
+                        </select>
+
+                        <select value={p.tipo || ''} disabled={updating === p.id}
+                          onChange={e => updateProspecto(p.id, { tipo: e.target.value || null } as any)}
+                          className={`h-8 text-xs rounded-md border px-2 ${p.tipo ? (getTipoConfig(p.tipo)?.color || '') + ' border-current' : 'border-gray-300'}`}>
+                          <option value="">Tipo —</option>
+                          {PROSPECTO_TIPOS.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
                         </select>
 
                         {showAgentSelector && agents && agents.length > 0 && (
