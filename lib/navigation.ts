@@ -1,4 +1,4 @@
-import { Home, Building2, FileText, Users, Settings, Plus, CreditCard, Crown, Calendar, UserSearch, KeyRound, Globe, LayoutGrid, GitMerge, Database } from 'lucide-react'
+import { Home, Building2, FileText, Users, Settings, Plus, CreditCard, Crown, Calendar, UserSearch, KeyRound, Globe, LayoutGrid, GitMerge, Database, TrendingUp } from 'lucide-react'
 import { ROLES, ADMIN_ROLES, PROPERTY_MANAGER_ROLES, ALL_ROLE_VALUES, type UserRole } from '@/lib/constants'
 
 export const menuItems = [
@@ -8,6 +8,7 @@ export const menuItems = [
   { href: '/dashboard/postulaciones', label: 'Postulaciones', icon: FileText, roles: ALL_ROLE_VALUES },
   { href: '/dashboard/base-postulantes', label: 'Base Postulantes', icon: UserSearch, roles: [...ADMIN_ROLES, ROLES.AGENTE] as UserRole[] },
   { href: '/dashboard/base-propietarios', label: 'Base Propietarios', icon: KeyRound, roles: [...ADMIN_ROLES, ROLES.AGENTE] as UserRole[] },
+  { href: '/dashboard/prospectos', label: 'Prospectos', icon: TrendingUp, roles: [...ADMIN_ROLES, ROLES.AGENTE] as UserRole[] },
   { href: '/dashboard/visitas', label: 'Visitas', icon: Calendar, roles: PROPERTY_MANAGER_ROLES },
   { href: '/dashboard/mi-sitio', label: 'Mi Sitio Web', icon: Globe, roles: [ROLES.SUPERADMIN, ROLES.SUPERADMINBOSS] as UserRole[] },
   { href: '/dashboard/plan', label: 'Mi Plan', icon: CreditCard, roles: [ROLES.SUPERADMIN] as UserRole[] },
