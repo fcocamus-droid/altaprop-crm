@@ -40,7 +40,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     'status', 'priority', 'source', 'interest', 'property_type',
     'budget_min', 'budget_max', 'budget_currency',
     'notes', 'next_action_at', 'next_action_note', 'last_contact_at',
-    'is_pinned', 'agent_id',
+    'is_pinned', 'agent_id', 'property_id',
   ]
 
   for (const field of allowedFields) {

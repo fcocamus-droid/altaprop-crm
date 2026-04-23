@@ -89,10 +89,22 @@ export async function GET() {
     }
   }
 
+  // Fetch property summaries for linked prospectos
+  const propertyIds = Array.from(new Set(data.map(p => p.property_id).filter(Boolean))) as string[]
+  const propMap = new Map<string, any>()
+  if (propertyIds.length) {
+    const { data: props } = await admin
+      .from('properties')
+      .select('id, title, address, city, operation, price, currency, status')
+      .in('id', propertyIds)
+    if (props) props.forEach(p => propMap.set(p.id, p))
+  }
+
   const enriched = data.map(p => ({
     ...p,
     agent_name: p.agent_id ? agentMap.get(p.agent_id) || '' : '',
     subscriber_name: p.subscriber_id ? subMap.get(p.subscriber_id) || '' : '',
+    property: p.property_id ? propMap.get(p.property_id) || null : null,
     open_tasks: openTasksMap.get(p.id) || 0,
     overdue_tasks: overdueTasksMap.get(p.id) || 0,
     last_activity_at: lastActivityMap.get(p.id) || null,
@@ -168,6 +180,7 @@ export async function POST(req: Request) {
     notes: body.notes?.trim() || null,
     next_action_at: body.next_action_at || null,
     next_action_note: body.next_action_note?.trim() || null,
+    property_id: body.property_id || null,
     is_pinned: !!body.is_pinned,
   }
 

@@ -34,6 +34,17 @@ interface Activity {
   created_at: string
 }
 
+interface PropertySummary {
+  id: string
+  title: string
+  address: string | null
+  city: string | null
+  operation: string
+  price: number
+  currency: string
+  status: string
+}
+
 interface Prospecto {
   id: string
   subscriber_id: string | null
@@ -57,6 +68,8 @@ interface Prospecto {
   next_action_at: string | null
   next_action_note: string | null
   last_contact_at: string | null
+  property_id: string | null
+  property: PropertySummary | null
   is_pinned: boolean
   created_at: string
   open_tasks: number
@@ -85,8 +98,11 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
     status: 'nuevo', priority: 'media', source: '', interest: '', property_type: '',
     budget_min: '', budget_max: '', budget_currency: 'CLP',
     notes: '', next_action_at: '', next_action_note: '',
-    agent_id: '', subscriber_id: '',
+    agent_id: '', subscriber_id: '', property_id: '',
   })
+  const [propertySearch, setPropertySearch] = useState('')
+  const [availableProperties, setAvailableProperties] = useState<PropertySummary[]>([])
+  const [propertiesLoaded, setPropertiesLoaded] = useState(false)
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState('')
   const [rutError, setRutError] = useState('')
@@ -114,6 +130,37 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
       .then(data => { if (Array.isArray(data)) setProspectos(data); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
+
+  // Lazy-load properties when user opens the Add form or expands a card for reassign
+  async function ensurePropertiesLoaded() {
+    if (propertiesLoaded) return
+    try {
+      const res = await fetch('/api/prospectos/properties')
+      const data = await res.json()
+      if (Array.isArray(data)) setAvailableProperties(data)
+    } catch {}
+    setPropertiesLoaded(true)
+  }
+
+  useEffect(() => {
+    if (showAddForm) ensurePropertiesLoaded()
+
+  }, [showAddForm])
+
+  const filteredProperties = useMemo(() => {
+    if (!propertySearch.trim()) return availableProperties.slice(0, 50)
+    const q = propertySearch.toLowerCase()
+    return availableProperties.filter(p =>
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.address || '').toLowerCase().includes(q) ||
+      (p.city || '').toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [availableProperties, propertySearch])
+
+  function formatPrice(prop: PropertySummary) {
+    if (prop.currency === 'UF') return `${prop.price} UF`
+    return `$${(prop.price || 0).toLocaleString('es-CL')}`
+  }
 
   async function loadActivities(prospectoId: string) {
     if (activitiesLoaded[prospectoId]) return
@@ -149,14 +196,19 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
     if (data.error) {
       setAddError(data.error)
     } else if (data.prospecto) {
-      setProspectos(prev => [data.prospecto, ...prev])
+      // Enrich with property info locally if selected
+      const linkedProp = addForm.property_id
+        ? availableProperties.find(p => p.id === addForm.property_id) || null
+        : null
+      setProspectos(prev => [{ ...data.prospecto, property: linkedProp, open_tasks: 0, overdue_tasks: 0, last_activity_at: null }, ...prev])
       setShowAddForm(false)
+      setPropertySearch('')
       setAddForm({
         full_name: '', company: '', rut: '', email: '', phone: '',
         status: 'nuevo', priority: 'media', source: '', interest: '', property_type: '',
         budget_min: '', budget_max: '', budget_currency: 'CLP',
         notes: '', next_action_at: '', next_action_note: '',
-        agent_id: '', subscriber_id: '',
+        agent_id: '', subscriber_id: '', property_id: '',
       })
     }
     setAddLoading(false)
@@ -496,6 +548,77 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                   </div>
                 )}
 
+                {/* PROPIEDAD QUE CONSULTA */}
+                <div className="space-y-1 md:col-span-3">
+                  <Label className="text-xs flex items-center gap-1">
+                    <Building className="h-3 w-3" />
+                    Propiedad consultada
+                    <span className="text-muted-foreground font-normal">(la que despertó su interés)</span>
+                  </Label>
+                  {addForm.property_id ? (
+                    (() => {
+                      const sel = availableProperties.find(p => p.id === addForm.property_id)
+                      return (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-md p-2">
+                          <Building className="h-4 w-4 text-blue-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{sel?.title || 'Propiedad'}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {sel?.city && <span>{sel.city}</span>}
+                              {sel && <span className="font-medium text-navy">{formatPrice(sel)}</span>}
+                              {sel?.operation && <span className="capitalize">· {sel.operation}</span>}
+                            </div>
+                          </div>
+                          <Button type="button" size="sm" variant="ghost" className="h-7 text-xs"
+                            onClick={() => { setAddForm({ ...addForm, property_id: '' }); setPropertySearch('') }}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )
+                    })()
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input value={propertySearch}
+                          onChange={e => setPropertySearch(e.target.value)}
+                          placeholder="Buscar por título, dirección o ciudad..."
+                          className="pl-9 h-9 text-sm" />
+                      </div>
+                      {!propertiesLoaded ? (
+                        <p className="text-xs text-muted-foreground text-center py-2">
+                          <Loader2 className="h-3 w-3 animate-spin inline mr-1" />Cargando propiedades...
+                        </p>
+                      ) : availableProperties.length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-2">
+                          No hay propiedades disponibles
+                        </p>
+                      ) : (
+                        <div className="max-h-44 overflow-y-auto border rounded-md divide-y">
+                          {filteredProperties.map(p => (
+                            <button key={p.id} type="button"
+                              onClick={() => { setAddForm({ ...addForm, property_id: p.id }); setPropertySearch('') }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center gap-2">
+                              <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{p.title}</p>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {p.city && <span>{p.city}</span>}
+                                  <span className="text-navy font-medium">{formatPrice(p)}</span>
+                                  <span className="capitalize">· {p.operation}</span>
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                          {filteredProperties.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-2">Sin coincidencias</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1 md:col-span-3">
                   <Label className="text-xs">Notas iniciales</Label>
                   <Textarea value={addForm.notes} onChange={e => setAddForm({ ...addForm, notes: e.target.value })}
@@ -685,6 +808,53 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
                           )
                         )}
                       </div>
+
+                      {/* LINKED PROPERTY */}
+                      {p.property ? (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2.5">
+                          <Building className="h-4 w-4 text-blue-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-blue-700 font-semibold">Consulta por esta propiedad:</p>
+                            <p className="text-sm font-medium truncate">{p.property.title}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {p.property.city && <span>{p.property.city}</span>}
+                              <span className="font-medium text-navy">{formatPrice(p.property)}</span>
+                              {p.property.operation && <span className="capitalize">· {p.property.operation}</span>}
+                            </div>
+                          </div>
+                          <a href={`/dashboard/propiedades/${p.property.id}`} target="_blank"
+                            className="text-xs text-blue-600 hover:underline shrink-0">Ver ficha</a>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                            title="Desvincular propiedad"
+                            onClick={() => updateProspecto(p.id, { property_id: null } as any)}>
+                            <X className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="bg-muted/30 rounded-lg p-2 border border-dashed">
+                          <button type="button"
+                            onClick={async () => {
+                              await ensurePropertiesLoaded()
+                              setExpanded(p.id)
+                            }}
+                            className="text-xs text-muted-foreground flex items-center gap-1 hover:text-navy transition-colors">
+                            <Plus className="h-3 w-3" /> Vincular a una propiedad
+                          </button>
+                          {propertiesLoaded && availableProperties.length > 0 && (
+                            <select
+                              className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                              onChange={e => { if (e.target.value) updateProspecto(p.id, { property_id: e.target.value } as any) }}
+                              defaultValue="">
+                              <option value="">— Selecciona una propiedad —</option>
+                              {availableProperties.slice(0, 100).map(prop => (
+                                <option key={prop.id} value={prop.id}>
+                                  {prop.title} · {prop.city || ''} · {formatPrice(prop)}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
 
                       {/* INFO GRID */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
