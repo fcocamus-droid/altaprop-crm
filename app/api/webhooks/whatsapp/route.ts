@@ -30,8 +30,9 @@ export async function POST(req: Request) {
   const rawBody = await req.text()
   const sig = req.headers.get('x-hub-signature-256')
   const sigOk = await verifyWebhookSignature(rawBody, sig)
-  // Log signature state for diagnostics (don't block yet)
-  console.log('[WA webhook] sig', { hasSignature: !!sig, sigValid: sigOk })
+  if (!sigOk && process.env.NODE_ENV === 'production') {
+    return new NextResponse('invalid signature', { status: 401 })
+  }
 
   let body: any = {}
   try { body = JSON.parse(rawBody) } catch { return NextResponse.json({ ok: true }) }
