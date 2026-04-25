@@ -10,14 +10,20 @@ export default async function BaseDatosPage() {
   const profile = await getUserProfile()
   if (!profile) redirect('/login')
 
-  // Exclusive to SUPERADMINBOSS
-  if (profile.role !== 'SUPERADMINBOSS') redirect('/dashboard')
+  // SUPERADMINBOSS sees everything; SUPERADMIN sees only their org's data
+  if (profile.role !== 'SUPERADMINBOSS' && profile.role !== 'SUPERADMIN') {
+    redirect('/dashboard')
+  }
+
+  const isBoss = profile.role === 'SUPERADMINBOSS'
 
   return (
     <div>
       <PageHeader
         title="Base de Datos"
-        description="Todos los contactos del sistema · campañas de email y WhatsApp"
+        description={isBoss
+          ? 'Todos los contactos del sistema · campañas de email y WhatsApp'
+          : 'Todos los contactos de tu organización · campañas de email y WhatsApp'}
       />
       <ContactsDatabase />
     </div>

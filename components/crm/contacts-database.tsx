@@ -176,6 +176,10 @@ export function ContactsDatabase() {
   // Copy feedback
   const [copied, setCopied] = useState<string | null>(null)
 
+  // Current user role (drives UI scoping — SUPERADMIN sees only their org)
+  const [currentUserRole, setCurrentUserRole] = useState<string>('SUPERADMINBOSS')
+  const isBoss = currentUserRole === 'SUPERADMINBOSS'
+
   async function load(showRefreshing = false) {
     if (showRefreshing) setRefreshing(true)
     else setLoading(true)
@@ -186,6 +190,7 @@ export function ContactsDatabase() {
       const json = await res.json()
       setContacts(json.contacts || [])
       setStats(json.stats || null)
+      if (json.currentUserRole) setCurrentUserRole(json.currentUserRole)
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -281,9 +286,11 @@ export function ContactsDatabase() {
 
       {/* ── Stats ── */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${isBoss ? 'lg:grid-cols-7' : 'lg:grid-cols-6'} gap-3`}>
           <StatCard icon={Users}     label="Total contactos"  value={stats.total}        color="#1e293b" bg="#f1f5f9" />
-          <StatCard icon={Building2} label="Suscriptores"     value={stats.suscriptores}  color="#0369a1" bg="#e0f2fe" />
+          {isBoss && (
+            <StatCard icon={Building2} label="Suscriptores"     value={stats.suscriptores}  color="#0369a1" bg="#e0f2fe" />
+          )}
           <StatCard icon={UserCheck} label="Agentes"          value={stats.agentes}       color="#1d4ed8" bg="#dbeafe" />
           <StatCard icon={Home}      label="Propietarios"     value={stats.propietarios}  color="#15803d" bg="#dcfce7" />
           <StatCard icon={User}      label="Postulantes"      value={stats.postulantes}   color="#92400e" bg="#fef3c7" />
@@ -294,24 +301,26 @@ export function ContactsDatabase() {
 
       {/* ── Segment tabs ── */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
-        {SEGMENT_TABS.map(tab => {
-          const Icon = tab.icon
-          const active = segment === tab.value
-          return (
-            <button
-              key={tab.value}
-              onClick={() => { setSegment(tab.value); setPage(1) }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                active
-                  ? 'bg-white text-navy shadow-sm'
-                  : 'text-muted-foreground hover:text-slate-700'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </button>
-          )
-        })}
+        {SEGMENT_TABS
+          .filter(tab => isBoss || tab.value !== 'SUPERADMIN')
+          .map(tab => {
+            const Icon = tab.icon
+            const active = segment === tab.value
+            return (
+              <button
+                key={tab.value}
+                onClick={() => { setSegment(tab.value); setPage(1) }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  active
+                    ? 'bg-white text-navy shadow-sm'
+                    : 'text-muted-foreground hover:text-slate-700'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            )
+          })}
       </div>
 
       {/* ── Toolbar ── */}
@@ -328,18 +337,20 @@ export function ContactsDatabase() {
             />
           </div>
 
-          {/* Subscriber filter */}
-          <Select value={filterSubscriber} onValueChange={v => { setFilterSubscriber(v); setPage(1) }}>
-            <SelectTrigger className="h-9 w-[180px] bg-white">
-              <SelectValue placeholder="Suscriptor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los suscriptores</SelectItem>
-              {subscribers.map(s => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Subscriber filter — only for SUPERADMINBOSS */}
+          {isBoss && (
+            <Select value={filterSubscriber} onValueChange={v => { setFilterSubscriber(v); setPage(1) }}>
+              <SelectTrigger className="h-9 w-[180px] bg-white">
+                <SelectValue placeholder="Suscriptor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los suscriptores</SelectItem>
+                {subscribers.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {hasFilters && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 gap-1.5 text-muted-foreground">

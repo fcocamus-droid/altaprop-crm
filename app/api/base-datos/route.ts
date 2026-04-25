@@ -13,36 +13,47 @@ function adminClient() {
 
 export async function GET() {
   const profile = await getUserProfile()
-  if (!profile || profile.role !== 'SUPERADMINBOSS') {
+  if (!profile || (profile.role !== 'SUPERADMINBOSS' && profile.role !== 'SUPERADMIN')) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }
+
+  // SUPERADMIN sees only their org. SUPERADMINBOSS sees everything.
+  const isBoss = profile.role === 'SUPERADMINBOSS'
+  const myScopeId = profile.subscriber_id || profile.id
 
   try {
     const admin = adminClient()
 
     // ── Fetch everything in parallel ──────────────────────────────────────────
+    let profilesQuery = admin
+      .from('profiles')
+      .select('id, role, full_name, phone, rut, subscriber_id, created_at, avatar_url')
+      .order('created_at', { ascending: false })
+
+    let visitsQuery = admin
+      .from('visits')
+      .select('id, notes, subscriber_id, scheduled_at, created_at, property:properties(title, city)')
+      .order('created_at', { ascending: false })
+      .limit(1000)
+
+    let prospectosQuery = admin
+      .from('prospectos')
+      .select('id, full_name, rut, email, phone, company, tipo, status, subscriber_id, agent_id, created_at')
+      .order('created_at', { ascending: false })
+
+    // Scope filtering for SUPERADMIN — only their org's data
+    if (!isBoss) {
+      // Profiles: those with subscriber_id = me, OR the user themselves (id = me)
+      profilesQuery = profilesQuery.or(`subscriber_id.eq.${myScopeId},id.eq.${myScopeId}`)
+      visitsQuery = visitsQuery.eq('subscriber_id', myScopeId)
+      prospectosQuery = prospectosQuery.eq('subscriber_id', myScopeId)
+    }
+
     const [profilesRes, authRes, visitsRes, prospectosRes] = await Promise.all([
-      // All profiles (all roles)
-      admin
-        .from('profiles')
-        .select('id, role, full_name, phone, rut, subscriber_id, created_at, avatar_url')
-        .order('created_at', { ascending: false }),
-
-      // Auth users for emails
+      profilesQuery,
       admin.auth.admin.listUsers({ perPage: 1000 }),
-
-      // Visits — visitor info is embedded in `notes` (parseVisitorFromNotes)
-      admin
-        .from('visits')
-        .select('id, notes, subscriber_id, scheduled_at, created_at, property:properties(title, city)')
-        .order('created_at', { ascending: false })
-        .limit(1000),
-
-      // Prospectos (CRM leads — not registered users)
-      admin
-        .from('prospectos')
-        .select('id, full_name, rut, email, phone, company, tipo, status, subscriber_id, agent_id, created_at')
-        .order('created_at', { ascending: false }),
+      visitsQuery,
+      prospectosQuery,
     ])
 
     const profiles = profilesRes.data || []
@@ -182,7 +193,7 @@ export async function GET() {
       visitas:      contacts.filter(c => c.role === 'VISITA').length,
     }
 
-    return NextResponse.json({ contacts, stats })
+    return NextResponse.json({ contacts, stats, currentUserRole: profile.role })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

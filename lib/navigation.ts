@@ -14,7 +14,7 @@ export const menuItems = [
   { href: '/dashboard/mi-sitio', label: 'Mi Sitio Web', icon: Globe, roles: [ROLES.SUPERADMIN, ROLES.SUPERADMINBOSS] as UserRole[] },
   { href: '/dashboard/plan', label: 'Mi Plan', icon: CreditCard, roles: [ROLES.SUPERADMIN] as UserRole[] },
   { href: '/dashboard/suscriptores', label: 'Suscriptores', icon: Crown, roles: [ROLES.SUPERADMINBOSS] as UserRole[] },
-  { href: '/dashboard/base-datos',   label: 'Base de Datos', icon: Database, roles: [ROLES.SUPERADMINBOSS] as UserRole[] },
+  { href: '/dashboard/base-datos',   label: 'Base de Datos', icon: Database, roles: [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN] as UserRole[] },
   { href: '/dashboard/usuarios', label: 'Agentes', icon: Users, roles: ADMIN_ROLES },
   { href: '/dashboard/portales', label: 'Portales', icon: LayoutGrid, roles: ADMIN_ROLES },
   { href: '/dashboard/red-canjes', label: 'Red de Canjes', icon: GitMerge, roles: [...ADMIN_ROLES, ROLES.AGENTE] as UserRole[] },
