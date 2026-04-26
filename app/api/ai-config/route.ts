@@ -31,6 +31,7 @@ export async function GET() {
       persona_name: 'Sofía',
       greeting: '¡Hola! Soy Sofía, asistente virtual. ¿En qué te puedo ayudar?',
       system_prompt: null,
+      business_hours: { mon:[9,19], tue:[9,19], wed:[9,19], thu:[9,19], fri:[9,19], sat:[10,14] },
       handoff_keywords: ['humano','persona real','agente','operador'],
       timezone: 'America/Santiago',
     }
@@ -50,16 +51,40 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: 'Sin subscriber_id' }, { status: 400 })
 
   const body = await req.json()
+
+  const personaName = String(body.persona_name || '').trim() || 'Sofía'
+  const greeting = String(body.greeting || '').trim() || '¡Hola! Soy Sofía, asistente virtual.'
+  const systemPrompt = body.system_prompt ? String(body.system_prompt).trim() : null
+
+  if (personaName.length > 50) {
+    return NextResponse.json({ error: 'Nombre de persona demasiado largo (máx 50 caracteres)' }, { status: 400 })
+  }
+  if (greeting.length > 500) {
+    return NextResponse.json({ error: 'Saludo demasiado largo (máx 500 caracteres)' }, { status: 400 })
+  }
+  if (systemPrompt && systemPrompt.length > 4000) {
+    return NextResponse.json({ error: 'Prompt personalizado demasiado largo (máx 4000 caracteres)' }, { status: 400 })
+  }
+
+  const handoffKeywords: string[] = Array.isArray(body.handoff_keywords)
+    ? body.handoff_keywords.map((k: any) => String(k).trim()).filter(Boolean)
+    : ['humano','persona real','agente','operador']
+
+  const businessHours = (body.business_hours && typeof body.business_hours === 'object')
+    ? body.business_hours
+    : { mon:[9,19], tue:[9,19], wed:[9,19], thu:[9,19], fri:[9,19], sat:[10,14] }
+
   const admin = createAdminClient()
 
   const upsert = {
     subscriber_id: id,
-    enabled: body.enabled ?? true,
-    persona_name: body.persona_name || 'Sofía',
-    greeting: body.greeting || '¡Hola! Soy Sofía, asistente virtual.',
-    system_prompt: body.system_prompt || null,
-    handoff_keywords: body.handoff_keywords || ['humano','persona real','agente','operador'],
-    timezone: body.timezone || 'America/Santiago',
+    enabled: body.enabled !== false,
+    persona_name: personaName,
+    greeting,
+    system_prompt: systemPrompt,
+    business_hours: businessHours,
+    handoff_keywords: handoffKeywords,
+    timezone: String(body.timezone || 'America/Santiago').trim() || 'America/Santiago',
   }
 
   const { data, error } = await admin

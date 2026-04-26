@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { PageHeader } from '@/components/shared/page-header'
 import { WhatsAppIntegrationCard } from '@/components/inbox/whatsapp-config'
+import { AIConfigCard } from '@/components/inbox/ai-config'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Configuración de Conversaciones - Altaprop' }
@@ -34,6 +35,7 @@ export default async function ConversacionesConfigPage() {
 
       <div className="space-y-5">
         <WhatsAppIntegrationCard />
+        <AIConfigCard />
       </div>
     </div>
   )
