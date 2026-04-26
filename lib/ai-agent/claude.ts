@@ -5,6 +5,7 @@ interface AIContext {
   personaName: string
   subscriberName: string
   systemPromptCustom?: string | null
+  greeting?: string | null
 }
 
 interface AIMessage {
@@ -54,10 +55,14 @@ Siempre responde con un JSON valido (sin markdown) con esta forma:
 
 - Pon "handoff": true solo si pide hablar con humano o despues de capturar todos los datos (nombre+telefono+interes minimo) y ya no hay mas que conversar
 - "lead" se acumula: si el usuario te dijo el nombre, lo pones en name; si despues te da el email, mantienes el name anterior y agregas email. Pon null en campos que no sepas todavia.`
-  if (ctx.systemPromptCustom && ctx.systemPromptCustom.trim()) {
-    return base + '\n\nINSTRUCCIONES ADICIONALES DEL SUSCRIPTOR:\n' + ctx.systemPromptCustom
+  let prompt = base
+  if (ctx.greeting && ctx.greeting.trim()) {
+    prompt += `\n\nSALUDO SUGERIDO (úsalo o uno similar si el cliente todavía no ha sido saludado):\n"${ctx.greeting.trim()}"`
   }
-  return base
+  if (ctx.systemPromptCustom && ctx.systemPromptCustom.trim()) {
+    prompt += '\n\nINSTRUCCIONES ADICIONALES DEL SUSCRIPTOR:\n' + ctx.systemPromptCustom
+  }
+  return prompt
 }
 
 export async function getAIReply(

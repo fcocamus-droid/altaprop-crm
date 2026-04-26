@@ -31,6 +31,36 @@ interface SubscriberCreds {
   appSecret: string | null
 }
 
+function isWithinBusinessHours(
+  hours: Record<string, [number, number] | undefined> | null | undefined,
+  timezone: string,
+): boolean {
+  if (!hours) return true   // no config = always on
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'America/Santiago',
+      weekday: 'short',
+      hour: 'numeric',
+      hour12: false,
+    })
+    const parts = fmt.formatToParts(new Date())
+    const weekday = (parts.find(p => p.type === 'weekday')?.value || 'Mon').toLowerCase().slice(0, 3)
+    const hourStr = parts.find(p => p.type === 'hour')?.value || '0'
+    const hour = parseInt(hourStr, 10)
+    const range = hours[weekday]
+    if (!Array.isArray(range) || range.length < 2) return false
+    return hour >= range[0] && hour < range[1]
+  } catch {
+    return true
+  }
+}
+
+function matchesHandoffKeyword(text: string | null, keywords: string[] | null | undefined): boolean {
+  if (!text || !keywords?.length) return false
+  const lower = text.toLowerCase()
+  return keywords.some(k => k && lower.includes(k.toLowerCase()))
+}
+
 // Look up which subscriber owns this phone_number_id (via integrations table).
 // Falls back to the global env-var creds if no integration matches (the BOSS's number).
 async function resolveCredsForPhoneId(
@@ -152,6 +182,46 @@ export async function POST(req: Request) {
 
       // 3. If AI enabled, reply
       if (conv.ai_enabled) {
+        // Load AI config + subscriber profile
+        let personaName = 'Sofía'
+        let subscriberName = 'Altaprop'
+        let systemPromptCustom: string | null = null
+        let greeting: string | null = null
+        let aiGloballyEnabled = true
+        let businessHours: any = null
+        let timezone = 'America/Santiago'
+        let handoffKeywords: string[] = ['humano','persona real','agente','operador']
+
+        if (conv.subscriber_id) {
+          const [{ data: cfg }, { data: sub }] = await Promise.all([
+            admin.from('ai_configs').select('*').eq('subscriber_id', conv.subscriber_id).maybeSingle(),
+            admin.from('profiles').select('full_name').eq('id', conv.subscriber_id).maybeSingle(),
+          ])
+          if (cfg) {
+            personaName = cfg.persona_name || personaName
+            systemPromptCustom = cfg.system_prompt || null
+            greeting = cfg.greeting || null
+            aiGloballyEnabled = cfg.enabled !== false
+            businessHours = cfg.business_hours || null
+            timezone = cfg.timezone || timezone
+            if (Array.isArray(cfg.handoff_keywords) && cfg.handoff_keywords.length) {
+              handoffKeywords = cfg.handoff_keywords
+            }
+          }
+          subscriberName = sub?.full_name || subscriberName
+        }
+
+        const handoffByKeyword = matchesHandoffKeyword(m.text, handoffKeywords)
+        const offHours = !isWithinBusinessHours(businessHours, timezone)
+
+        // Skip AI: globally disabled, keyword handoff, or outside business hours
+        if (!aiGloballyEnabled || handoffByKeyword || offHours) {
+          await admin.from('conversations')
+            .update({ status: 'human_handling' })
+            .eq('id', conv.id)
+          continue
+        }
+
         await markWhatsAppRead(m.wamid, { phoneId: creds.phoneId, token: creds.token }).catch(() => {})
 
         // Load recent history (last 20 messages)
@@ -169,24 +239,11 @@ export async function POST(req: Request) {
             content: h.content as string,
           }))
 
-        // Load persona / subscriber name / custom prompt
-        let personaName = 'Sofía'
-        let subscriberName = 'Altaprop'
-        let systemPromptCustom: string | null = null
-        if (conv.subscriber_id) {
-          const [{ data: cfg }, { data: sub }] = await Promise.all([
-            admin.from('ai_configs').select('persona_name, system_prompt').eq('subscriber_id', conv.subscriber_id).maybeSingle(),
-            admin.from('profiles').select('full_name').eq('id', conv.subscriber_id).maybeSingle(),
-          ])
-          personaName = cfg?.persona_name || personaName
-          subscriberName = sub?.full_name || subscriberName
-          systemPromptCustom = cfg?.system_prompt || null
-        }
-
         const reply = await getAIReply(aiHistory, {
           personaName,
           subscriberName,
           systemPromptCustom,
+          greeting,
         })
 
         // Send the reply via WhatsApp using the subscriber's creds

@@ -14,6 +14,10 @@ import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
   type Conversation, type Message,
 } from '@/lib/conversations-constants'
+import { createClient } from '@/lib/supabase/client'
+import {
+  playInboxDing, requestNotificationPermission, notifyNewMessage, updateTitleBadge,
+} from '@/lib/inbox/notifications'
 
 function formatRelative(iso: string | null) {
   if (!iso) return ''
@@ -66,10 +70,61 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     }
   }
   useEffect(() => { loadConversations() }, [])
-  // Poll every 20s (realtime would be better, but keep simple)
+
+  // ── Realtime subscription ──────────────────────────────────────────────────
+  // Refs so the subscription doesn't have to re-bind when state changes.
+  const selectedIdRef = useRef<string | null>(selectedId)
+  const conversationsRef = useRef<Conversation[]>(conversations)
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+  useEffect(() => { conversationsRef.current = conversations }, [conversations])
+
   useEffect(() => {
-    const id = setInterval(loadConversations, 20000)
-    return () => clearInterval(id)
+    requestNotificationPermission().catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('inbox-realtime')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const msg = payload.new as Message
+          // Append to open conversation if relevant (avoid duplicates)
+          if (msg.conversation_id === selectedIdRef.current) {
+            setMessages(prev => prev.find(x => x.id === msg.id) ? prev : [...prev, msg])
+          }
+          // New inbound = sound + desktop notification
+          if (msg.direction === 'inbound') {
+            playInboxDing()
+            const conv = conversationsRef.current.find(c => c.id === msg.conversation_id)
+            const name = conv?.contact_name || conv?.contact_phone || 'Nuevo mensaje'
+            notifyNewMessage({
+              title: name,
+              body: (msg.content || '').slice(0, 120) || '[multimedia]',
+              tag: msg.conversation_id,
+              onClick: () => setSelectedId(msg.conversation_id),
+            })
+          }
+          loadConversations()
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        (payload) => {
+          const updated = payload.new as Message
+          if (updated.conversation_id === selectedIdRef.current) {
+            setMessages(prev => prev.map(m => m.id === updated.id ? updated : m))
+          }
+        }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => loadConversations()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   // ── Load messages when conversation selected ───────────────────────────────
@@ -112,6 +167,10 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   }, [conversations, channelFilter, statusFilter, search])
 
   const totalUnread = conversations.reduce((a, c) => a + (c.unread_count || 0), 0)
+  useEffect(() => {
+    updateTitleBadge(totalUnread)
+    return () => updateTitleBadge(0)
+  }, [totalUnread])
   const channelCounts = useMemo(() => {
     const map = new Map<string, number>()
     conversations.forEach(c => map.set(c.channel, (map.get(c.channel) || 0) + 1))
