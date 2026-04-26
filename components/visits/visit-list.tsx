@@ -7,10 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { VISIT_STATUSES } from '@/lib/constants'
 import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visits'
-import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink, Download } from 'lucide-react'
+import { Calendar, MapPin, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink, Download, UserCheck, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
-import { parseVisitorFromNotes } from '@/lib/utils/parse-visitor-notes'
 
 interface Visit {
   id: string
@@ -18,7 +17,14 @@ interface Visit {
   scheduled_at: string
   status: string
   notes: string | null
-  property?: { id: string; title: string; address: string | null; city: string | null }
+  property?: {
+    id: string
+    title: string
+    address: string | null
+    city: string | null
+    agent?: { id: string; full_name: string | null } | null
+    owner?: { id: string; full_name: string | null } | null
+  }
   visitor?: { id: string; full_name: string | null; phone: string | null }
 }
 
@@ -307,17 +313,21 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                       </Link>
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDateTime(visit.scheduled_at)}</span>
-                        {(visit.property as any)?.city && (
-                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{(visit.property as any).city}</span>
+                        {visit.property?.city && (
+                          <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{visit.property.city}</span>
                         )}
-                        {(() => {
-                          // Trust notes parsing first (real visitor), fall back to visitor profile
-                          const parsed = parseVisitorFromNotes(visit.notes)
-                          const realName = parsed.name || (visit.visitor as any)?.full_name
-                          return realName ? (
-                            <span className="flex items-center gap-1"><User className="h-3 w-3" />{realName}</span>
-                          ) : null
-                        })()}
+                        {visit.property?.agent?.full_name && (
+                          <span className="flex items-center gap-1 text-blue-700">
+                            <UserCheck className="h-3 w-3" />
+                            <span className="font-medium">Agente:</span> {visit.property.agent.full_name}
+                          </span>
+                        )}
+                        {visit.property?.owner?.full_name && (
+                          <span className="flex items-center gap-1 text-emerald-700">
+                            <KeyRound className="h-3 w-3" />
+                            <span className="font-medium">Propietario:</span> {visit.property.owner.full_name}
+                          </span>
+                        )}
                       </div>
                       {visit.notes && <p className="text-xs text-muted-foreground mt-1 italic">{visit.notes}</p>}
                     </div>

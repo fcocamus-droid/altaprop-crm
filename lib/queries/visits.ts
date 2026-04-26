@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 
-const VISIT_SELECT = '*, property:properties(id, title, address, city), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)'
+const VISIT_SELECT = '*, property:properties(id, title, address, city, agent_id, owner_id, agent:profiles!properties_agent_id_fkey(id, full_name), owner:profiles!properties_owner_id_fkey(id, full_name)), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)'
 
 export async function getAllVisits() {
   const supabase = createClient()
@@ -35,7 +35,7 @@ export async function getVisitsByPropertyOwner(ownerId: string) {
   const supabase = createClient()
   const { data } = await supabase
     .from('visits')
-    .select('*, property:properties!inner(id, title, address, city, owner_id), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
+    .select('*, property:properties!inner(id, title, address, city, agent_id, owner_id, agent:profiles!properties_agent_id_fkey(id, full_name), owner:profiles!properties_owner_id_fkey(id, full_name)), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
     .eq('property.owner_id', ownerId)
     .order('scheduled_at', { ascending: true })
   return data || []
@@ -45,7 +45,7 @@ export async function getVisitsByAgent(agentId: string) {
   const supabase = createClient()
   const { data } = await supabase
     .from('visits')
-    .select('*, property:properties!inner(id, title, address, city, agent_id), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
+    .select('*, property:properties!inner(id, title, address, city, agent_id, owner_id, agent:profiles!properties_agent_id_fkey(id, full_name), owner:profiles!properties_owner_id_fkey(id, full_name)), visitor:profiles!visits_visitor_id_fkey(id, full_name, phone)')
     .eq('property.agent_id', agentId)
     .order('scheduled_at', { ascending: true })
   return data || []
