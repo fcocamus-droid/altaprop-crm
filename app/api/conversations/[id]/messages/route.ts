@@ -29,9 +29,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   let externalId: string | null = null
   let sendError: string | null = null
 
-  // Send via channel
+  // Send via channel — use the conversation subscriber's WhatsApp credentials
   if (conv.channel === 'whatsapp' && conv.contact_phone) {
-    const res = await sendWhatsAppText(conv.contact_phone, content)
+    let creds: { phoneId?: string; token?: string } | undefined
+    if (conv.subscriber_id) {
+      const { data: integration } = await admin
+        .from('integrations')
+        .select('config')
+        .eq('subscriber_id', conv.subscriber_id)
+        .eq('channel', 'whatsapp')
+        .eq('enabled', true)
+        .maybeSingle()
+      if (integration) {
+        const c = (integration as any).config
+        creds = { phoneId: c.phone_number_id, token: c.access_token }
+      }
+    }
+    const res = await sendWhatsAppText(conv.contact_phone, content, creds)
     externalId = res.wamid || null
     if (!res.success) sendError = res.error || 'Error al enviar'
   }

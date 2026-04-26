@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
 import {
   Send, Bot, User as UserIcon, CheckCheck, Loader2,
   MessageSquare, Search, ChevronRight, UserPlus, UserMinus,
-  MoreVertical, CircleCheck, Inbox as InboxIcon,
+  MoreVertical, CircleCheck, Inbox as InboxIcon, Settings,
 } from 'lucide-react'
 import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
@@ -170,12 +171,21 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     <div className="flex h-full bg-slate-50 border-t">
       {/* ── Column 1: Channels sidebar ──────────────────────────────────────── */}
       <aside className="w-52 shrink-0 border-r bg-white p-3 overflow-y-auto">
-        <h2 className="text-xs font-bold uppercase text-muted-foreground mb-3 flex items-center gap-1.5">
-          <InboxIcon className="h-3 w-3" /> Inbox
-          {totalUnread > 0 && (
-            <span className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{totalUnread}</span>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1.5">
+            <InboxIcon className="h-3 w-3" /> Inbox
+            {totalUnread > 0 && (
+              <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{totalUnread}</span>
+            )}
+          </h2>
+          {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') && (
+            <Link href="/dashboard/conversaciones/configuracion"
+              className="text-muted-foreground hover:text-navy transition-colors"
+              title="Configurar WhatsApp e IA">
+              <Settings className="h-3.5 w-3.5" />
+            </Link>
           )}
-        </h2>
+        </div>
 
         <nav className="space-y-1">
           <button

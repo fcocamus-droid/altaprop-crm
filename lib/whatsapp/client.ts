@@ -147,10 +147,14 @@ export function parseIncomingWebhook(body: any): ParsedIncomingMessage[] {
 }
 
 /** Verify signature of incoming webhook (x-hub-signature-256). */
-export async function verifyWebhookSignature(rawBody: string, signature: string | null): Promise<boolean> {
+export async function verifyWebhookSignature(
+  rawBody: string,
+  signature: string | null,
+  appSecretOverride?: string,
+): Promise<boolean> {
   if (!signature) return false
-  const secret = process.env.META_WA_APP_SECRET
-  if (!secret) return true   // fallback: skip if not configured (dev mode)
+  const secret = appSecretOverride || process.env.META_WA_APP_SECRET
+  if (!secret) return true   // fallback: skip if not configured (dev mode / no per-tenant secret)
   const expected = signature.replace(/^sha256=/, '')
   const crypto = await import('crypto')
   const hmac = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')

@@ -24,36 +24,103 @@ export async function GET(req: Request) {
   return new NextResponse('forbidden', { status: 403 })
 }
 
+interface SubscriberCreds {
+  subscriberId: string | null
+  phoneId: string
+  token: string
+  appSecret: string | null
+}
+
+// Look up which subscriber owns this phone_number_id (via integrations table).
+// Falls back to the global env-var creds if no integration matches (the BOSS's number).
+async function resolveCredsForPhoneId(
+  admin: ReturnType<typeof createAdminClient>,
+  phoneId: string,
+): Promise<SubscriberCreds | null> {
+  if (phoneId) {
+    // Find integration whose config.phone_number_id matches
+    const { data: integrations } = await admin
+      .from('integrations')
+      .select('subscriber_id, config, enabled')
+      .eq('channel', 'whatsapp')
+      .eq('enabled', true)
+
+    const match = (integrations || []).find(i => {
+      const c = (i as any).config as any
+      return c?.phone_number_id === phoneId
+    })
+
+    if (match) {
+      const c = (match as any).config as any
+      return {
+        subscriberId: (match as any).subscriber_id,
+        phoneId,
+        token: c.access_token,
+        appSecret: c.app_secret || null,
+      }
+    }
+  }
+
+  // Fallback to global creds (Boss's account)
+  const envPhoneId = process.env.META_WA_PHONE_ID
+  const envToken = process.env.META_WA_TOKEN
+  if (envPhoneId && envToken) {
+    return {
+      subscriberId: null, // Boss inbox — no subscriber
+      phoneId: envPhoneId,
+      token: envToken,
+      appSecret: process.env.META_WA_APP_SECRET || null,
+    }
+  }
+  return null
+}
+
 // ── POST: incoming messages from WhatsApp ────────────────────────────────────
 export async function POST(req: Request) {
   // Read raw body first for signature verification
   const rawBody = await req.text()
   const sig = req.headers.get('x-hub-signature-256')
-  const sigOk = await verifyWebhookSignature(rawBody, sig)
+
+  // Parse body to extract phone_number_id (needed to know which subscriber's secret to use)
+  let body: any = {}
+  try { body = JSON.parse(rawBody) } catch { return NextResponse.json({ ok: true }) }
+
+  const phoneIdFromBody = body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id || ''
+
+  const admin = createAdminClient()
+  const creds = await resolveCredsForPhoneId(admin, phoneIdFromBody)
+
+  // Verify signature using subscriber-specific secret (or global as fallback)
+  const sigOk = await verifyWebhookSignature(rawBody, sig, creds?.appSecret || undefined)
   if (!sigOk && process.env.NODE_ENV === 'production') {
     return new NextResponse('invalid signature', { status: 401 })
   }
 
-  let body: any = {}
-  try { body = JSON.parse(rawBody) } catch { return NextResponse.json({ ok: true }) }
+  if (!creds) {
+    console.warn('[wa webhook] no creds found for phone_number_id:', phoneIdFromBody)
+    return NextResponse.json({ ok: true })
+  }
 
-  // Always ack fast; process asynchronously (but we still await for dev visibility)
-  const admin = createAdminClient()
   const messages = parseIncomingWebhook(body)
 
   for (const m of messages) {
     try {
-      // 1. Find or create conversation keyed by channel+external_id (wa phone)
-      const { data: existing } = await admin
+      // 1. Find or create conversation — keyed by channel+external_id+subscriber_id
+      // (Same external phone but different subscribers are different conversations.)
+      let convQuery = admin
         .from('conversations')
         .select('*')
         .eq('channel', 'whatsapp')
         .eq('external_id', m.from)
-        .maybeSingle()
+      if (creds.subscriberId) {
+        convQuery = convQuery.eq('subscriber_id', creds.subscriberId)
+      } else {
+        convQuery = convQuery.is('subscriber_id', null)
+      }
+      const { data: existing } = await convQuery.maybeSingle()
 
       let conv: any = existing
       if (!conv) {
-        // No subscriber attached yet — leave null; SUPERADMINBOSS will assign
         const { data: created, error } = await admin
           .from('conversations')
           .insert({
@@ -63,6 +130,7 @@ export async function POST(req: Request) {
             contact_phone: m.from,
             status: 'ai_handling',
             ai_enabled: true,
+            subscriber_id: creds.subscriberId,
           })
           .select('*')
           .single()
@@ -84,7 +152,7 @@ export async function POST(req: Request) {
 
       // 3. If AI enabled, reply
       if (conv.ai_enabled) {
-        await markWhatsAppRead(m.wamid).catch(() => {})
+        await markWhatsAppRead(m.wamid, { phoneId: creds.phoneId, token: creds.token }).catch(() => {})
 
         // Load recent history (last 20 messages)
         const { data: history } = await admin
@@ -101,9 +169,10 @@ export async function POST(req: Request) {
             content: h.content as string,
           }))
 
-        // Load persona/subscriber name
+        // Load persona / subscriber name / custom prompt
         let personaName = 'Sofía'
         let subscriberName = 'Altaprop'
+        let systemPromptCustom: string | null = null
         if (conv.subscriber_id) {
           const [{ data: cfg }, { data: sub }] = await Promise.all([
             admin.from('ai_configs').select('persona_name, system_prompt').eq('subscriber_id', conv.subscriber_id).maybeSingle(),
@@ -111,22 +180,20 @@ export async function POST(req: Request) {
           ])
           personaName = cfg?.persona_name || personaName
           subscriberName = sub?.full_name || subscriberName
+          systemPromptCustom = cfg?.system_prompt || null
         }
-
-        const { data: cfg } = await admin
-          .from('ai_configs')
-          .select('system_prompt')
-          .eq('subscriber_id', conv.subscriber_id || '00000000-0000-0000-0000-000000000000')
-          .maybeSingle()
 
         const reply = await getAIReply(aiHistory, {
           personaName,
           subscriberName,
-          systemPromptCustom: cfg?.system_prompt || null,
+          systemPromptCustom,
         })
 
-        // Send the reply via WhatsApp
-        const send = await sendWhatsAppText(m.from, reply.text)
+        // Send the reply via WhatsApp using the subscriber's creds
+        const send = await sendWhatsAppText(m.from, reply.text, {
+          phoneId: creds.phoneId,
+          token: creds.token,
+        })
 
         // Store outbound message
         await admin.from('messages').insert({
@@ -150,7 +217,6 @@ export async function POST(req: Request) {
         }
       }
     } catch (e) {
-      // Log but don't fail the webhook (Meta will retry otherwise)
       console.error('[whatsapp webhook] error processing message', e)
     }
   }
