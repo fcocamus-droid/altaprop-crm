@@ -216,8 +216,8 @@ export function WhatsAppIntegrationCard() {
               <p className="font-semibold">Necesitas estos datos de Meta for Developers:</p>
               <ol className="list-decimal list-inside space-y-1 ml-1">
                 <li>Crea una app en <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener" className="underline inline-flex items-center gap-0.5">developers.facebook.com <ExternalLink className="h-3 w-3" /></a></li>
-                <li>Agrega el caso de uso "WhatsApp Business Messaging"</li>
-                <li>En "Configuración de la API" copia tu Phone Number ID y WABA ID</li>
+                <li>Agrega el caso de uso &quot;WhatsApp Business Messaging&quot;</li>
+                <li>En &quot;Configuración de la API&quot; copia tu Phone Number ID y WABA ID</li>
                 <li>Genera un Access Token (System User token recomendado para producción)</li>
                 <li>Configura el webhook con la URL de abajo y el Verify Token <span className="font-mono bg-amber-100 px-1 rounded">altaprop_fc_fel_2026</span></li>
               </ol>
