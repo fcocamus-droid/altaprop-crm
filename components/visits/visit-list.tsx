@@ -308,9 +308,15 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                         className="font-medium truncate hover:text-blue-600 hover:underline inline-flex items-center gap-1 group"
                         target="_blank"
                       >
-                        {(visit.property as any)?.title || 'Propiedad'}
+                        {visit.property?.title || 'Propiedad'}
                         <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-60 flex-shrink-0 transition-opacity" />
                       </Link>
+                      {visit.property?.address && (
+                        <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-slate-400" />
+                          {visit.property.address}
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-1">
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDateTime(visit.scheduled_at)}</span>
                         {visit.property?.city && (
