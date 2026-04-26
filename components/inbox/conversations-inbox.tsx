@@ -9,6 +9,7 @@ import {
   Send, Bot, User as UserIcon, CheckCheck, Loader2,
   MessageSquare, Search, ChevronRight, UserPlus, UserMinus,
   MoreVertical, CircleCheck, Inbox as InboxIcon, Settings,
+  Compass, Building2, UserCheck,
 } from 'lucide-react'
 import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
@@ -51,7 +52,25 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
 
   const [channelFilter, setChannelFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'unassigned'>('all')
   const [search, setSearch] = useState('')
+
+  // ── Assignment options (Boss + Subscriber) ─────────────────────────────────
+  type AssignSub = { id: string; full_name: string | null; email: string | null }
+  type AssignAgent = AssignSub & { subscriber_id: string | null }
+  const [assignSubs, setAssignSubs] = useState<AssignSub[]>([])
+  const [assignAgents, setAssignAgents] = useState<AssignAgent[]>([])
+  const canAssign = currentUserRole === 'SUPERADMINBOSS' || currentUserRole === 'SUPERADMIN'
+  useEffect(() => {
+    if (!canAssign) return
+    fetch('/api/conversations/assign-options')
+      .then(r => r.ok ? r.json() : { subscribers: [], agents: [] })
+      .then(d => {
+        setAssignSubs(d.subscribers || [])
+        setAssignAgents(d.agents || [])
+      })
+      .catch(() => {})
+  }, [canAssign])
 
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -152,6 +171,7 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   // ── Filter list ────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = conversations
+    if (assignmentFilter === 'unassigned') list = list.filter(c => !c.subscriber_id)
     if (channelFilter !== 'all') list = list.filter(c => c.channel === channelFilter)
     if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter)
     if (search.trim()) {
@@ -164,9 +184,10 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
       )
     }
     return list
-  }, [conversations, channelFilter, statusFilter, search])
+  }, [conversations, assignmentFilter, channelFilter, statusFilter, search])
 
   const totalUnread = conversations.reduce((a, c) => a + (c.unread_count || 0), 0)
+  const unassignedCount = conversations.filter(c => !c.subscriber_id).length
   useEffect(() => {
     updateTitleBadge(totalUnread)
     return () => updateTitleBadge(0)
@@ -210,6 +231,37 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     loadConversations()
   }
 
+  async function assignSubscriber(subId: string | null) {
+    if (!activeConversation) return
+    const res = await fetch(`/api/conversations/${activeConversation.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscriber_id: subId, agent_id: null }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setActiveConversation(data.conversation)
+      loadConversations()
+    }
+  }
+
+  async function assignAgent(agentId: string | null) {
+    if (!activeConversation) return
+    const res = await fetch(`/api/conversations/${activeConversation.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: agentId }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setActiveConversation(data.conversation)
+      loadConversations()
+    } else {
+      const err = await res.json().catch(() => ({}))
+      alert(err.error || 'No se pudo asignar el agente')
+    }
+  }
+
   async function convertToProspecto() {
     if (!activeConversation) return
     setConverting(true)
@@ -246,11 +298,27 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
           )}
         </div>
 
+        {currentUserRole === 'SUPERADMINBOSS' && (
+          <>
+            <h3 className="text-[10px] font-bold uppercase text-muted-foreground mb-1.5 px-2.5">Bandeja Boss</h3>
+            <button
+              onClick={() => setAssignmentFilter(assignmentFilter === 'unassigned' ? 'all' : 'unassigned')}
+              className={`w-full flex items-center justify-between px-2.5 py-2 mb-3 rounded-md text-sm ${
+                assignmentFilter === 'unassigned' ? 'bg-amber-500 text-white font-medium' : 'hover:bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+              title="Conversaciones que aún no tienen suscriptor asignado"
+            >
+              <span className="flex items-center gap-2"><Compass className="h-3.5 w-3.5" /> Sin asignar</span>
+              <span className={`text-xs ${assignmentFilter === 'unassigned' ? 'opacity-90' : 'opacity-80'}`}>{unassignedCount}</span>
+            </button>
+          </>
+        )}
+
         <nav className="space-y-1">
           <button
-            onClick={() => setChannelFilter('all')}
+            onClick={() => { setChannelFilter('all'); setAssignmentFilter('all') }}
             className={`w-full flex items-center justify-between px-2.5 py-2 rounded-md text-sm ${
-              channelFilter === 'all' ? 'bg-navy text-white font-medium' : 'hover:bg-slate-100 text-slate-700'
+              channelFilter === 'all' && assignmentFilter === 'all' ? 'bg-navy text-white font-medium' : 'hover:bg-slate-100 text-slate-700'
             }`}
           >
             <span className="flex items-center gap-2">📥 Todos</span>
@@ -382,12 +450,52 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{activeConversation.contact_name || activeConversation.contact_phone || 'Sin nombre'}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {getChannelConfig(activeConversation.channel).icon} {activeConversation.contact_phone || activeConversation.contact_email}
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                    <span>{getChannelConfig(activeConversation.channel).icon} {activeConversation.contact_phone || activeConversation.contact_email}</span>
+                    {activeConversation.subscriber_name && (
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <Building2 className="h-3 w-3" /> {activeConversation.subscriber_name}
+                      </span>
+                    )}
+                    {activeConversation.agent_name && (
+                      <span className="inline-flex items-center gap-1 text-slate-500">
+                        <UserCheck className="h-3 w-3" /> {activeConversation.agent_name}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {/* Boss-only: assign subscriber */}
+                {currentUserRole === 'SUPERADMINBOSS' && (
+                  <select
+                    value={activeConversation.subscriber_id || ''}
+                    onChange={(e) => assignSubscriber(e.target.value || null)}
+                    className="text-xs px-2 py-1.5 rounded-md border bg-white focus:outline-none focus:ring-1 focus:ring-navy"
+                    title="Asignar suscriptor"
+                  >
+                    <option value="">— Sin suscriptor —</option>
+                    {assignSubs.map(s => (
+                      <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
+                    ))}
+                  </select>
+                )}
+                {/* Boss + Subscriber: assign agent (only if a subscriber is set) */}
+                {canAssign && activeConversation.subscriber_id && (
+                  <select
+                    value={activeConversation.agent_id || ''}
+                    onChange={(e) => assignAgent(e.target.value || null)}
+                    className="text-xs px-2 py-1.5 rounded-md border bg-white focus:outline-none focus:ring-1 focus:ring-navy"
+                    title="Asignar agente"
+                  >
+                    <option value="">— Sin agente —</option>
+                    {assignAgents
+                      .filter(a => a.subscriber_id === activeConversation.subscriber_id)
+                      .map(a => (
+                        <option key={a.id} value={a.id}>{a.full_name || a.email}</option>
+                      ))}
+                  </select>
+                )}
                 <button
                   onClick={toggleAI}
                   className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border transition-colors ${

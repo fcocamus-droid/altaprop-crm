@@ -68,6 +68,24 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   // SUPERADMINBOSS can also reassign subscriber_id
   if (profile.role === ROLES.SUPERADMINBOSS && 'subscriber_id' in body) {
     updates.subscriber_id = body.subscriber_id
+    // If subscriber changed and no new agent specified, clear the existing agent
+    // (it likely belonged to the previous subscriber).
+    if (body.subscriber_id !== conv.subscriber_id && !('agent_id' in body)) {
+      updates.agent_id = null
+    }
+  }
+
+  // Validate agent_id belongs to the conversation's (possibly new) subscriber
+  if ('agent_id' in updates && updates.agent_id) {
+    const targetSub = 'subscriber_id' in updates ? updates.subscriber_id : conv.subscriber_id
+    const { data: agentProfile } = await admin
+      .from('profiles')
+      .select('id, role, subscriber_id')
+      .eq('id', updates.agent_id)
+      .maybeSingle()
+    if (!agentProfile || agentProfile.role !== ROLES.AGENTE || agentProfile.subscriber_id !== targetSub) {
+      return NextResponse.json({ error: 'El agente no pertenece al suscriptor de esta conversación' }, { status: 400 })
+    }
   }
 
   const { data: updated, error } = await admin
