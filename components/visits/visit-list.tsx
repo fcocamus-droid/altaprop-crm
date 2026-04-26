@@ -10,6 +10,7 @@ import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visit
 import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink, Download } from 'lucide-react'
 import Link from 'next/link'
 import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
+import { parseVisitorFromNotes } from '@/lib/utils/visit-pdf'
 
 interface Visit {
   id: string
@@ -309,9 +310,14 @@ export function VisitList({ visits: initialVisits, properties, canCreate }: {
                         {(visit.property as any)?.city && (
                           <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{(visit.property as any).city}</span>
                         )}
-                        {(visit.visitor as any)?.full_name && (
-                          <span className="flex items-center gap-1"><User className="h-3 w-3" />{(visit.visitor as any).full_name}</span>
-                        )}
+                        {(() => {
+                          // Trust notes parsing first (real visitor), fall back to visitor profile
+                          const parsed = parseVisitorFromNotes(visit.notes)
+                          const realName = parsed.name || (visit.visitor as any)?.full_name
+                          return realName ? (
+                            <span className="flex items-center gap-1"><User className="h-3 w-3" />{realName}</span>
+                          ) : null
+                        })()}
                       </div>
                       {visit.notes && <p className="text-xs text-muted-foreground mt-1 italic">{visit.notes}</p>}
                     </div>

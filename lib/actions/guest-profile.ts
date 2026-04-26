@@ -4,6 +4,27 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 /**
+ * Finds an existing auth user by email, paginating through all users.
+ * Supabase Admin API does NOT support filtering listUsers by email — the `?email=`
+ * query param is ignored, so we must paginate and match in memory.
+ */
+async function findUserIdByEmail(email: string): Promise<string | null> {
+  const target = email.trim().toLowerCase()
+  for (let page = 1; page <= 25; page++) {
+    const res = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=200`,
+      { headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY } },
+    )
+    const data = await res.json()
+    const users = data.users || []
+    const found = users.find((u: any) => (u.email || '').toLowerCase() === target)
+    if (found) return found.id as string
+    if (users.length < 200) return null   // last page
+  }
+  return null
+}
+
+/**
  * Finds an existing auth user by email, or creates a new POSTULANTE account.
  * Returns the auth user id (= profile id).
  */
@@ -13,14 +34,8 @@ export async function findOrCreatePostulante(
   phone: string | null,
   rut: string | null,
 ): Promise<string> {
-  const listRes = await fetch(
-    `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}&page=1&per_page=1`,
-    { headers: { Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY } },
-  )
-  const listData = await listRes.json()
-  const existing = listData.users?.[0]
-
-  if (existing) return existing.id as string
+  const existingId = await findUserIdByEmail(email)
+  if (existingId) return existingId
 
   const createRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method: 'POST',
