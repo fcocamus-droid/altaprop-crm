@@ -34,27 +34,8 @@ function labelValue(
   doc.font('Helvetica').fontSize(9).fillColor(BLACK).text(value || '—', x + colW, y, { width: colW })
 }
 
-// ── Parser for notes field ────────────────────────────────────────────────────
-export function parseVisitorFromNotes(notes: string | null) {
-  if (!notes) return { name: '', rut: '', phone: '', email: '', observation: '' }
-  const nameMatch = notes.match(/Solicitud de:\s*([^|]+)/)
-  const rutMatch  = notes.match(/RUT:\s*([^|]+)/)
-  const telMatch  = notes.match(/Tel:\s*([^|]+)/)
-  const emailMatch= notes.match(/Email:\s*([^|]+)/)
-  let obs = notes
-  obs = obs.replace(/Solicitud de:\s*[^|]+\|?\s*/gi, '')
-  obs = obs.replace(/RUT:\s*[^|]+\|?\s*/gi, '')
-  obs = obs.replace(/Tel:\s*[^|]+\|?\s*/gi, '')
-  obs = obs.replace(/Email:\s*[^|]+\|?\s*/gi, '')
-  obs = obs.replace(/^\|\s*/, '').trim()
-  return {
-    name:        nameMatch?.[1]?.trim()  || '',
-    rut:         rutMatch?.[1]?.trim()   || '',
-    phone:       telMatch?.[1]?.trim()   || '',
-    email:       emailMatch?.[1]?.trim() || '',
-    observation: obs,
-  }
-}
+// Re-export parser (lives in its own file to avoid pulling pdfkit into client bundles)
+export { parseVisitorFromNotes } from './parse-visitor-notes'
 
 // ── Main PDF builder ──────────────────────────────────────────────────────────
 export interface VisitPdfData {

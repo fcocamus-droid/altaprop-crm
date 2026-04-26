@@ -10,7 +10,7 @@ import { createVisit, updateVisitStatus, deleteVisit } from '@/lib/actions/visit
 import { Calendar, MapPin, User, Clock, Plus, CheckCircle, XCircle, Trash2, CalendarDays, ChevronLeft, ChevronRight, Loader2, Search, ExternalLink, Download } from 'lucide-react'
 import Link from 'next/link'
 import { toChileDatetime, formatChileDateTimeDisplay } from '@/lib/utils/chile-datetime'
-import { parseVisitorFromNotes } from '@/lib/utils/visit-pdf'
+import { parseVisitorFromNotes } from '@/lib/utils/parse-visitor-notes'
 
 interface Visit {
   id: string
