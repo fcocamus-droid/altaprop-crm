@@ -9,7 +9,7 @@ import {
   Send, Bot, User as UserIcon, CheckCheck, Loader2,
   MessageSquare, Search, ChevronRight, UserPlus, UserMinus,
   MoreVertical, CircleCheck, Inbox as InboxIcon, Settings,
-  Compass, Building2, UserCheck,
+  Compass, Building2, UserCheck, FileText, BarChart3,
 } from 'lucide-react'
 import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   playInboxDing, requestNotificationPermission, notifyNewMessage, updateTitleBadge,
 } from '@/lib/inbox/notifications'
+import { TemplatePicker } from './template-picker'
 
 function formatRelative(iso: string | null) {
   if (!iso) return ''
@@ -75,6 +76,7 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [converting, setConverting] = useState(false)
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // ── Load conversations ─────────────────────────────────────────────────────
@@ -188,6 +190,21 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
 
   const totalUnread = conversations.reduce((a, c) => a + (c.unread_count || 0), 0)
   const unassignedCount = conversations.filter(c => !c.subscriber_id).length
+
+  // Meta's 24h customer-service window: free-form text only allowed within 24h
+  // of the latest inbound message. After that, only approved templates are
+  // accepted.
+  const lastInboundAt = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].direction === 'inbound') return messages[i].sent_at
+    }
+    return null
+  }, [messages])
+  const windowExpired = useMemo(() => {
+    if (!lastInboundAt) return activeConversation?.channel === 'whatsapp' && messages.length > 0
+    const hours = (Date.now() - new Date(lastInboundAt).getTime()) / 3600000
+    return hours > 24
+  }, [lastInboundAt, activeConversation, messages.length])
   useEffect(() => {
     updateTitleBadge(totalUnread)
     return () => updateTitleBadge(0)
@@ -290,11 +307,18 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
             )}
           </h2>
           {(currentUserRole === 'SUPERADMIN' || currentUserRole === 'SUPERADMINBOSS') && (
-            <Link href="/dashboard/conversaciones/configuracion"
-              className="text-muted-foreground hover:text-navy transition-colors"
-              title="Configurar WhatsApp e IA">
-              <Settings className="h-3.5 w-3.5" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/dashboard/conversaciones/metricas"
+                className="text-muted-foreground hover:text-navy transition-colors"
+                title="Métricas">
+                <BarChart3 className="h-3.5 w-3.5" />
+              </Link>
+              <Link href="/dashboard/conversaciones/configuracion"
+                className="text-muted-foreground hover:text-navy transition-colors"
+                title="Configurar WhatsApp e IA">
+                <Settings className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           )}
         </div>
 
@@ -508,6 +532,16 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                   <Bot className="h-3.5 w-3.5" />
                   {activeConversation.ai_enabled ? 'IA ON' : 'IA OFF'}
                 </button>
+                {activeConversation.channel === 'whatsapp' && (
+                  <button
+                    onClick={() => setShowTemplatePicker(true)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200 transition-colors"
+                    title="Enviar plantilla aprobada por Meta (necesario fuera de la ventana de 24h)"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Plantilla
+                  </button>
+                )}
                 {activeConversation.status !== 'converted' && (
                   <Button
                     size="sm"
@@ -558,6 +592,21 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
 
             {/* Input */}
             <div className="border-t bg-white p-3">
+              {windowExpired && activeConversation.channel === 'whatsapp' && (
+                <div className="mb-2 flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-md px-3 py-2">
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                  <p>
+                    Ventana de 24h expirada. Para retomar el contacto envía una{' '}
+                    <button
+                      onClick={() => setShowTemplatePicker(true)}
+                      className="underline font-medium"
+                    >
+                      plantilla aprobada
+                    </button>
+                    .
+                  </p>
+                </div>
+              )}
               <div className="flex gap-2 items-end">
                 <textarea
                   value={draft}
@@ -588,6 +637,19 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
           </>
         )}
       </main>
+
+      {showTemplatePicker && activeConversation && (
+        <TemplatePicker
+          conversationId={activeConversation.id}
+          subscriberId={activeConversation.subscriber_id}
+          contactName={activeConversation.contact_name}
+          onClose={() => setShowTemplatePicker(false)}
+          onSent={() => {
+            if (selectedId) loadConversation(selectedId)
+            loadConversations()
+          }}
+        />
+      )}
     </div>
   )
 }
