@@ -69,5 +69,6 @@ export interface Message {
   delivered_at: string | null
   read_at: string | null
   error: string | null
+  is_internal?: boolean
   metadata: Record<string, any>
 }

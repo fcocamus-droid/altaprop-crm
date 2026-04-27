@@ -9,7 +9,7 @@ import {
   Send, Bot, User as UserIcon, CheckCheck, Loader2,
   MessageSquare, Search, ChevronRight, UserPlus, UserMinus,
   MoreVertical, CircleCheck, Inbox as InboxIcon, Settings,
-  Compass, Building2, UserCheck, FileText, BarChart3, Paperclip, X,
+  Compass, Building2, UserCheck, FileText, BarChart3, Paperclip, X, StickyNote,
 } from 'lucide-react'
 import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
@@ -80,6 +80,7 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  const [composerMode, setComposerMode] = useState<'message' | 'note'>('message')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -238,7 +239,10 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     if (!draft.trim() || !selectedId) return
     setSending(true)
     try {
-      const res = await fetch(`/api/conversations/${selectedId}/messages`, {
+      const url = composerMode === 'note'
+        ? `/api/conversations/${selectedId}/notes`
+        : `/api/conversations/${selectedId}/messages`
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: draft }),
@@ -658,13 +662,20 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
               ) : (
                 messages.map(m => {
                   const isOut = m.direction === 'outbound'
-                  const senderLabel = m.sender_type === 'ai' ? '🤖 IA' : m.sender_type === 'agent' ? '👤 Agente' : null
+                  const isNote = !!m.is_internal
+                  const senderLabel = isNote
+                    ? '📝 Nota interna'
+                    : m.sender_type === 'ai' ? '🤖 IA'
+                    : m.sender_type === 'agent' ? '👤 Agente'
+                    : null
                   return (
-                    <div key={m.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                    <div key={m.id} className={`flex ${isNote ? 'justify-center' : isOut ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[70%] rounded-2xl px-3.5 py-2 ${
-                        isOut
-                          ? m.sender_type === 'ai' ? 'bg-purple-600 text-white' : 'bg-navy text-white'
-                          : 'bg-white border text-slate-900'
+                        isNote
+                          ? 'bg-amber-50 border border-amber-200 text-amber-900'
+                          : isOut
+                            ? m.sender_type === 'ai' ? 'bg-purple-600 text-white' : 'bg-navy text-white'
+                            : 'bg-white border text-slate-900'
                       }`}>
                         {senderLabel && <p className="text-[10px] opacity-80 mb-0.5">{senderLabel}</p>}
                         {m.content && <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>}
@@ -676,9 +687,11 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                             isOutbound={isOut}
                           />
                         )}
-                        <p className={`text-[10px] mt-1 flex items-center gap-1 ${isOut ? 'text-white/70 justify-end' : 'text-slate-400'}`}>
+                        <p className={`text-[10px] mt-1 flex items-center gap-1 ${
+                          isNote ? 'text-amber-700/70' : isOut ? 'text-white/70 justify-end' : 'text-slate-400'
+                        }`}>
                           {formatTime(m.sent_at)}
-                          {isOut && m.read_at && <CheckCheck className="h-3 w-3" />}
+                          {isOut && !isNote && m.read_at && <CheckCheck className="h-3 w-3" />}
                           {m.error && <span className="text-red-300" title={m.error}>⚠</span>}
                         </p>
                       </div>
@@ -689,8 +702,26 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
             </div>
 
             {/* Input */}
-            <div className="border-t bg-white p-3">
-              {windowExpired && activeConversation.channel === 'whatsapp' && (
+            <div className={`border-t p-3 ${composerMode === 'note' ? 'bg-amber-50' : 'bg-white'}`}>
+              <div className="flex gap-1 mb-2 text-xs">
+                <button
+                  onClick={() => setComposerMode('message')}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    composerMode === 'message' ? 'bg-navy text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Send className="h-3 w-3 inline mr-1" /> Mensaje al contacto
+                </button>
+                <button
+                  onClick={() => { setComposerMode('note'); clearPending() }}
+                  className={`px-3 py-1 rounded-md transition-colors ${
+                    composerMode === 'note' ? 'bg-amber-500 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <StickyNote className="h-3 w-3 inline mr-1" /> Nota interna
+                </button>
+              </div>
+              {windowExpired && activeConversation.channel === 'whatsapp' && composerMode === 'message' && (
                 <div className="mb-2 flex items-start gap-2 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-md px-3 py-2">
                   <FileText className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                   <p>
@@ -736,7 +767,7 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                   accept="image/*,video/*,audio/*,application/pdf"
                   onChange={handleFilePick}
                 />
-                {activeConversation.channel === 'whatsapp' && (
+                {activeConversation.channel === 'whatsapp' && composerMode === 'message' && (
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={sending || activeConversation.status === 'closed'}
@@ -755,9 +786,17 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                       pendingFile ? sendMedia() : sendMessage()
                     }
                   }}
-                  placeholder={pendingFile ? 'Caption opcional…' : 'Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)'}
+                  placeholder={
+                    composerMode === 'note'
+                      ? 'Nota interna — solo la verán los agentes y suscriptores'
+                      : pendingFile
+                        ? 'Caption opcional…'
+                        : 'Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)'
+                  }
                   rows={2}
-                  className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
+                  className={`flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                    composerMode === 'note' ? 'bg-amber-50 border-amber-300 focus:ring-amber-400' : 'focus:ring-navy'
+                  }`}
                   disabled={sending || activeConversation.status === 'closed'}
                 />
                 <Button

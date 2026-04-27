@@ -248,11 +248,12 @@ export async function POST(req: Request) {
 
         await markWhatsAppRead(m.wamid, { phoneId: creds.phoneId, token: creds.token }).catch(() => {})
 
-        // Load recent history (last 20 messages)
+        // Load recent history (last 20 messages, excluding internal notes)
         const { data: history } = await admin
           .from('messages')
-          .select('direction, content, sender_type')
+          .select('direction, content, sender_type, is_internal')
           .eq('conversation_id', conv.id)
+          .eq('is_internal', false)
           .order('sent_at', { ascending: true })
           .limit(20)
 
