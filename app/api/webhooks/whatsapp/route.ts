@@ -7,6 +7,8 @@ import {
   sendWhatsAppText,
   verifyWebhookSignature,
   markWhatsAppRead,
+  fetchWhatsAppMediaUrl,
+  downloadWhatsAppMedia,
 } from '@/lib/whatsapp/client'
 import { getAIReply } from '@/lib/ai-agent/claude'
 
@@ -168,13 +170,35 @@ export async function POST(req: Request) {
         conv = created
       }
 
-      // 2. Store the inbound message
+      // 2a. If the message has media, download it from Meta and re-host in our
+      //     bucket so the UI can display it (Meta URLs expire in ~5 minutes).
+      let mediaUrl: string | null = null
+      if (m.mediaId) {
+        const meta = await fetchWhatsAppMediaUrl(m.mediaId, { phoneId: creds.phoneId, token: creds.token })
+        if (meta?.url) {
+          const dl = await downloadWhatsAppMedia(meta.url, { phoneId: creds.phoneId, token: creds.token })
+          if (dl) {
+            const ext = (meta.mimeType.split('/')[1] || 'bin').split(';')[0]
+            const path = `${conv.id}/inbound-${m.wamid}.${ext}`
+            const { error: upErr } = await admin.storage
+              .from('inbox-media')
+              .upload(path, dl.buffer, { contentType: dl.contentType, upsert: true })
+            if (!upErr) {
+              const { data: pub } = admin.storage.from('inbox-media').getPublicUrl(path)
+              mediaUrl = pub.publicUrl
+            }
+          }
+        }
+      }
+
+      // 2b. Store the inbound message
       await admin.from('messages').insert({
         conversation_id: conv.id,
         direction: 'inbound',
         sender_type: 'contact',
         content: m.text,
         media_type: m.mediaType || null,
+        media_url: mediaUrl,
         external_id: m.wamid,
         sent_at: m.timestamp,
         metadata: { wa_raw: m.raw },

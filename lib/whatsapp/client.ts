@@ -51,6 +51,47 @@ export async function sendWhatsAppText(
   }
 }
 
+export type WhatsAppMediaKind = 'image' | 'document' | 'audio' | 'video'
+
+/** Send a media message via a public URL (link) — no need to upload to Meta. */
+export async function sendWhatsAppMedia(
+  to: string,
+  kind: WhatsAppMediaKind,
+  link: string,
+  opts: { caption?: string; filename?: string } = {},
+  creds?: { phoneId?: string; token?: string },
+): Promise<SendTextResult> {
+  try {
+    const { phoneId, token } = getCreds(creds)
+    const normalizedTo = to.replace(/\D/g, '')
+
+    const mediaPayload: any = { link }
+    if (opts.caption && (kind === 'image' || kind === 'video' || kind === 'document')) {
+      mediaPayload.caption = opts.caption.substring(0, 1024)
+    }
+    if (kind === 'document' && opts.filename) {
+      mediaPayload.filename = opts.filename
+    }
+
+    const res = await fetch(`${GRAPH_URL}/${phoneId}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: normalizedTo,
+        type: kind,
+        [kind]: mediaPayload,
+      }),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return { success: false, error: data.error?.message || `HTTP ${res.status}` }
+    return { success: true, wamid: data.messages?.[0]?.id }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
 export async function sendWhatsAppTemplate(
   to: string,
   templateName: string,
@@ -78,6 +119,43 @@ export async function sendWhatsAppTemplate(
     return { success: true, wamid: data.messages?.[0]?.id }
   } catch (e: any) {
     return { success: false, error: e.message }
+  }
+}
+
+/** Fetch a temporary media URL from Meta given the media id. URL expires ~5min. */
+export async function fetchWhatsAppMediaUrl(
+  mediaId: string,
+  creds?: { phoneId?: string; token?: string },
+): Promise<{ url: string; mimeType: string } | null> {
+  try {
+    const { token } = getCreds(creds)
+    const res = await fetch(`${GRAPH_URL}/${mediaId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data?.url ? { url: data.url, mimeType: data.mime_type || 'application/octet-stream' } : null
+  } catch {
+    return null
+  }
+}
+
+/** Download the binary contents of a Meta media URL (requires auth header). */
+export async function downloadWhatsAppMedia(
+  url: string,
+  creds?: { phoneId?: string; token?: string },
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  try {
+    const { token } = getCreds(creds)
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) return null
+    const ab = await res.arrayBuffer()
+    return {
+      buffer: Buffer.from(ab),
+      contentType: res.headers.get('content-type') || 'application/octet-stream',
+    }
+  } catch {
+    return null
   }
 }
 

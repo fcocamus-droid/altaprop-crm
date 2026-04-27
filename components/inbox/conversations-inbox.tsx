@@ -9,7 +9,7 @@ import {
   Send, Bot, User as UserIcon, CheckCheck, Loader2,
   MessageSquare, Search, ChevronRight, UserPlus, UserMinus,
   MoreVertical, CircleCheck, Inbox as InboxIcon, Settings,
-  Compass, Building2, UserCheck, FileText, BarChart3,
+  Compass, Building2, UserCheck, FileText, BarChart3, Paperclip, X,
 } from 'lucide-react'
 import {
   CHANNELS, CONVERSATION_STATUSES, getChannelConfig, getStatusConfig,
@@ -20,6 +20,7 @@ import {
   playInboxDing, requestNotificationPermission, notifyNewMessage, updateTitleBadge,
 } from '@/lib/inbox/notifications'
 import { TemplatePicker } from './template-picker'
+import { MediaAttachment } from './media-attachment'
 
 function formatRelative(iso: string | null) {
   if (!iso) return ''
@@ -77,6 +78,9 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   const [sending, setSending] = useState(false)
   const [converting, setConverting] = useState(false)
   const [showTemplatePicker, setShowTemplatePicker] = useState(false)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // ── Load conversations ─────────────────────────────────────────────────────
@@ -260,6 +264,49 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
       body: JSON.stringify({ ai_enabled: newVal, status: newVal ? 'ai_handling' : 'human_handling' }),
     })
     loadConversations()
+  }
+
+  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setPendingFile(f)
+    if (f.type.startsWith('image/') || f.type.startsWith('video/')) {
+      setPendingPreview(URL.createObjectURL(f))
+    } else {
+      setPendingPreview(null)
+    }
+    e.target.value = ''
+  }
+
+  function clearPending() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
+    setPendingPreview(null)
+    setPendingFile(null)
+  }
+
+  async function sendMedia() {
+    if (!pendingFile || !selectedId) return
+    setSending(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', pendingFile)
+      if (draft.trim()) fd.append('caption', draft.trim())
+      const res = await fetch(`/api/conversations/${selectedId}/messages/media`, {
+        method: 'POST',
+        body: fd,
+      })
+      const data = await res.json()
+      if (data.message) {
+        setMessages(prev => [...prev, data.message])
+        setDraft('')
+        clearPending()
+        loadConversations()
+      } else if (data.error) {
+        alert(data.error)
+      }
+    } finally {
+      setSending(false)
+    }
   }
 
   async function changeStatus(newStatus: string) {
@@ -620,7 +667,15 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                           : 'bg-white border text-slate-900'
                       }`}>
                         {senderLabel && <p className="text-[10px] opacity-80 mb-0.5">{senderLabel}</p>}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                        {m.content && <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>}
+                        {m.media_url && (
+                          <MediaAttachment
+                            url={m.media_url}
+                            type={m.media_type}
+                            filename={(m.metadata as any)?.original_filename || null}
+                            isOutbound={isOut}
+                          />
+                        )}
                         <p className={`text-[10px] mt-1 flex items-center gap-1 ${isOut ? 'text-white/70 justify-end' : 'text-slate-400'}`}>
                           {formatTime(m.sent_at)}
                           {isOut && m.read_at && <CheckCheck className="h-3 w-3" />}
@@ -650,21 +705,64 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                   </p>
                 </div>
               )}
+              {pendingFile && (
+                <div className="mb-2 flex items-center gap-2 bg-slate-50 border rounded-md p-2">
+                  {pendingPreview && pendingFile.type.startsWith('image/') ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={pendingPreview} alt="preview" className="h-12 w-12 object-cover rounded" />
+                  ) : pendingPreview && pendingFile.type.startsWith('video/') ? (
+                    <video src={pendingPreview} className="h-12 w-12 object-cover rounded" />
+                  ) : (
+                    <div className="h-12 w-12 bg-slate-200 rounded flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-slate-500" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{pendingFile.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {(pendingFile.size / 1024).toFixed(0)} KB · agrega un mensaje opcional como caption
+                    </p>
+                  </div>
+                  <button onClick={clearPending} className="p-1 hover:bg-slate-200 rounded">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="flex gap-2 items-end">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="image/*,video/*,audio/*,application/pdf"
+                  onChange={handleFilePick}
+                />
+                {activeConversation.channel === 'whatsapp' && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={sending || activeConversation.status === 'closed'}
+                    className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border bg-white hover:bg-slate-50 disabled:opacity-50"
+                    title="Adjuntar archivo"
+                  >
+                    <Paperclip className="h-4 w-4 text-slate-600" />
+                  </button>
+                )}
                 <textarea
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      pendingFile ? sendMedia() : sendMessage()
+                    }
                   }}
-                  placeholder="Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)"
+                  placeholder={pendingFile ? 'Caption opcional…' : 'Escribe tu respuesta... (Enter para enviar, Shift+Enter para salto de línea)'}
                   rows={2}
                   className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                   disabled={sending || activeConversation.status === 'closed'}
                 />
                 <Button
-                  onClick={sendMessage}
-                  disabled={sending || !draft.trim()}
+                  onClick={pendingFile ? sendMedia : sendMessage}
+                  disabled={sending || (!pendingFile && !draft.trim())}
                   className="bg-navy hover:bg-navy/90 shrink-0 h-10"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
