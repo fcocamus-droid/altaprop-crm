@@ -1,5 +1,5 @@
 // Altaprop PWA Service Worker
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 const STATIC_CACHE = `altaprop-static-${CACHE_VERSION}`
 const PAGES_CACHE  = `altaprop-pages-${CACHE_VERSION}`
 
@@ -83,4 +83,47 @@ self.addEventListener('fetch', event => {
           .then(cached => cached || caches.match('/offline'))
       )
   )
+})
+
+// ── Push notifications ──────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  let payload = { title: 'Altaprop', body: 'Tienes una nueva notificación' }
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() }
+  } catch { /* keep defaults */ }
+
+  const options = {
+    body: payload.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: payload.tag || undefined,
+    data: { url: payload.url || '/dashboard/conversaciones', conversationId: payload.conversationId },
+    vibrate: [120, 60, 120],
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, options)
+  )
+})
+
+// Click on notification → focus or open the inbox
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const targetUrl = event.notification.data?.url || '/dashboard/conversaciones'
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of all) {
+      try {
+        const url = new URL(client.url)
+        if (url.pathname.startsWith('/dashboard/conversaciones')) {
+          client.focus()
+          client.postMessage({ type: 'inbox.notificationClick', conversationId: event.notification.data?.conversationId })
+          return
+        }
+      } catch { /* ignore */ }
+    }
+    if (self.clients.openWindow) {
+      await self.clients.openWindow(targetUrl)
+    }
+  })())
 })

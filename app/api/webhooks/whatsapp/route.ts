@@ -11,6 +11,8 @@ import {
   downloadWhatsAppMedia,
 } from '@/lib/whatsapp/client'
 import { getAIReply } from '@/lib/ai-agent/claude'
+import { sendPushToUsers } from '@/lib/push/server'
+import { ROLES } from '@/lib/constants'
 
 // ── GET: webhook verification handshake (Meta calls this when you set it up) ─
 export async function GET(req: Request) {
@@ -203,6 +205,36 @@ export async function POST(req: Request) {
         sent_at: m.timestamp,
         metadata: { wa_raw: m.raw },
       })
+
+      // 2c. Push notify the people who should know about this message:
+      //   - the assigned agent (if any)
+      //   - the subscriber who owns the conversation
+      //   - the boss(es) when the conversation is unassigned
+      try {
+        const recipients = new Set<string>()
+        if (conv.agent_id) recipients.add(conv.agent_id)
+        if (conv.subscriber_id) recipients.add(conv.subscriber_id)
+        if (!conv.subscriber_id) {
+          const { data: bosses } = await admin
+            .from('profiles')
+            .select('id')
+            .eq('role', ROLES.SUPERADMINBOSS)
+          ;(bosses || []).forEach(b => recipients.add(b.id))
+        }
+        if (recipients.size) {
+          const title = conv.contact_name || m.contactName || 'Nuevo mensaje'
+          const body = (m.text || (m.mediaType ? `[${m.mediaType}]` : '')).slice(0, 140)
+          await sendPushToUsers(Array.from(recipients), {
+            title,
+            body: body || 'Nuevo mensaje',
+            url: '/dashboard/conversaciones',
+            tag: conv.id,
+            conversationId: conv.id,
+          })
+        }
+      } catch (e) {
+        console.warn('[whatsapp webhook] push notify failed', e)
+      }
 
       // 3. If AI enabled, reply
       if (conv.ai_enabled) {

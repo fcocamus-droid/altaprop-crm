@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   playInboxDing, requestNotificationPermission, notifyNewMessage, updateTitleBadge,
 } from '@/lib/inbox/notifications'
+import { ensurePushSubscription } from '@/lib/inbox/push-client'
 import { TemplatePicker } from './template-picker'
 import { MediaAttachment } from './media-attachment'
 
@@ -118,7 +119,9 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   useEffect(() => { conversationsRef.current = conversations }, [conversations])
 
   useEffect(() => {
-    requestNotificationPermission().catch(() => {})
+    requestNotificationPermission().then(perm => {
+      if (perm === 'granted') ensurePushSubscription().catch(() => {})
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
