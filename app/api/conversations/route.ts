@@ -13,8 +13,22 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const channel = searchParams.get('channel')
   const status  = searchParams.get('status')
+  const search  = (searchParams.get('q') || '').trim()
 
   const admin = createAdminClient()
+
+  // If we have a search term, look up matching message conversations first
+  // so we can OR them with contact-field matches in the main query.
+  let messageMatchIds: string[] | null = null
+  if (search) {
+    const { data: msgs } = await admin
+      .from('messages')
+      .select('conversation_id')
+      .ilike('content', `%${search}%`)
+      .limit(500)
+    messageMatchIds = Array.from(new Set((msgs || []).map(m => m.conversation_id)))
+  }
+
   let q = admin
     .from('conversations')
     .select('*')
@@ -34,6 +48,23 @@ export async function GET(req: Request) {
 
   if (channel) q = q.eq('channel', channel)
   if (status)  q = q.eq('status', status)
+
+  if (search) {
+    const like = `%${search}%`
+    // Build an OR across contact fields + matched message conv ids
+    const orClauses = [
+      `contact_name.ilike.${like}`,
+      `contact_phone.ilike.${like}`,
+      `contact_email.ilike.${like}`,
+      `last_message_preview.ilike.${like}`,
+    ]
+    if (messageMatchIds && messageMatchIds.length > 0) {
+      // Limit to avoid PostgREST URL length blowup
+      const idsStr = messageMatchIds.slice(0, 200).join(',')
+      orClauses.push(`id.in.(${idsStr})`)
+    }
+    q = q.or(orClauses.join(','))
+  }
 
   const { data: conversations, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -80,10 +80,16 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // ── Load conversations ─────────────────────────────────────────────────────
+  const searchRef = useRef(search)
+  useEffect(() => { searchRef.current = search }, [search])
   async function loadConversations() {
     setLoading(true)
     try {
-      const res = await fetch('/api/conversations')
+      const q = searchRef.current.trim()
+      const url = q.length >= 2
+        ? `/api/conversations?q=${encodeURIComponent(q)}`
+        : '/api/conversations'
+      const res = await fetch(url)
       const data = await res.json()
       setConversations(data.conversations || [])
     } finally {
@@ -91,6 +97,13 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     }
   }
   useEffect(() => { loadConversations() }, [])
+  // Debounce server-side search
+  useEffect(() => {
+    if (search.trim().length === 0 || search.trim().length >= 2) {
+      const t = setTimeout(() => loadConversations(), 250)
+      return () => clearTimeout(t)
+    }
+  }, [search])
 
   // ── Realtime subscription ──────────────────────────────────────────────────
   // Refs so the subscription doesn't have to re-bind when state changes.
@@ -176,7 +189,8 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
     if (assignmentFilter === 'unassigned') list = list.filter(c => !c.subscriber_id)
     if (channelFilter !== 'all') list = list.filter(c => c.channel === channelFilter)
     if (statusFilter !== 'all') list = list.filter(c => c.status === statusFilter)
-    if (search.trim()) {
+    // 1-char search filters locally; >=2 chars uses server-side search (already applied)
+    if (search.trim().length === 1) {
       const q = search.toLowerCase()
       list = list.filter(c =>
         (c.contact_name || '').toLowerCase().includes(q) ||
@@ -246,6 +260,25 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
       body: JSON.stringify({ ai_enabled: newVal, status: newVal ? 'ai_handling' : 'human_handling' }),
     })
     loadConversations()
+  }
+
+  async function changeStatus(newStatus: string) {
+    if (!activeConversation) return
+    const prev = activeConversation.status
+    setActiveConversation({ ...activeConversation, status: newStatus as any })
+    const res = await fetch(`/api/conversations/${activeConversation.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (!res.ok) {
+      // revert
+      setActiveConversation({ ...activeConversation, status: prev })
+      const err = await res.json().catch(() => ({}))
+      alert(err.error || 'No se pudo cambiar el estado')
+    } else {
+      loadConversations()
+    }
   }
 
   async function assignSubscriber(subId: string | null) {
@@ -532,6 +565,16 @@ export function ConversationsInbox({ currentUserRole, currentUserId }: {
                   <Bot className="h-3.5 w-3.5" />
                   {activeConversation.ai_enabled ? 'IA ON' : 'IA OFF'}
                 </button>
+                <select
+                  value={activeConversation.status}
+                  onChange={(e) => changeStatus(e.target.value)}
+                  className="text-xs px-2 py-1.5 rounded-md border bg-white focus:outline-none focus:ring-1 focus:ring-navy"
+                  title="Cambiar estado"
+                >
+                  {CONVERSATION_STATUSES.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
                 {activeConversation.channel === 'whatsapp' && (
                   <button
                     onClick={() => setShowTemplatePicker(true)}
