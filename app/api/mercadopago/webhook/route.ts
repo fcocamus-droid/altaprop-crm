@@ -93,10 +93,41 @@ async function handleMerchantOrderNotification(orderId: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { type, data, topic, id } = body
+    // Read raw body so we can verify the signature before parsing
+    const raw = await request.text()
+    let body: any = {}
+    try { body = JSON.parse(raw) } catch { return NextResponse.json({ received: true }) }
 
-    console.log('MercadoPago webhook received:', { type, topic, id, data })
+    const { type, data, topic, id } = body
+    const dataId = data?.id ? String(data.id) : (id ? String(id) : null)
+
+    // ── Signature check ─────────────────────────────────────────────────────
+    const secret = process.env.MP_WEBHOOK_SECRET
+    if (secret) {
+      const sig = request.headers.get('x-signature')
+      const reqId = request.headers.get('x-request-id')
+      const parts = (sig || '').split(',').reduce<Record<string, string>>((acc, p) => {
+        const [k, v] = p.split('=').map(s => s.trim())
+        if (k && v) acc[k] = v
+        return acc
+      }, {})
+      const ts = parts.ts
+      const v1 = parts.v1
+      if (!ts || !v1 || !dataId || !reqId) {
+        return new NextResponse('invalid signature', { status: 401 })
+      }
+      const crypto = await import('crypto')
+      const manifest = `id:${dataId};request-id:${reqId};ts:${ts};`
+      const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex')
+      let ok = false
+      try {
+        ok = crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(v1, 'hex'))
+      } catch { /* size mismatch */ }
+      if (!ok) return new NextResponse('invalid signature', { status: 401 })
+    } else if (process.env.NODE_ENV === 'production') {
+      // Fail closed in production when no secret is configured
+      return new NextResponse('webhook not configured', { status: 503 })
+    }
 
     // Handle v2 webhooks (type-based)
     if (type === 'payment' && data?.id) {

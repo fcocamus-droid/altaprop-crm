@@ -1,16 +1,39 @@
 import { NextResponse } from 'next/server'
+import { getUserProfile } from '@/lib/auth'
+import { ROLES } from '@/lib/constants'
 
+// Same-origin only — was previously '*' so any site could use the server as a
+// scraping proxy.
 const cors = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
+// Strict allowlist: only the canonical altaprop.cl host. Substring matching
+// like url.includes('altaprop.cl') let an attacker pass http://evil.com/altaprop.cl
+// and use the endpoint as an SSRF tool.
+const ALLOWED_HOSTS = new Set(['altaprop.cl', 'www.altaprop.cl'])
+
 export async function POST(request: Request) {
   try {
+    // Auth: only authenticated managers can scrape — same-origin XSRF won't
+    // bring an unauthenticated body in, so this is the right gate.
+    const profile = await getUserProfile()
+    if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: cors })
+    const allowedRoles: string[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN, ROLES.AGENTE]
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403, headers: cors })
+    }
+
     const { url } = await request.json()
 
-    if (!url || !url.includes('altaprop.cl')) {
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch {
+      return NextResponse.json({ error: 'URL inválida' }, { status: 400, headers: cors })
+    }
+    if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.host)) {
       return NextResponse.json({ error: 'URL de altaprop.cl no válida' }, { status: 400, headers: cors })
     }
 

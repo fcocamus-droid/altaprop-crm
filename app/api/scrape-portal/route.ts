@@ -1,11 +1,46 @@
 import { NextResponse } from 'next/server'
+import { getUserProfile } from '@/lib/auth'
+import { ROLES } from '@/lib/constants'
+
+// Allowlist of hosts the scraper is willing to fetch from. Without this the
+// endpoint is a perfect SSRF tool — it accepts any URL starting with http and
+// proxies the response, including internal addresses (cloud metadata, local
+// Supabase, etc.).
+const ALLOWED_HOST_SUFFIXES = [
+  'portalinmobiliario.com',
+  'mercadolibre.com',
+  'mercadolibre.cl',
+  'altaprop.cl',
+  'toctoc.com',
+  'yapo.cl',
+  'propiedades.com',
+]
+
+function isAllowedHost(host: string): boolean {
+  const h = host.toLowerCase()
+  return ALLOWED_HOST_SUFFIXES.some(suffix => h === suffix || h.endsWith('.' + suffix))
+}
 
 export async function POST(request: Request) {
   try {
+    // Auth: only authenticated managers can scrape.
+    const profile = await getUserProfile()
+    if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    const allowedRoles: string[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN, ROLES.AGENTE]
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     const { url } = await request.json()
 
-    if (!url || !url.startsWith('http')) {
-      return NextResponse.json({ error: 'Ingresa una URL valida' }, { status: 400 })
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch {
+      return NextResponse.json({ error: 'Ingresa una URL válida' }, { status: 400 })
+    }
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !isAllowedHost(parsed.host)) {
+      return NextResponse.json({ error: 'El portal aún no es soportado' }, { status: 400 })
     }
 
     if (url.includes('portalinmobiliario.com') || url.includes('mercadolibre')) {

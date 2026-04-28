@@ -57,8 +57,12 @@ export async function GET(req: Request) {
   if (status)  q = q.eq('status', status)
 
   if (search) {
-    const like = `%${search}%`
-    // Build an OR across contact fields + matched message conv ids
+    // PostgREST .or() takes a comma-separated list of filters. Commas,
+    // parentheses, and percent signs in user input would let an attacker
+    // break out of the filter list and bypass scoping. Strip them defensively
+    // and escape the rest before interpolating.
+    const safe = search.replace(/[,()%]/g, ' ').slice(0, 80)
+    const like = `%${safe}%`
     const orClauses = [
       `contact_name.ilike.${like}`,
       `contact_phone.ilike.${like}`,
@@ -66,9 +70,11 @@ export async function GET(req: Request) {
       `last_message_preview.ilike.${like}`,
     ]
     if (messageMatchIds && messageMatchIds.length > 0) {
-      // Limit to avoid PostgREST URL length blowup
-      const idsStr = messageMatchIds.slice(0, 200).join(',')
-      orClauses.push(`id.in.(${idsStr})`)
+      // UUIDs only — anything else is treated as a no-op match
+      const safeIds = messageMatchIds
+        .filter(id => /^[0-9a-f-]{36}$/i.test(id))
+        .slice(0, 200)
+      if (safeIds.length > 0) orClauses.push(`id.in.(${safeIds.join(',')})`)
     }
     q = q.or(orClauses.join(','))
   }

@@ -1,11 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PLANS } from '@/lib/constants'
+
+// Validate the x-signature header MercadoPago sends. Without this anyone could
+// POST `subscription_preapproval` events and toggle plans / commission flags
+// in our DB without paying.
+//
+// Spec: https://www.mercadopago.cl/developers/es/docs/your-integrations/notifications/webhooks
+//
+// Manifest: id:<id>;request-id:<requestId>;ts:<ts>;
+// HMAC-SHA256 signed with MP_WEBHOOK_SECRET.
+function isValidMpSignature(
+  rawSignature: string | null,
+  rawRequestId: string | null,
+  dataId: string | null,
+): boolean {
+  const secret = process.env.MP_WEBHOOK_SECRET
+  if (!secret) {
+    // If no secret configured AND we're in production, fail closed.
+    return process.env.NODE_ENV !== 'production'
+  }
+  if (!rawSignature) return false
+  const parts = rawSignature.split(',').reduce<Record<string, string>>((acc, p) => {
+    const [k, v] = p.split('=').map(s => s.trim())
+    if (k && v) acc[k] = v
+    return acc
+  }, {})
+  const ts = parts.ts
+  const v1 = parts.v1
+  if (!ts || !v1 || !dataId || !rawRequestId) return false
+  const manifest = `id:${dataId};request-id:${rawRequestId};ts:${ts};`
+  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(v1, 'hex'))
+  } catch {
+    return false
+  }
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const admin = createAdminClient()
   const mpToken = process.env.MERCADOPAGO_ACCESS_TOKEN!
+
+  // Signature verification — skip when MP_WEBHOOK_SECRET is unset in dev so
+  // local testing still works, but enforce in production.
+  const dataId = body?.data?.id ? String(body.data.id) : null
+  if (!isValidMpSignature(
+    request.headers.get('x-signature'),
+    request.headers.get('x-request-id'),
+    dataId,
+  )) {
+    return new NextResponse('invalid signature', { status: 401 })
+  }
 
   // ─── 1. Recurring subscription: status changed ──────────────────────────────
   // Fired when the PreApproval subscription is authorized, paused or cancelled.

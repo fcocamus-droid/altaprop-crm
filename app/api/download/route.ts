@@ -1,9 +1,40 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getUserProfile } from '@/lib/auth'
+
+// Only Supabase Storage paths are downloadable through this route, and only
+// from buckets the platform actually owns. The previous fallback that fetched
+// arbitrary URLs was a textbook SSRF vector.
+const ALLOWED_BUCKETS = new Set([
+  'property-images',
+  'inbox-media',
+  'application-documents',
+  'commission-receipts',
+  'payment-receipts',
+])
 
 export async function GET(request: NextRequest) {
+  // Require an authenticated user — the file might be private.
+  const profile = await getUserProfile()
+  if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
   const url = request.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'URL required' }, { status: 400 })
+
+  // The URL must be a Supabase Storage URL on this very project — anything
+  // else is rejected (no proxying for arbitrary URLs).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  if (!url.startsWith(supabaseUrl)) {
+    return NextResponse.json({ error: 'URL no soportada' }, { status: 400 })
+  }
+  const marker = url.includes('/storage/v1/object/public/')
+    ? '/storage/v1/object/public/'
+    : url.includes('/storage/v1/object/sign/')
+      ? '/storage/v1/object/sign/'
+      : null
+  if (!marker) {
+    return NextResponse.json({ error: 'URL no soportada' }, { status: 400 })
+  }
 
   try {
     const admin = createClient(
@@ -12,26 +43,15 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    // Extract bucket and path from URL
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    let bucket = ''
-    let filePath = ''
+    const parts = url.split(marker)[1]
+    const slashIndex = parts.indexOf('/')
+    const bucket = parts.substring(0, slashIndex)
+    let filePath = parts.substring(slashIndex + 1)
+    // Strip query string and any trailing signed-token segment
+    filePath = filePath.split('?')[0]
 
-    if (url.includes('/storage/v1/object/public/')) {
-      const parts = url.split('/storage/v1/object/public/')[1]
-      const slashIndex = parts.indexOf('/')
-      bucket = parts.substring(0, slashIndex)
-      filePath = parts.substring(slashIndex + 1)
-    } else {
-      // Fallback: try to proxy the URL directly
-      const res = await fetch(url)
-      const blob = await res.blob()
-      return new NextResponse(blob, {
-        headers: {
-          'Content-Type': blob.type || 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${request.nextUrl.searchParams.get('name') || 'document'}"`,
-        },
-      })
+    if (!ALLOWED_BUCKETS.has(bucket)) {
+      return NextResponse.json({ error: 'Bucket no soportado' }, { status: 400 })
     }
 
     // Download via admin client

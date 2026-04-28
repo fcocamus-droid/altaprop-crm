@@ -33,14 +33,32 @@ const nextConfig = {
       },
     ],
   },
-  // Allow subscriber custom domains to serve the Next.js app
-  // Add any known custom domains here, or use a wildcard approach via Vercel
+  // Security headers — applied to every response unless overridden by a more
+  // specific rule. Subscriber sites get framing relaxed for previews.
   async headers() {
+    const baseSecurity = [
+      // HSTS — force HTTPS for two years on the apex + every subdomain.
+      { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      // Tighten ambient capabilities the browser would otherwise grant.
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=(self), payment=(self), usb=()' },
+      // Block clickjacking on dashboard / auth surfaces by default.
+      { key: 'X-Frame-Options', value: 'DENY' },
+    ]
     return [
       {
-        // Allow subscriber site pages to be iframed for preview purposes
+        // Subscriber-facing tenant sites — keep iframe-able by their own origin
+        // for the in-dashboard preview; the rest of the security stack stays.
         source: '/site/:path*',
-        headers: [{ key: 'X-Frame-Options', value: 'SAMEORIGIN' }],
+        headers: [
+          ...baseSecurity.filter(h => h.key !== 'X-Frame-Options'),
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: baseSecurity,
       },
     ]
   },

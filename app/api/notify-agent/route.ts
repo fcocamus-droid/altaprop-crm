@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getUserProfile } from '@/lib/auth'
+import { ROLES } from '@/lib/constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,6 +10,16 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
+    // Auth: only signed-in managers can dispatch agent notifications. Without
+    // this an attacker could enumerate property/agent UUIDs and dump owner PII
+    // (phone, RUT, email) plus trigger arbitrary magic-link emails.
+    const profile = await getUserProfile()
+    if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    const allowedRoles: string[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN, ROLES.AGENTE]
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    }
+
     const { propertyId, agentId } = await request.json()
 
     if (!propertyId || !agentId) {

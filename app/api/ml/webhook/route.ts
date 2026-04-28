@@ -16,10 +16,35 @@ const supabaseAdmin = createClient(
  */
 export async function POST(req: NextRequest) {
   try {
+    // ML doesn't sign webhooks. Best we can do is gate on a shared secret
+    // passed via query string. Configure ML_WEBHOOK_TOKEN in env and use
+    //   https://www.altaprop-app.cl/api/ml/webhook?token=<value>
+    // when registering the webhook URL in MercadoLibre.
+    const expected = process.env.ML_WEBHOOK_TOKEN
+    if (expected) {
+      const provided = req.nextUrl.searchParams.get('token')
+      if (provided !== expected) {
+        return NextResponse.json({ received: true }, { status: 401 })
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ received: true }, { status: 503 })
+    }
+
     const body = await req.json().catch(() => ({}))
     const { topic, resource, user_id: mlUserId } = body
 
-    console.log('[ML Webhook]', JSON.stringify({ topic, resource, mlUserId }))
+    // Verify the ML user_id corresponds to one of our subscribers; if not,
+    // ignore silently (could be spoofed or stale subscription).
+    if (mlUserId) {
+      const { data: owner } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('ml_user_id', mlUserId)
+        .maybeSingle()
+      if (!owner) {
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+    }
 
     // ── Item status changes ──────────────────────────────────────────────────
     if (topic === 'items' && resource) {

@@ -15,12 +15,15 @@ export const dynamic = 'force-dynamic'
 // Vercel cron calls this daily at 12:00 UTC (09:00 Santiago)
 // Requires Authorization: Bearer CRON_SECRET header (set in vercel.json / env)
 export async function GET(req: NextRequest) {
+  // Cron secret is mandatory — without it, anyone could ping this endpoint
+  // and force a daily downgrade-and-email cascade.
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET no configurado' }, { status: 503 })
+  }
+  const auth = req.headers.get('authorization')
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const admin = createAdminClient()

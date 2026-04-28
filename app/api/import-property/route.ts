@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getUserProfile } from '@/lib/auth'
+import { ROLES } from '@/lib/constants'
 
+// Same-origin only — was previously '*' and unauthenticated, allowing anyone
+// on the internet to spam-create properties under the first SUPERADMIN found.
 const cors = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
@@ -14,26 +17,26 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
+    // Require an authenticated manager. The previous fallback to "first
+    // SUPERADMIN found" was an open-property-creation hole.
+    const profile = await getUserProfile()
+    if (!profile) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: cors })
+    }
+    const allowedRoles: string[] = [ROLES.SUPERADMINBOSS, ROLES.SUPERADMIN, ROLES.AGENTE]
+    if (!allowedRoles.includes(profile.role)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403, headers: cors })
+    }
+
     const data = await request.json()
 
     if (!data.title) {
       return NextResponse.json({ error: 'Título requerido' }, { status: 400, headers: cors })
     }
 
-    // Get owner from auth or fallback to SUPERADMIN
-    let ownerId: string | null = null
-    const authHeader = request.headers.get('authorization')
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-      if (user) ownerId = user.id
-    }
-    if (!ownerId) {
-      const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'SUPERADMIN').limit(1)
-      ownerId = admins?.[0]?.id || null
-    }
-    if (!ownerId) {
-      return NextResponse.json({ error: 'No se encontró propietario' }, { status: 400, headers: cors })
-    }
+    // Owner is always the calling user (or, for agents, the user they pick
+    // explicitly). No more "fallback to first SUPERADMIN" magic.
+    const ownerId = profile.id
 
     // Insert property
     const { data: property, error: propError } = await supabase
