@@ -40,7 +40,11 @@ export async function GET(req: Request) {
   if (profile.role === ROLES.SUPERADMIN) {
     convQ = convQ.eq('subscriber_id', profile.subscriber_id || profile.id)
   } else if (profile.role === ROLES.AGENTE) {
-    convQ = convQ.eq('agent_id', profile.id)
+    if (profile.subscriber_id) {
+      convQ = convQ.or(`subscriber_id.eq.${profile.subscriber_id},agent_id.eq.${profile.id}`)
+    } else {
+      convQ = convQ.eq('agent_id', profile.id)
+    }
   } else if (profile.role !== ROLES.SUPERADMINBOSS) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }

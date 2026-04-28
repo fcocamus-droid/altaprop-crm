@@ -12,7 +12,10 @@ async function canAccess(profile: any, conv: any): Promise<boolean> {
     return conv.subscriber_id === (profile.subscriber_id || profile.id)
   }
   if (profile.role === ROLES.AGENTE) {
-    return conv.agent_id === profile.id || conv.subscriber_id === profile.subscriber_id
+    // Agents can access the whole team's pool plus their explicit assignments
+    if (conv.agent_id === profile.id) return true
+    if (profile.subscriber_id && conv.subscriber_id === profile.subscriber_id) return true
+    return false
   }
   return false
 }

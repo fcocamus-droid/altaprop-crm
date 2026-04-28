@@ -41,7 +41,14 @@ export async function GET(req: Request) {
   } else if (profile.role === ROLES.SUPERADMIN) {
     q = q.eq('subscriber_id', profile.subscriber_id || profile.id)
   } else if (profile.role === ROLES.AGENTE) {
-    q = q.eq('agent_id', profile.id)
+    // Agents see the whole team's pool (subscriber_id matches their team)
+    // OR conversations explicitly assigned to them.
+    if (profile.subscriber_id) {
+      q = q.or(`subscriber_id.eq.${profile.subscriber_id},agent_id.eq.${profile.id}`)
+    } else {
+      // Agent without a team yet — only shows their explicit assignments
+      q = q.eq('agent_id', profile.id)
+    }
   } else {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   }

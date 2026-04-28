@@ -95,12 +95,20 @@ async function resolveCredsForPhoneId(
     }
   }
 
-  // Fallback to global creds (Boss's account)
+  // Fallback to global creds (Boss's account). Look up the boss profile so
+  // fallback conversations are scoped to the Boss subscriber instead of NULL —
+  // this lets boss agents see them via the team-pool access rule.
   const envPhoneId = process.env.META_WA_PHONE_ID
   const envToken = process.env.META_WA_TOKEN
   if (envPhoneId && envToken) {
+    const { data: boss } = await admin
+      .from('profiles')
+      .select('id')
+      .eq('role', ROLES.SUPERADMINBOSS)
+      .limit(1)
+      .maybeSingle()
     return {
-      subscriberId: null, // Boss inbox — no subscriber
+      subscriberId: boss?.id || null,
       phoneId: envPhoneId,
       token: envToken,
       appSecret: process.env.META_WA_APP_SECRET || null,
