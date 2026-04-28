@@ -13,6 +13,26 @@ interface MessageBody {
   page_url?: string
 }
 
+// In-memory leaky bucket per (ip, session_id). Survives only a single server
+// process — Vercel will spin up multiple instances so a determined attacker
+// can multiply this — but cuts the cost of a casual "hold-down-Enter" abuse
+// from O(unbounded) Claude calls to ~30/min per process per session. Replace
+// with Upstash/Redis later if abuse becomes real.
+type Bucket = { count: number; resetAt: number }
+const RATE_LIMIT = 30
+const RATE_WINDOW_MS = 60 * 1000
+const buckets = new Map<string, Bucket>()
+function rateLimited(key: string): boolean {
+  const now = Date.now()
+  const b = buckets.get(key)
+  if (!b || b.resetAt < now) {
+    buckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return false
+  }
+  b.count++
+  return b.count > RATE_LIMIT
+}
+
 // POST — visitor sends a message. We store it, generate Sofía's reply, store
 // that too, and return both back so the widget can render them. Realtime takes
 // care of pushing them into the agent's inbox.
@@ -28,6 +48,16 @@ export async function POST(req: Request) {
   const content = String(body?.content || '').trim().slice(0, 4000)
   if (!sessionId || !content) {
     return NextResponse.json({ error: 'session_id y content requeridos' }, { status: 400 })
+  }
+
+  // Rate limit per (ip, session_id) pair so a runaway tab can't burn through
+  // Claude tokens.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  if (rateLimited(`${ip}:${sessionId}`)) {
+    return NextResponse.json(
+      { error: 'Demasiados mensajes en poco tiempo. Espera un momento e intenta de nuevo.' },
+      { status: 429 },
+    )
   }
 
   const admin = createAdminClient()

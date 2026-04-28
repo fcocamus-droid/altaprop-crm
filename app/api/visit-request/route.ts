@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
@@ -10,15 +9,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Nombre y email son obligatorios' }, { status: 400 })
     }
 
+    // Basic shape validation — this is a public endpoint.
+    if (typeof propertyId !== 'string' || !/^[0-9a-f-]{36}$/i.test(propertyId)) {
+      return NextResponse.json({ error: 'Propiedad inválida' }, { status: 400 })
+    }
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    }
+    if (typeof fullName !== 'string' || fullName.trim().length < 2 || fullName.length > 120) {
+      return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
+    }
+
     const admin = createAdminClient()
 
-    // Get org_id from cookie or from the property itself
-    const cookieStore = cookies()
-    let orgId = cookieStore.get('x-org-id')?.value || null
-    if (!orgId) {
-      const { data: prop } = await admin.from('properties').select('org_id').eq('id', propertyId).single()
-      orgId = prop?.org_id || null
-    }
+    // org_id is ALWAYS derived from the property itself. The previous code
+    // trusted an x-org-id cookie sent by the client which let an attacker
+    // create prospects/visits in arbitrary tenants by spoofing the cookie.
+    const { data: prop } = await admin
+      .from('properties')
+      .select('org_id')
+      .eq('id', propertyId)
+      .single()
+    const orgId: string | null = prop?.org_id || null
 
     // Create or find prospect (scoped to org)
     let query = admin.from('prospects').select('id').eq('email', email)

@@ -428,8 +428,12 @@ export function PropertyForm({ property }: PropertyFormProps) {
       setError(result.error)
       setLoading(false)
       setProgress('')
-    } else if (isEditing) {
+    } else {
+      // Both create and edit return the user to the listing once persisted —
+      // previously only edit redirected and the create flow left the form open
+      // with a stale "loading" state.
       router.push('/dashboard/propiedades')
+      router.refresh()
     }
   }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getUserProfile } from '@/lib/auth'
 import { ROLES } from '@/lib/constants'
+import { escapeHtml } from '@/lib/utils/escape-html'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -116,6 +117,8 @@ export async function POST(request: Request) {
 }
 
 function buildEmail(agentName: string, property: any, price: string, ownerName: string, ownerPhone: string, ownerEmail: string, ownerRut: string, propertyId: string) {
+  const e = escapeHtml
+  const address = [property.address, property.city, property.sector].filter(Boolean).join(', ') || 'Sin dirección'
   return `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
   <div style="background:#1B2A4A;padding:30px;text-align:center;">
@@ -124,22 +127,22 @@ function buildEmail(agentName: string, property: any, price: string, ownerName: 
   </div>
   <div style="padding:30px;">
     <h2 style="color:#1B2A4A;margin-top:0;">Nueva propiedad asignada</h2>
-    <p style="color:#444;font-size:15px;">Estimado/a <strong>${agentName}</strong>, se te ha asignado una nueva propiedad.</p>
+    <p style="color:#444;font-size:15px;">Estimado/a <strong>${e(agentName)}</strong>, se te ha asignado una nueva propiedad.</p>
     <div style="background:#f8f9fa;border-radius:12px;padding:20px;margin:20px 0;border-left:4px solid #C4A962;">
-      <h3 style="color:#1B2A4A;margin:0 0 10px;">🏠 ${property.title}</h3>
-      <p style="margin:4px 0;color:#444;">📌 ${[property.address, property.city, property.sector].filter(Boolean).join(', ') || 'Sin dirección'}</p>
-      <p style="margin:4px 0;color:#1B2A4A;font-size:18px;font-weight:bold;">💰 ${price} (${property.operation})</p>
-      <p style="margin:4px 0;color:#444;">🛏 ${property.bedrooms} dorm · 🚿 ${property.bathrooms} baños · 📐 ${property.sqm}m² · ${property.type}</p>
+      <h3 style="color:#1B2A4A;margin:0 0 10px;">🏠 ${e(property.title)}</h3>
+      <p style="margin:4px 0;color:#444;">📌 ${e(address)}</p>
+      <p style="margin:4px 0;color:#1B2A4A;font-size:18px;font-weight:bold;">💰 ${e(price)} (${e(property.operation)})</p>
+      <p style="margin:4px 0;color:#444;">🛏 ${e(property.bedrooms)} dorm · 🚿 ${e(property.bathrooms)} baños · 📐 ${e(property.sqm)}m² · ${e(property.type)}</p>
     </div>
     <div style="background:#fff9f0;border-radius:12px;padding:20px;margin:20px 0;border-left:4px solid #C4A962;">
       <h3 style="color:#1B2A4A;margin:0 0 10px;">👤 Propietario</h3>
-      <p style="margin:4px 0;">📛 <strong>${ownerName}</strong></p>
-      ${ownerRut ? `<p style="margin:4px 0;">🪪 ${ownerRut}</p>` : ''}
-      <p style="margin:4px 0;">📞 ${ownerPhone}</p>
-      <p style="margin:4px 0;">✉️ ${ownerEmail}</p>
+      <p style="margin:4px 0;">📛 <strong>${e(ownerName)}</strong></p>
+      ${ownerRut ? `<p style="margin:4px 0;">🪪 ${e(ownerRut)}</p>` : ''}
+      <p style="margin:4px 0;">📞 ${e(ownerPhone)}</p>
+      <p style="margin:4px 0;">✉️ ${e(ownerEmail)}</p>
     </div>
     <div style="text-align:center;margin:30px 0;">
-      <a href="https://www.altaprop-app.cl/dashboard/propiedades/${propertyId}" style="background:#1B2A4A;color:#fff;padding:14px 40px;text-decoration:none;border-radius:8px;font-weight:bold;">Ver Propiedad</a>
+      <a href="https://www.altaprop-app.cl/dashboard/propiedades/${e(propertyId)}" style="background:#1B2A4A;color:#fff;padding:14px 40px;text-decoration:none;border-radius:8px;font-weight:bold;">Ver Propiedad</a>
     </div>
   </div>
   <div style="background:#f8f8f8;padding:20px;text-align:center;border-top:1px solid #eee;">
