@@ -1,8 +1,9 @@
-import { getSubscriberProfile } from '@/lib/queries/website'
+import { getSubscriberProfile, getSubscriberAIConfig } from '@/lib/queries/website'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Phone, Mail, MessageCircle, Building2 } from 'lucide-react'
 import type { Metadata } from 'next'
+import { LiveChat } from '@/components/web-chat/live-chat'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,10 @@ export default async function SiteLayout({
   const primaryColor = subscriber.website_primary_color || '#1a2332'
   const accentColor  = subscriber.website_accent_color  || '#c9a84c'
   const companyName  = subscriber.full_name || 'Portal Inmobiliario'
+
+  const aiConfig = await getSubscriberAIConfig(subscriber.id)
+  const personaName = aiConfig?.persona_name || 'Sofía'
+  const liveChatEnabled = aiConfig?.enabled !== false
 
   return (
     <div className="flex min-h-screen flex-col" style={{ '--primary': primaryColor, '--accent': accentColor } as React.CSSProperties}>
@@ -165,6 +170,18 @@ export default async function SiteLayout({
           </div>
         </div>
       </footer>
+
+      {/* Per-subscriber live chat — branded with their colors and persona */}
+      {liveChatEnabled && (
+        <LiveChat
+          subscriberId={subscriber.id}
+          scope={subscriber.id}
+          primaryColor={primaryColor}
+          accentColor={accentColor}
+          companyName={companyName}
+          personaName={personaName}
+        />
+      )}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { ROLES } from '@/lib/constants'
 
 interface InitBody {
   session_id: string
+  subscriber_id?: string | null
   page_url?: string
   referrer?: string
   user_agent?: string
@@ -31,23 +32,44 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient()
 
-  // Find or create the conversation, scoped to the boss (default tenant for
-  // marketing-site visitors).
-  let { data: conv } = await admin
-    .from('conversations')
-    .select('*')
-    .eq('channel', 'web')
-    .eq('external_id', sessionId)
-    .maybeSingle()
-
-  if (!conv) {
-    // Resolve the boss profile so the conversation belongs to a real subscriber
+  // Resolve which subscriber owns this conversation. If the embedding site
+  // passed an explicit subscriber_id, validate it; otherwise fall back to the
+  // boss (the default tenant for the marketing site).
+  let targetSubscriberId: string | null = null
+  if (body.subscriber_id) {
+    const { data: target } = await admin
+      .from('profiles')
+      .select('id, role')
+      .eq('id', body.subscriber_id)
+      .maybeSingle()
+    if (target && (target.role === ROLES.SUPERADMIN || target.role === ROLES.SUPERADMINBOSS)) {
+      targetSubscriberId = target.id
+    }
+  }
+  if (!targetSubscriberId) {
     const { data: boss } = await admin
       .from('profiles')
       .select('id')
       .eq('role', ROLES.SUPERADMINBOSS)
       .limit(1)
       .maybeSingle()
+    targetSubscriberId = boss?.id || null
+  }
+
+  // Find or create the conversation, scoped to (channel, session, subscriber)
+  let convQuery = admin
+    .from('conversations')
+    .select('*')
+    .eq('channel', 'web')
+    .eq('external_id', sessionId)
+  if (targetSubscriberId) {
+    convQuery = convQuery.eq('subscriber_id', targetSubscriberId)
+  } else {
+    convQuery = convQuery.is('subscriber_id', null)
+  }
+  let { data: conv } = await convQuery.maybeSingle()
+
+  if (!conv) {
 
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null
     const ua = body.user_agent || req.headers.get('user-agent') || null
@@ -60,7 +82,7 @@ export async function POST(req: Request) {
         contact_name: 'Visitante web',
         status: 'ai_handling',
         ai_enabled: true,
-        subscriber_id: boss?.id || null,
+        subscriber_id: targetSubscriberId,
         metadata: {
           page_url: body.page_url || null,
           referrer: body.referrer || null,
@@ -92,8 +114,26 @@ export async function POST(req: Request) {
     .order('sent_at', { ascending: true })
     .limit(50)
 
+  // Surface the subscriber's configured greeting + persona so the widget can
+  // render a branded welcome bubble that matches the inbox-side AI config.
+  let greeting: string | null = null
+  let personaName: string | null = null
+  if (conv.subscriber_id) {
+    const { data: cfg } = await admin
+      .from('ai_configs')
+      .select('greeting, persona_name')
+      .eq('subscriber_id', conv.subscriber_id)
+      .maybeSingle()
+    if (cfg) {
+      greeting = cfg.greeting || null
+      personaName = cfg.persona_name || null
+    }
+  }
+
   return NextResponse.json({
     conversation_id: conv.id,
     messages: messages || [],
+    greeting,
+    persona_name: personaName,
   })
 }

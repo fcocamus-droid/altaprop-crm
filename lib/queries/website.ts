@@ -56,3 +56,17 @@ export const getSubscriberProfile = cache(async (subdomain: string) => {
   const { data: authUser } = await admin.auth.admin.getUserById(profile.id)
   return { ...profile, email: authUser?.user?.email ?? null }
 })
+
+/**
+ * Returns the AI persona/greeting configured for a subscriber. Used by the
+ * site layout to brand the live-chat launcher and welcome bubble.
+ */
+export const getSubscriberAIConfig = cache(async (subscriberId: string) => {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('ai_configs')
+    .select('persona_name, greeting, enabled')
+    .eq('subscriber_id', subscriberId)
+    .maybeSingle()
+  return data || null
+})

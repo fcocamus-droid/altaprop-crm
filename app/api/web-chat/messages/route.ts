@@ -8,6 +8,7 @@ import { ROLES } from '@/lib/constants'
 
 interface MessageBody {
   session_id: string
+  subscriber_id?: string | null
   content: string
   page_url?: string
 }
@@ -30,12 +31,15 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient()
-  const { data: conv } = await admin
+  let convQuery = admin
     .from('conversations')
     .select('*')
     .eq('channel', 'web')
     .eq('external_id', sessionId)
-    .maybeSingle()
+  if (body.subscriber_id) {
+    convQuery = convQuery.eq('subscriber_id', body.subscriber_id)
+  }
+  const { data: conv } = await convQuery.maybeSingle()
   if (!conv) {
     return NextResponse.json({ error: 'Sesión no encontrada — recarga la página' }, { status: 404 })
   }

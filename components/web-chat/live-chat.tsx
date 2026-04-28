@@ -11,15 +11,16 @@ interface ChatMessage {
   sent_at: string
 }
 
-const SESSION_KEY = 'altaprop_chat_session_id'
-const OPEN_KEY = 'altaprop_chat_open'
+const SESSION_KEY_PREFIX = 'altaprop_chat_session_id'
+const OPEN_KEY_PREFIX = 'altaprop_chat_open'
 
-function getOrCreateSessionId(): string {
+function getOrCreateSessionId(scope: string): string {
   if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem(SESSION_KEY)
+  const key = `${SESSION_KEY_PREFIX}:${scope}`
+  let id = localStorage.getItem(key)
   if (!id) {
     id = (crypto.randomUUID?.() || `s_${Date.now()}_${Math.random().toString(36).slice(2)}`)
-    localStorage.setItem(SESSION_KEY, id)
+    localStorage.setItem(key, id)
   }
   return id
 }
@@ -28,7 +29,27 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 }
 
-export function LiveChat() {
+interface LiveChatProps {
+  subscriberId?: string | null         // null/undefined = global (Boss), default tenant
+  primaryColor?: string                // brand color (header / launcher background)
+  accentColor?: string                 // brand accent (avatar gradient, highlights)
+  personaName?: string                 // assistant display name (default: Sofía)
+  companyName?: string                 // company shown in welcome message
+  welcomeMessage?: string              // override default greeting
+  launcherLabel?: string               // text on the floating button
+  scope?: string                       // unique key per site so sessions don't bleed across subdomains
+}
+
+export function LiveChat({
+  subscriberId,
+  primaryColor = '#1B2A4A',
+  accentColor = '#C4A962',
+  personaName = 'Sofía',
+  companyName = 'Altaprop',
+  welcomeMessage,
+  launcherLabel,
+  scope = 'global',
+}: LiveChatProps = {}) {
   const [open, setOpen] = useState(false)
   const [bootstrapped, setBootstrapped] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -41,20 +62,22 @@ export function LiveChat() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  const openKey = `${OPEN_KEY_PREFIX}:${scope}`
+
   // Restore "open" state across page navigations on the same site
   useEffect(() => {
     if (typeof window === 'undefined') return
-    sessionIdRef.current = getOrCreateSessionId()
-    const wasOpen = sessionStorage.getItem(OPEN_KEY) === '1'
+    sessionIdRef.current = getOrCreateSessionId(scope)
+    const wasOpen = sessionStorage.getItem(openKey) === '1'
     if (wasOpen) setOpen(true)
-  }, [])
+  }, [scope, openKey])
 
   // Persist open state
   useEffect(() => {
     if (typeof window === 'undefined') return
-    sessionStorage.setItem(OPEN_KEY, open ? '1' : '0')
+    sessionStorage.setItem(openKey, open ? '1' : '0')
     if (open) setHasNewMessage(false)
-  }, [open])
+  }, [open, openKey])
 
   // Initialize the conversation when the user first opens the chat
   const init = useCallback(async () => {
@@ -65,6 +88,7 @@ export function LiveChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionIdRef.current,
+          subscriber_id: subscriberId || null,
           page_url: typeof window !== 'undefined' ? window.location.href : null,
           referrer: typeof document !== 'undefined' ? document.referrer : null,
           user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
@@ -76,11 +100,14 @@ export function LiveChat() {
       setMessages(data.messages || [])
       // Show a welcome bubble if no prior messages
       if ((!data.messages || data.messages.length === 0) && data.conversation_id) {
+        const greeting = welcomeMessage
+          || data.greeting
+          || `¡Hola! 👋 Soy ${personaName}, asistente de ${companyName}. ¿En qué te puedo ayudar? Cuéntame qué buscas (arriendo, compra, asesoría) y veo cómo apoyarte.`
         setMessages([{
           id: 'welcome',
           direction: 'outbound',
           sender_type: 'ai',
-          content: '¡Hola! 👋 Soy Sofía, asistente de Altaprop. ¿En qué te puedo ayudar? Cuéntame qué buscas (arriendo, compra, asesoría) y veo cómo apoyarte.',
+          content: greeting,
           sent_at: new Date().toISOString(),
         }])
       }
@@ -88,7 +115,7 @@ export function LiveChat() {
     } catch (e) {
       console.warn('[live-chat] init failed', e)
     }
-  }, [bootstrapped])
+  }, [bootstrapped, subscriberId, welcomeMessage, personaName, companyName])
 
   useEffect(() => {
     if (open) init()
@@ -129,6 +156,7 @@ export function LiveChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionIdRef.current,
+          subscriber_id: subscriberId || null,
           content: text,
           page_url: typeof window !== 'undefined' ? window.location.href : null,
         }),
@@ -163,17 +191,29 @@ export function LiveChat() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          aria-label="Abrir chat con Sofía"
-          className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-[#1B2A4A] text-white shadow-2xl hover:shadow-[0_8px_30px_rgba(27,42,74,0.45)] transition-all duration-200 hover:scale-105 active:scale-95"
-          style={{ paddingLeft: 18, paddingRight: 22, paddingTop: 14, paddingBottom: 14 }}
+          aria-label={`Abrir chat con ${personaName}`}
+          className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full text-white shadow-2xl hover:shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
+          style={{
+            background: primaryColor,
+            paddingLeft: 18,
+            paddingRight: 22,
+            paddingTop: 14,
+            paddingBottom: 14,
+            boxShadow: `0 8px 30px ${primaryColor}55`,
+          }}
         >
           <span className="relative">
             <MessageCircle className="h-5 w-5" strokeWidth={2.2} />
             {hasNewMessage && (
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full ring-2 ring-[#1B2A4A] animate-pulse" />
+              <span
+                className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full animate-pulse"
+                style={{ boxShadow: `0 0 0 2px ${primaryColor}` }}
+              />
             )}
           </span>
-          <span className="text-sm font-semibold tracking-wide">Chatea con Sofía</span>
+          <span className="text-sm font-semibold tracking-wide">
+            {launcherLabel || `Chatea con ${personaName}`}
+          </span>
         </button>
       )}
 
@@ -185,25 +225,38 @@ export function LiveChat() {
           aria-label="Chat con Sofía"
         >
           {/* Header */}
-          <div className="bg-gradient-to-br from-[#1B2A4A] to-[#0F1A33] text-white px-4 py-3.5 flex items-center justify-between">
+          <div
+            className="text-white px-4 py-3.5 flex items-center justify-between"
+            style={{
+              background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+            }}
+          >
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C4A962] to-[#A38844] flex items-center justify-center text-white font-bold text-base shadow-md">
-                  S
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md"
+                  style={{
+                    background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}cc 100%)`,
+                  }}
+                >
+                  {personaName.charAt(0).toUpperCase()}
                 </div>
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full ring-2 ring-[#1B2A4A]" />
+                <span
+                  className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 rounded-full"
+                  style={{ boxShadow: `0 0 0 2px ${primaryColor}` }}
+                />
               </div>
               <div className="leading-tight">
                 <p className="font-semibold text-[15px] flex items-center gap-1">
-                  Sofía <Sparkles className="h-3.5 w-3.5 text-[#C4A962]" />
+                  {personaName} <Sparkles className="h-3.5 w-3.5" style={{ color: accentColor }} />
                 </p>
-                <p className="text-[11px] text-slate-300">En línea · Responde al instante</p>
+                <p className="text-[11px] text-white/70">En línea · Responde al instante</p>
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
               aria-label="Cerrar chat"
-              className="text-slate-300 hover:text-white hover:bg-white/10 rounded-full p-1.5 transition-colors"
+              className="text-white/70 hover:text-white hover:bg-white/10 rounded-full p-1.5 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
@@ -218,7 +271,14 @@ export function LiveChat() {
               const isAI = m.direction === 'outbound'
               return (
                 <div key={m.id} className={`flex ${isAI ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[80%] ${isAI ? 'bg-white text-slate-800 border border-slate-200 rounded-2xl rounded-tl-sm' : 'bg-[#1B2A4A] text-white rounded-2xl rounded-tr-sm'} px-3.5 py-2 shadow-sm`}>
+                  <div
+                    className={`max-w-[80%] px-3.5 py-2 shadow-sm ${
+                      isAI
+                        ? 'bg-white text-slate-800 border border-slate-200 rounded-2xl rounded-tl-sm'
+                        : 'text-white rounded-2xl rounded-tr-sm'
+                    }`}
+                    style={isAI ? undefined : { background: primaryColor }}
+                  >
                     <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{m.content}</p>
                     <p className={`text-[10px] mt-1 ${isAI ? 'text-slate-400' : 'text-white/60'}`}>
                       {formatTime(m.sent_at)}
@@ -240,7 +300,12 @@ export function LiveChat() {
 
           {/* Input */}
           <div className="border-t bg-white p-3">
-            <div className="flex items-end gap-2 bg-slate-50 rounded-xl border border-slate-200 focus-within:border-[#1B2A4A] focus-within:ring-2 focus-within:ring-[#1B2A4A]/10 transition-colors">
+            <div
+              className="flex items-end gap-2 bg-slate-50 rounded-xl border border-slate-200 transition-colors focus-within:ring-2"
+              style={{
+                ['--ring-color' as any]: `${primaryColor}30`,
+              }}
+            >
               <textarea
                 ref={textareaRef}
                 value={draft}
@@ -255,13 +320,14 @@ export function LiveChat() {
                 onClick={send}
                 disabled={sending || !draft.trim()}
                 aria-label="Enviar mensaje"
-                className="m-1 h-8 w-8 shrink-0 flex items-center justify-center rounded-lg bg-[#1B2A4A] text-white disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#0F1A33] transition-colors"
+                className="m-1 h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-white disabled:opacity-30 disabled:cursor-not-allowed transition-opacity hover:opacity-90"
+                style={{ background: primaryColor }}
               >
                 <Send className="h-3.5 w-3.5" />
               </button>
             </div>
             <p className="text-[10px] text-slate-400 text-center mt-1.5">
-              Powered by <span className="font-semibold text-[#1B2A4A]">Altaprop</span> · IA con asesor humano disponible
+              Powered by <span className="font-semibold" style={{ color: primaryColor }}>Altaprop</span> · IA con asesor humano disponible
             </p>
           </div>
         </div>
