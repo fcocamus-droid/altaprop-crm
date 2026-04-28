@@ -44,30 +44,38 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data || data.length === 0) return NextResponse.json([])
 
-  // Fetch agent names
+  // Build the four lookups in parallel — they don't depend on each other.
   const agentIds = Array.from(new Set(data.map(p => p.agent_id).filter(Boolean))) as string[]
-  const agentMap = new Map<string, string>()
-  if (agentIds.length) {
-    const { data: agents } = await admin
-      .from('profiles').select('id, full_name').in('id', agentIds)
-    if (agents) agents.forEach(a => agentMap.set(a.id, a.full_name || 'Sin nombre'))
-  }
-
-  // Fetch subscriber names (for SUPERADMINBOSS view)
   const subIds = Array.from(new Set(data.map(p => p.subscriber_id).filter(Boolean))) as string[]
-  const subMap = new Map<string, string>()
-  if (subIds.length) {
-    const { data: subs } = await admin
-      .from('profiles').select('id, full_name').in('id', subIds)
-    if (subs) subs.forEach(s => subMap.set(s.id, s.full_name || 'Sin nombre'))
-  }
-
-  // Count open tasks per prospecto + find most recent activity date
+  const propertyIds = Array.from(new Set(data.map(p => p.property_id).filter(Boolean))) as string[]
   const ids = data.map(p => p.id)
-  const { data: actData } = await admin
-    .from('prospecto_activities')
-    .select('prospecto_id, type, is_completed, due_at, created_at')
-    .in('prospecto_id', ids)
+
+  const [agentsRes, subsRes, actRes, propsRes] = await Promise.all([
+    agentIds.length
+      ? admin.from('profiles').select('id, full_name').in('id', agentIds)
+      : Promise.resolve({ data: [] as any[] }),
+    subIds.length
+      ? admin.from('profiles').select('id, full_name').in('id', subIds)
+      : Promise.resolve({ data: [] as any[] }),
+    admin
+      .from('prospecto_activities')
+      .select('prospecto_id, type, is_completed, due_at, created_at')
+      .in('prospecto_id', ids),
+    propertyIds.length
+      ? admin
+          .from('properties')
+          .select('id, title, address, city, operation, price, currency, status')
+          .in('id', propertyIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const agentMap = new Map<string, string>()
+  ;(agentsRes.data || []).forEach((a: any) => agentMap.set(a.id, a.full_name || 'Sin nombre'))
+
+  const subMap = new Map<string, string>()
+  ;(subsRes.data || []).forEach((s: any) => subMap.set(s.id, s.full_name || 'Sin nombre'))
+
+  const actData = actRes.data
 
   const openTasksMap = new Map<string, number>()
   const overdueTasksMap = new Map<string, number>()
@@ -89,16 +97,8 @@ export async function GET() {
     }
   }
 
-  // Fetch property summaries for linked prospectos
-  const propertyIds = Array.from(new Set(data.map(p => p.property_id).filter(Boolean))) as string[]
   const propMap = new Map<string, any>()
-  if (propertyIds.length) {
-    const { data: props } = await admin
-      .from('properties')
-      .select('id, title, address, city, operation, price, currency, status')
-      .in('id', propertyIds)
-    if (props) props.forEach(p => propMap.set(p.id, p))
-  }
+  ;(propsRes.data || []).forEach((p: any) => propMap.set(p.id, p))
 
   const enriched = data.map(p => ({
     ...p,

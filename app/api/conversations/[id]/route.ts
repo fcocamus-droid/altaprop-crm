@@ -20,10 +20,17 @@ async function canAccess(profile: any, conv: any): Promise<boolean> {
   return false
 }
 
-// GET — single conversation with messages
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+// GET — single conversation. Returns the most recent N messages by default
+// (window=50). For "load older", pass ?before=<iso> to fetch the next page
+// older than that timestamp. Old behavior loaded 500 messages on every open,
+// which made long-running conversations heavy.
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const profile = await getUserProfile()
   if (!profile) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { searchParams } = new URL(req.url)
+  const before = searchParams.get('before')
+  const windowSize = Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 200)
 
   const admin = createAdminClient()
   const { data: conv, error } = await admin
@@ -35,19 +42,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (error || !conv) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
   if (!(await canAccess(profile, conv))) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-  const { data: messages } = await admin
+  // Pull the latest window first (DESC), then re-sort ASC for the UI.
+  let msgQ = admin
     .from('messages')
     .select('*')
     .eq('conversation_id', params.id)
-    .order('sent_at', { ascending: true })
-    .limit(500)
+    .order('sent_at', { ascending: false })
+    .limit(windowSize)
+  if (before) msgQ = msgQ.lt('sent_at', before)
+  const { data: latest } = await msgQ
+  const messages = (latest || []).slice().reverse()
+  const hasMore = (latest?.length || 0) === windowSize
 
-  // Mark as read (reset unread_count)
-  if (conv.unread_count > 0) {
+  // Mark as read (reset unread_count) only when the user is loading the
+  // current head (no `before` param) — paging older shouldn't clear unreads.
+  if (!before && conv.unread_count > 0) {
     await admin.from('conversations').update({ unread_count: 0 }).eq('id', params.id)
   }
 
-  return NextResponse.json({ conversation: conv, messages: messages || [] })
+  return NextResponse.json({ conversation: conv, messages, has_more: hasMore })
 }
 
 // PATCH — update conversation (assign agent, change status, toggle AI, set subscriber)

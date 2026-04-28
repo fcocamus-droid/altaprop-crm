@@ -95,19 +95,15 @@ export async function POST(
 
   const agent = { name: agentName, phone: agentPhone, email: agentEmail }
 
-  // ── Generate PDF (fetch images as base64) ─────────────────────────────────
-  const imageBase64s: string[] = []
+  // ── Generate PDF (fetch images + logo in parallel) ────────────────────────
+  // Was a sequential for-await loop; moved to Promise.all so PDF generation
+  // doesn't block on each thumbnail one at a time.
   const imgLimit = Math.min(sortedImages.length, 6)
-  for (let i = 0; i < imgLimit; i++) {
-    const b64 = await fetchImageAsBase64(sortedImages[i])
-    if (b64) imageBase64s.push(b64)
-  }
-
-  // Fetch brand logo as base64
-  let logoBase64: string | null = null
-  if (brand.logoUrl) {
-    logoBase64 = await fetchImageAsBase64(brand.logoUrl)
-  }
+  const [imageResults, logoBase64] = await Promise.all([
+    Promise.all(sortedImages.slice(0, imgLimit).map(src => fetchImageAsBase64(src))),
+    brand.logoUrl ? fetchImageAsBase64(brand.logoUrl) : Promise.resolve(null),
+  ])
+  const imageBase64s = imageResults.filter((b): b is string => !!b)
 
   let pdfBuffer: Buffer | null = null
   try {
