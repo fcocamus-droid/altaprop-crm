@@ -24,7 +24,11 @@ export function ScheduleManager() {
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
-  useEffect(() => { fetchBlocked() }, [month, year])
+  useEffect(() => {
+    fetchBlocked()
+    // fetchBlocked is locally defined and reads month/year from closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year])
 
   async function fetchBlocked() {
     setLoading(true)

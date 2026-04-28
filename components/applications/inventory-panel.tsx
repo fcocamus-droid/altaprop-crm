@@ -91,7 +91,7 @@ function SignaturePad({
       }
       img.src = value
     }
-  }, [])
+  }, [value])
 
   function getXY(e: React.MouseEvent | React.TouchEvent) {
     const c = canvasRef.current!

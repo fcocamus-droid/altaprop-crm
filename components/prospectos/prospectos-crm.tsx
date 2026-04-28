@@ -175,7 +175,9 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
 
   useEffect(() => {
     if (showAddForm) ensurePropertiesLoaded()
-
+    // ensurePropertiesLoaded is stable (defined inline above) and we
+    // intentionally only react to showAddForm changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAddForm])
 
   const filteredProperties = useMemo(() => {
@@ -368,7 +370,7 @@ export function ProspectosCRM({ currentUserRole, subscribers, agents }: {
       }
       return true
     })
-  }, [prospectos, statusFilter, priorityFilter, agentFilter, sourceFilter, viewFilter, search])
+  }, [prospectos, statusFilter, priorityFilter, agentFilter, sourceFilter, viewFilter, tipoFilter, search])
 
   // Counters per status
   const counters = useMemo(() => {

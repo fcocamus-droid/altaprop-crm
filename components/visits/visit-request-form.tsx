@@ -67,6 +67,9 @@ export function VisitRequestForm({ propertyId }: { propertyId: string }) {
       })
     }
     return { firstDay, days }
+    // `today` is captured at component load and stays constant for the
+    // session; recalculating it on every memo run would be wasted work.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarMonth])
 
   const monthLabel = calendarMonth.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })

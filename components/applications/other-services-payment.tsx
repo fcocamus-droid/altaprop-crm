@@ -61,7 +61,13 @@ export function OtherServicesPayment({
 
   const currency = defaultCurrency || 'CLP'
 
-  useEffect(() => { fetchPayments() }, [applicationId])
+  useEffect(() => {
+    fetchPayments()
+    // fetchPayments is defined inside the component and only depends on
+    // applicationId via closure; keeping the deps array minimal avoids
+    // refetching on every parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId])
 
   async function fetchPayments() {
     setLoading(true)
